@@ -70,7 +70,7 @@ _G.ModernQuestTracker_FullLayout       = A.FullLayout
 eventFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
         local addonName = ...
-        if addonName == "ModernQuestTracker" then
+        if addonName == "HorizonSuite" then
             A.RestoreSavedPosition()
             A.ApplyTypography()
             A.ApplyDimensions()

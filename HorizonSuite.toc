@@ -5,7 +5,7 @@
 ## Version: 0.5
 ## SavedVariables: ModernQuestTrackerDB
 
-ModernQuestTracker.lua
+HorizonSuite.lua
 Core.lua
 WorldQuests.lua
 Rares.lua

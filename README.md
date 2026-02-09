@@ -87,7 +87,7 @@ A clean, glassmorphism-style replacement for the default World of Warcraft objec
 ## Installation
 
 1. Download or clone into `World of Warcraft\_retail_\Interface\AddOns\`.
-2. Ensure the folder is named `ModernQuestTracker` (the TOC and namespace use this name; the title in-game is “Horizon Suite - Focus”).
+2. Ensure the folder is named `HorizonSuite` (the TOC and namespace use this name; the title in-game is “Horizon Suite - Focus”).
 3. Enable **Horizon Suite - Focus** in the AddOns list at the character selection screen.
 
 ---
