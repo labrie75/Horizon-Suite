@@ -30,6 +30,9 @@ local function GetQuestCategory(questID)
     if C_QuestLog.IsImportantQuest and C_QuestLog.IsImportantQuest(questID) then
         return "IMPORTANT"
     end
+    if C_TaskQuest and C_TaskQuest.IsActive and C_TaskQuest.IsActive(questID) then
+        return "WORLD"
+    end
     if C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID) then
         return "WORLD"
     end
@@ -141,13 +144,13 @@ local function ReadTrackedQuests()
     local seen = {}
     local numWatches = C_QuestLog.GetNumQuestWatches()
     local superTracked = (C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID) and C_SuperTrack.GetSuperTrackedQuestID() or 0
-    local nearbySet = addon.GetNearbyQuestIDs()
+    local nearbySet, taskQuestOnlySet = addon.GetNearbyQuestIDs()
 
     local function addQuest(questID, opts)
         opts = opts or {}
         if not questID or questID <= 0 or seen[questID] then return end
         seen[questID] = true
-        local category   = GetQuestCategory(questID)
+        local category   = opts.forceCategory or GetQuestCategory(questID)
         local title      = C_QuestLog.GetTitleForQuestID(questID) or "..."
         local objectives = C_QuestLog.GetQuestObjectives(questID) or {}
         local color      = GetQuestColor(category)
@@ -197,9 +200,10 @@ local function ReadTrackedQuests()
         end
     end
 
-    for _, entry in ipairs(addon.GetWorldAndCallingQuestIDsToShow(nearbySet)) do
+    -- Active zone world quests and callings are automatically included from GetNearbyQuestIDs/GetWorldAndCallingQuestIDsToShow.
+    for _, entry in ipairs(addon.GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)) do
         if not seen[entry.questID] then
-            addQuest(entry.questID, { isTracked = entry.isTracked })
+            addQuest(entry.questID, { isTracked = entry.isTracked, forceCategory = entry.forceCategory })
         end
     end
 
