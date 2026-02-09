@@ -177,6 +177,7 @@ local function CreateQuestEntry(parent, index)
     e.finalY         = 0
     e.staggerDelay   = 0
     e.collapseDelay  = 0
+    e.groupKey       = nil
 
     e:SetAlpha(0)
     e:Hide()
@@ -191,8 +192,10 @@ end
 local sectionPool = {}
 
 local function CreateSectionHeader(parent)
-    local s = CreateFrame("Frame", nil, parent)
+    local s = CreateFrame("Button", nil, parent)
     s:SetSize(addon.GetPanelWidth() - addon.PADDING * 2, addon.SECTION_SIZE + 4)
+
+    s:RegisterForClicks("LeftButtonUp")
 
     s.shadow = s:CreateFontString(nil, "BORDER")
     s.shadow:SetFont(addon.FONT_PATH, addon.SECTION_SIZE, "OUTLINE")
@@ -202,8 +205,15 @@ local function CreateSectionHeader(parent)
     s.text = s:CreateFontString(nil, "OVERLAY")
     s.text:SetFont(addon.FONT_PATH, addon.SECTION_SIZE, "OUTLINE")
     s.text:SetJustifyH("LEFT")
-    s.text:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 0, 0)
+    s.text:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 10, 0)
     s.shadow:SetPoint("CENTER", s.text, "CENTER", addon.SHADOW_OX, addon.SHADOW_OY)
+
+    -- Small chevron indicating expanded/collapsed state for this category.
+    s.chevron = s:CreateFontString(nil, "OVERLAY")
+    s.chevron:SetFont(addon.FONT_PATH, addon.SECTION_SIZE, "OUTLINE")
+    s.chevron:SetJustifyH("LEFT")
+    s.chevron:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 0, 0)
+    s.chevron:SetText("")
 
     s.active = false
     s:SetAlpha(0)
@@ -303,6 +313,7 @@ local function ClearEntry(entry, full)
     entry.creatureID = nil
     entry.itemLink   = nil
     entry.animState  = "idle"
+    entry.groupKey   = nil
     if full ~= false then
         entry:Hide()
         entry:SetAlpha(0)

@@ -6,8 +6,8 @@
 local ADDON_NAME = "Horizon Suite - Focus"
 
 -- Ensure DB exists
-if not ModernQuestTrackerDB then
-    ModernQuestTrackerDB = {}
+if not HorizonSuiteDB then
+    HorizonSuiteDB = {}
 end
 
 local addon = _G.ModernQuestTracker
@@ -102,7 +102,7 @@ end
 local updateOptionsPanelFonts  -- forward decl, set after panel built
 local function setDB(key, value)
     addon.EnsureDB()
-    ModernQuestTrackerDB[key] = value
+    HorizonSuiteDB[key] = value
     if key == "fontPath" then
         Def.FontPath = value
         if updateOptionsPanelFonts then updateOptionsPanelFonts() end
@@ -155,7 +155,7 @@ titleBar:RegisterForDrag("LeftButton")
 titleBar:SetScript("OnDragStart", function() panel:StartMoving() end)
 titleBar:SetScript("OnDragStop", function()
     panel:StopMovingOrSizing()
-    local db = ModernQuestTrackerDB
+    local db = HorizonSuiteDB
     if db then
         local x, y = panel:GetCenter()
         local uix, uiy = UIParent:GetCenter()
@@ -499,8 +499,8 @@ local OptionCategories = {
         name = "Layout",
         options = {
             { type = "section", name = "Layout" },
-            { type = "checkbox", name = "Start collapsed", dbKey = "collapsed", tooltip = "When enabled, the objectives panel starts in collapsed state (header only) until you expand it.", get = function() return (ModernQuestTrackerDB and ModernQuestTrackerDB.collapsed) == true end, set = function(v) setDB("collapsed", v) end },
-            { type = "checkbox", name = "Lock position", dbKey = "lockPosition", tooltip = "When enabled, the objectives panel cannot be dragged to reposition.", get = function() return (ModernQuestTrackerDB and ModernQuestTrackerDB.lockPosition) == true end, set = function(v) setDB("lockPosition", v) end },
+            { type = "checkbox", name = "Start collapsed", dbKey = "collapsed", tooltip = "When enabled, the objectives panel starts in collapsed state (header only) until you expand it.", get = function() return (HorizonSuiteDB and HorizonSuiteDB.collapsed) == true end, set = function(v) setDB("collapsed", v) end },
+            { type = "checkbox", name = "Lock position", dbKey = "lockPosition", tooltip = "When enabled, the objectives panel cannot be dragged to reposition.", get = function() return (HorizonSuiteDB and HorizonSuiteDB.lockPosition) == true end, set = function(v) setDB("lockPosition", v) end },
             { type = "checkbox", name = "Grow upward (fix bottom edge)", dbKey = "growUp", tooltip = "Anchor the tracker by its bottom edge so the list expands upward.", get = function() return getDB("growUp", false) end, set = function(v) setDB("growUp", v) end },
         },
     },
@@ -514,7 +514,7 @@ local OptionCategories = {
             { type = "checkbox", name = "Super-minimal mode (hide Objectives header)", dbKey = "hideObjectivesHeader", tooltip = "Hide the OBJECTIVES header for a pure text list.", get = function() return getDB("hideObjectivesHeader", false) end, set = function(v) setDB("hideObjectivesHeader", v) end },
             { type = "checkbox", name = "Show section headers", dbKey = "showSectionHeaders", tooltip = "Show category labels above each group.", get = function() return getDB("showSectionHeaders", true) end, set = function(v) setDB("showSectionHeaders", v) end },
             { type = "checkbox", name = "Show zone labels", dbKey = "showZoneLabels", tooltip = "Show the zone name under each quest title.", get = function() return getDB("showZoneLabels", true) end, set = function(v) setDB("showZoneLabels", v) end },
-            { type = "checkbox", name = "Show quest type icons", dbKey = "showQuestTypeIcons", tooltip = "Show quest type icon to the left of each title.", get = function() return getDB("showQuestTypeIcons", true) end, set = function(v) setDB("showQuestTypeIcons", v) end },
+            { type = "checkbox", name = "Show quest type icons", dbKey = "showQuestTypeIcons", tooltip = "Show quest type icon to the left of each title.", get = function() return getDB("showQuestTypeIcons", false) end, set = function(v) setDB("showQuestTypeIcons", v) end },
             { type = "dropdown", name = "Active quest highlight", dbKey = "activeQuestHighlight", options = nil, get = function()
                 local v = getDB("activeQuestHighlight", "bar")
                 if v ~= "bar" and v ~= "highlight" then return (v == "none") and "bar" or "highlight" end
@@ -772,7 +772,7 @@ local function CreateColorRow(parent, descriptor)
         if db and #db >= 3 then r, g, b = db[1], db[2], db[3] end
         ColorPickerFrame:SetupColorPickerAndShow({
             r = r, g = g, b = b, hasOpacity = false,
-            swatchFunc = function() addon.EnsureDB(); local nr, ng, nb = ColorPickerFrame:GetColorRGB(); ModernQuestTrackerDB[d.dbKey] = { nr, ng, nb }; self.tex:SetColorTexture(nr, ng, nb, 1); notifyMainAddon() end,
+            swatchFunc = function() addon.EnsureDB(); local nr, ng, nb = ColorPickerFrame:GetColorRGB(); HorizonSuiteDB[d.dbKey] = { nr, ng, nb }; self.tex:SetColorTexture(nr, ng, nb, 1); notifyMainAddon() end,
             cancelFunc = function() local prev = ColorPickerFrame.previousValues; if prev then d.set({ prev.r, prev.g, prev.b }) end end,
             finishedFunc = function() local nr, ng, nb = ColorPickerFrame:GetColorRGB(); d.set({ nr, ng, nb }); notifyMainAddon() end,
         })
@@ -793,7 +793,7 @@ local function CreateColorRow(parent, descriptor)
     defaultLabel:SetPoint("CENTER", defaultBtn, "CENTER", 0, 0)
     defaultBtn:SetScript("OnClick", function()
         descriptor.set(nil)
-        if ModernQuestTrackerDB then ModernQuestTrackerDB[descriptor.dbKey] = nil end
+        if HorizonSuiteDB then HorizonSuiteDB[descriptor.dbKey] = nil end
         swatch.tex:SetColorTexture(def[1], def[2], def[3], 1)
         notifyMainAddon()
     end)
@@ -886,8 +886,8 @@ local function BuildContentFromOptions(tab, options, refreshers)
                     if dbColors and dbColors[k] then r, g, b = dbColors[k][1], dbColors[k][2], dbColors[k][3] end
                     local function apply(nr, ng, nb)
                         addon.EnsureDB()
-                        if not ModernQuestTrackerDB[opt.dbKey] then ModernQuestTrackerDB[opt.dbKey] = {} end
-                        ModernQuestTrackerDB[opt.dbKey][k] = { nr, ng, nb }
+                        if not HorizonSuiteDB[opt.dbKey] then HorizonSuiteDB[opt.dbKey] = {} end
+                        HorizonSuiteDB[opt.dbKey][k] = { nr, ng, nb }
                         self.tex:SetColorTexture(nr, ng, nb, 1)
                         notifyMainAddon()
                     end
@@ -918,7 +918,7 @@ local function BuildContentFromOptions(tab, options, refreshers)
             resetLabel:SetPoint("CENTER", resetBtn, "CENTER", 0, 0)
             resetBtn:SetScript("OnClick", function()
                 setDB(opt.dbKey, nil)
-                if opt.resetSectionKeys and ModernQuestTrackerDB then ModernQuestTrackerDB.sectionColors = nil end
+                if opt.resetSectionKeys and HorizonSuiteDB then HorizonSuiteDB.sectionColors = nil end
                 for _, sw in ipairs(swatches) do if sw.Refresh then sw:Refresh() end end
                 notifyMainAddon()
             end)
@@ -977,8 +977,8 @@ local function BuildContentFromOptions(tab, options, refreshers)
                     if dbColors and dbColors[k] then r, g, b = dbColors[k][1], dbColors[k][2], dbColors[k][3] end
                     local function apply(nr, ng, nb)
                         addon.EnsureDB()
-                        if not ModernQuestTrackerDB[opt.dbKey] then ModernQuestTrackerDB[opt.dbKey] = {} end
-                        ModernQuestTrackerDB[opt.dbKey][k] = { nr, ng, nb }
+                        if not HorizonSuiteDB[opt.dbKey] then HorizonSuiteDB[opt.dbKey] = {} end
+                        HorizonSuiteDB[opt.dbKey][k] = { nr, ng, nb }
                         self.tex:SetColorTexture(nr, ng, nb, 1)
                         notifyMainAddon()
                     end
@@ -1009,7 +1009,7 @@ local function BuildContentFromOptions(tab, options, refreshers)
             resetQuestLabel:SetPoint("CENTER", resetQuestBtn, "CENTER", 0, 0)
             resetQuestBtn:SetScript("OnClick", function()
                 setDB(opt.dbKey, nil)
-                if opt.resetSectionKeys and ModernQuestTrackerDB then ModernQuestTrackerDB.sectionColors = nil end
+                if opt.resetSectionKeys and HorizonSuiteDB then HorizonSuiteDB.sectionColors = nil end
                 for _, sw in ipairs(questSwatches) do if sw.Refresh then sw:Refresh() end end
                 notifyMainAddon()
             end)
@@ -1125,7 +1125,7 @@ local easeOut = addon.easeOut or function(t) return 1 - (1 - t) * (1 - t) end
 panel:SetScript("OnShow", function()
     Def.FontPath = addon.GetDB("fontPath", "Fonts\\FRIZQT__.ttf")
     if updateOptionsPanelFonts then updateOptionsPanelFonts() end
-    local db = ModernQuestTrackerDB
+    local db = HorizonSuiteDB
     if db and db.optionsLeft ~= nil and db.optionsTop ~= nil then
         panel:ClearAllPoints()
         panel:SetPoint("CENTER", UIParent, "CENTER", db.optionsLeft, db.optionsTop)

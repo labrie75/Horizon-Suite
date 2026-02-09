@@ -6,6 +6,11 @@
 if not _G.ModernQuestTracker then _G.ModernQuestTracker = {} end
 local addon = _G.ModernQuestTracker
 
+-- Migrate from legacy ModernQuestTrackerDB to HorizonSuiteDB (rebrand)
+if ModernQuestTrackerDB and (not HorizonSuiteDB or not next(HorizonSuiteDB)) then
+    HorizonSuiteDB = ModernQuestTrackerDB
+end
+
 -- ============================================================================
 -- CONFIGURATION
 -- ============================================================================
@@ -115,14 +120,49 @@ addon.CATEGORY_TO_GROUP = {
 }
 
 function addon.GetDB(key, default)
-    if not ModernQuestTrackerDB then return default end
-    local v = ModernQuestTrackerDB[key]
+    if not HorizonSuiteDB then return default end
+    local v = HorizonSuiteDB[key]
     if v == nil then return default end
     return v
 end
 
 function addon.EnsureDB()
-    if not ModernQuestTrackerDB then ModernQuestTrackerDB = {} end
+    if not HorizonSuiteDB then HorizonSuiteDB = {} end
+end
+
+-- Per-category collapse state ------------------------------------------------
+
+local function EnsureCollapsedCategories()
+    addon.EnsureDB()
+    if not HorizonSuiteDB.collapsedCategories then
+        HorizonSuiteDB.collapsedCategories = {}
+    end
+    return HorizonSuiteDB.collapsedCategories
+end
+
+function addon.IsCategoryCollapsed(groupKey)
+    if not HorizonSuiteDB or not HorizonSuiteDB.collapsedCategories then
+        return false
+    end
+    return HorizonSuiteDB.collapsedCategories[groupKey] == true
+end
+
+function addon.SetCategoryCollapsed(groupKey, collapsed)
+    if not groupKey then return end
+    local tbl = EnsureCollapsedCategories()
+    if collapsed then
+        tbl[groupKey] = true
+    else
+        -- Missing/nil means expanded by default.
+        tbl[groupKey] = nil
+    end
+end
+
+function addon.ToggleCategoryCollapsed(groupKey)
+    if not groupKey then return false end
+    local newState = not addon.IsCategoryCollapsed(groupKey)
+    addon.SetCategoryCollapsed(groupKey, newState)
+    return newState
 end
 
 addon.FONT_LIST = {
@@ -278,10 +318,10 @@ local function SavePanelPosition()
         local x, y = right - uiRight, bottom - uiBottom
         MQT:ClearAllPoints()
         MQT:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", x, y)
-        ModernQuestTrackerDB.point    = "BOTTOMRIGHT"
-        ModernQuestTrackerDB.relPoint = "BOTTOMRIGHT"
-        ModernQuestTrackerDB.x        = x
-        ModernQuestTrackerDB.y        = y
+        HorizonSuiteDB.point    = "BOTTOMRIGHT"
+        HorizonSuiteDB.relPoint = "BOTTOMRIGHT"
+        HorizonSuiteDB.x        = x
+        HorizonSuiteDB.y        = y
     else
         local top = MQT:GetTop()
         local uiTop = UIParent:GetTop() or 0
@@ -289,10 +329,10 @@ local function SavePanelPosition()
         local x, y = right - uiRight, top - uiTop
         MQT:ClearAllPoints()
         MQT:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", x, y)
-        ModernQuestTrackerDB.point    = "TOPRIGHT"
-        ModernQuestTrackerDB.relPoint = "TOPRIGHT"
-        ModernQuestTrackerDB.x        = x
-        ModernQuestTrackerDB.y        = y
+        HorizonSuiteDB.point    = "TOPRIGHT"
+        HorizonSuiteDB.relPoint = "TOPRIGHT"
+        HorizonSuiteDB.x        = x
+        HorizonSuiteDB.y        = y
     end
 end
 
@@ -303,8 +343,8 @@ MQT:SetScript("OnDragStop", function(self)
 end)
 
 local function RestoreSavedPosition()
-    if not ModernQuestTrackerDB or not ModernQuestTrackerDB.point then return end
-    local db = ModernQuestTrackerDB
+    if not HorizonSuiteDB or not HorizonSuiteDB.point then return end
+    local db = HorizonSuiteDB
     MQT:ClearAllPoints()
     MQT:SetPoint(db.point, UIParent, db.relPoint or db.point, db.x, db.y)
 end
@@ -320,10 +360,10 @@ local function ApplyGrowUpAnchor()
     MQT:ClearAllPoints()
     MQT:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", x, y)
     addon.EnsureDB()
-    ModernQuestTrackerDB.point    = "BOTTOMRIGHT"
-    ModernQuestTrackerDB.relPoint = "BOTTOMRIGHT"
-    ModernQuestTrackerDB.x        = x
-    ModernQuestTrackerDB.y        = y
+    HorizonSuiteDB.point    = "BOTTOMRIGHT"
+    HorizonSuiteDB.relPoint = "BOTTOMRIGHT"
+    HorizonSuiteDB.x        = x
+    HorizonSuiteDB.y        = y
 end
 
 function addon.UpdateHeaderQuestCount(questCount)

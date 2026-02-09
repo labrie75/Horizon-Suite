@@ -9,14 +9,15 @@ local addon = _G.ModernQuestTracker
 -- QUEST DATA
 -- ============================================================================
 
-addon.enabled           = true
-addon.collapsed         = false
-addon.refreshPending    = false
-addon.prevRareKeys      = {}
+addon.enabled            = true
+addon.collapsed          = false
+addon.refreshPending     = false
+addon.prevRareKeys       = {}
 addon.rareTrackingInit   = false
 addon.zoneJustChanged    = false
-addon.collapseAnimating  = false
+addon.collapseAnimating  = false  -- panel-wide collapse
 addon.collapseAnimStart  = 0
+addon.groupCollapses     = {}     -- per-group collapses: [groupKey] = startTime
 addon.lastPlayerMapID    = nil
 addon.lastMapCheckTime   = 0
 
@@ -49,7 +50,7 @@ local function GetQuestCategory(questID)
 end
 
 local function GetQuestColor(category)
-    local db = ModernQuestTrackerDB and ModernQuestTrackerDB.questColors
+    local db = HorizonSuiteDB and HorizonSuiteDB.questColors
     if db then
         if db[category] then return db[category] end
         if category == "IMPORTANT" and db.CAMPAIGN then return db.CAMPAIGN end
@@ -59,8 +60,8 @@ local function GetQuestColor(category)
 end
 
 local function GetSectionColor(groupKey)
-    if ModernQuestTrackerDB and ModernQuestTrackerDB.sectionColors and ModernQuestTrackerDB.sectionColors[groupKey] then
-        return ModernQuestTrackerDB.sectionColors[groupKey]
+    if HorizonSuiteDB and HorizonSuiteDB.sectionColors and HorizonSuiteDB.sectionColors[groupKey] then
+        return HorizonSuiteDB.sectionColors[groupKey]
     end
     local questCategory = (groupKey == "RARES") and "RARE" or groupKey
     if questCategory == "CAMPAIGN" or questCategory == "LEGENDARY" or questCategory == "WORLD" or questCategory == "COMPLETE" or questCategory == "RARE" or questCategory == "DEFAULT" then
@@ -151,6 +152,11 @@ local function GetMythicDungeonName()
 end
 
 local function ReadTrackedQuests()
+    -- Allow test data injection from Slash.lua for /horizon test.
+    if addon.testQuests then
+        return addon.testQuests
+    end
+
     local quests = {}
     local seen = {}
     local numWatches = C_QuestLog.GetNumQuestWatches()

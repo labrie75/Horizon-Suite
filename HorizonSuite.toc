@@ -4,6 +4,7 @@
 ## Author: Crystilac
 ## Version: 0.5
 ## SavedVariables: ModernQuestTrackerDB
+## SavedVariables: HorizonSuiteDB
 
 HorizonSuite.lua
 Core.lua

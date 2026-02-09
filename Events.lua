@@ -224,7 +224,7 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
             A.RestoreSavedPosition()
             A.ApplyTypography()
             A.ApplyDimensions()
-            if ModernQuestTrackerDB and ModernQuestTrackerDB.collapsed then
+            if HorizonSuiteDB and HorizonSuiteDB.collapsed then
                 A.collapsed = true
                 A.chevron:SetText("+")
                 A.scrollFrame:Hide()
