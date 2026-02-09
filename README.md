@@ -2,7 +2,8 @@
 
 A clean, modern-style replacement for the default World of Warcraft objective tracker, built for the Midnight era. All settings are saved per character.
 
-<img width="843" height="727" alt="image" src="https://github.com/user-attachments/assets/5b821578-9bfc-486c-9a05-c613e9db2faa" />
+<img width="383" height="796" alt="image" src="https://github.com/user-attachments/assets/72072df2-7ba3-4205-a984-df561eaf3ed4" />
+
 
 
 ---
