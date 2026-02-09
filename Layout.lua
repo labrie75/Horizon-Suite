@@ -23,10 +23,24 @@ local function PopulateEntry(entry, questData)
     local showItemBtn = hasItem and addon.GetDB("showQuestItemButtons", true)
     local showQuestIcons = addon.GetDB("showQuestTypeIcons", true)
     local hasIcon = questData.questTypeAtlas and showQuestIcons
+    local showTrackedOtherZone = questData.isTracked and not questData.isNearby
 
     local textWidth = addon.GetPanelWidth() - addon.PADDING * 2 - (addon.CONTENT_RIGHT_PADDING or 0)
     if showItemBtn then
         textWidth = textWidth - addon.ITEM_BTN_SIZE - addon.ITEM_BTN_OFFSET
+    end
+
+    local titleLeftOffset = 0
+    if showTrackedOtherZone and entry.trackedFromOtherZoneIcon then
+        local iconSz = addon.TRACKED_OTHER_ZONE_ICON_SIZE or 12
+        titleLeftOffset = iconSz + (addon.QUEST_TYPE_ICON_GAP or 4)
+        textWidth = textWidth - titleLeftOffset
+        pcall(entry.trackedFromOtherZoneIcon.SetAtlas, entry.trackedFromOtherZoneIcon, "Tracking")
+        entry.trackedFromOtherZoneIcon:Show()
+    else
+        if entry.trackedFromOtherZoneIcon then
+            entry.trackedFromOtherZoneIcon:Hide()
+        end
     end
 
     if hasIcon then
@@ -37,7 +51,7 @@ local function PopulateEntry(entry, questData)
     end
 
     entry.titleText:ClearAllPoints()
-    entry.titleText:SetPoint("TOPLEFT", entry, "TOPLEFT", 0, 0)
+    entry.titleText:SetPoint("TOPLEFT", entry, "TOPLEFT", titleLeftOffset, 0)
     entry.titleShadow:ClearAllPoints()
     entry.titleShadow:SetPoint("CENTER", entry.titleText, "CENTER", addon.SHADOW_OX, addon.SHADOW_OY)
 

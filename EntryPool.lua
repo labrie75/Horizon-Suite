@@ -105,6 +105,13 @@ local function CreateQuestEntry(parent, index)
     e.questTypeIcon:SetPoint("TOPRIGHT", e, "TOPLEFT", -addon.QUEST_TYPE_ICON_GAP, 0)
     e.questTypeIcon:Hide()
 
+    -- Small icon for "tracked from other zone" (world quest on watch list but not on current map).
+    local iconSz = addon.TRACKED_OTHER_ZONE_ICON_SIZE or 12
+    e.trackedFromOtherZoneIcon = e:CreateTexture(nil, "ARTWORK")
+    e.trackedFromOtherZoneIcon:SetSize(iconSz, iconSz)
+    e.trackedFromOtherZoneIcon:SetPoint("TOPLEFT", e, "TOPLEFT", 0, 0)
+    e.trackedFromOtherZoneIcon:Hide()
+
     e.titleShadow = e:CreateFontString(nil, "BORDER")
     e.titleShadow:SetFont(addon.FONT_PATH, addon.TITLE_SIZE, "OUTLINE")
     e.titleShadow:SetTextColor(0, 0, 0, addon.SHADOW_A)

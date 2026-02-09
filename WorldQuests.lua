@@ -155,6 +155,7 @@ local function GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)
     end
     if nearbySet and C_QuestLog.IsWorldQuest then
         local recentlyUntracked = addon.recentlyUntrackedWorldQuests
+        local ids = {}
         for questID, _ in pairs(nearbySet) do
             if not seen[questID] and (not recentlyUntracked or not recentlyUntracked[questID]) then
                 local isWorld = C_QuestLog.IsWorldQuest(questID)
@@ -162,14 +163,21 @@ local function GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)
                 local isActiveTask = C_TaskQuest and C_TaskQuest.IsActive and C_TaskQuest.IsActive(questID)
                 local fromTaskQuestMap = taskQuestOnlySet and taskQuestOnlySet[questID]
                 if isWorld or isCalling or isActiveTask or fromTaskQuestMap then
-                    seen[questID] = true
-                    if C_TaskQuest and C_TaskQuest.RequestPreloadRewardData then
-                        C_TaskQuest.RequestPreloadRewardData(questID)
-                    end
-                    local forceCategory = (fromTaskQuestMap and not isWorld and not isCalling) and "WORLD" or nil
-                    out[#out + 1] = { questID = questID, isTracked = false, forceCategory = forceCategory }
+                    ids[#ids + 1] = questID
                 end
             end
+        end
+        table.sort(ids)
+        for _, questID in ipairs(ids) do
+            seen[questID] = true
+            if C_TaskQuest and C_TaskQuest.RequestPreloadRewardData then
+                C_TaskQuest.RequestPreloadRewardData(questID)
+            end
+            local isWorld = C_QuestLog.IsWorldQuest(questID)
+            local isCalling = C_QuestLog.IsQuestCalling and C_QuestLog.IsQuestCalling(questID)
+            local fromTaskQuestMap = taskQuestOnlySet and taskQuestOnlySet[questID]
+            local forceCategory = (fromTaskQuestMap and not isWorld and not isCalling) and "WORLD" or nil
+            out[#out + 1] = { questID = questID, isTracked = false, forceCategory = forceCategory }
         end
     end
     return out

@@ -217,6 +217,11 @@ local function ReadTrackedQuests()
         end
     end
 
+    -- Always show super-tracked world quest in the list even if not on current map or watch list (e.g. super-tracked from map only).
+    if superTracked and superTracked > 0 and not seen[superTracked] and C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(superTracked) then
+        addQuest(superTracked, { isTracked = true })
+    end
+
     return quests
 end
 
