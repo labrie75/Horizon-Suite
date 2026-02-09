@@ -8,6 +8,8 @@ All notable changes to Horizon Suite - Focus are documented here.
 
 ### New Features
 
+- **Focus category order** — In the options popout (Appearance), you can reorder the categories in the Focus list via drag-and-drop. Order is saved and used for section headers and section header colors. Use "Reset order" to restore the default order.
+
 - **World quest tracking** — World quests in your current zone now appear in the tracker automatically, using both `C_QuestLog` and `C_TaskQuest` data. No need to track every WQ manually.
 
 - **Cross-zone world quest tracking** — World quests you track via the map watch list stay in the tracker when you leave their zone. They are shown with an **[Off-map]** label and their zone name. Use **Shift+click** on a world quest entry to add it to your watch list so it appears on other maps.
@@ -21,6 +23,8 @@ All notable changes to Horizon Suite - Focus are documented here.
 - **Combat-safe scrolling** — Mouse wheel scrolling on the tracker is disabled during combat to avoid taint.
 
 ### Improvements
+
+- **Focus category reorder UX** — The category order list in options now uses live drag-and-drop: a ghost row follows the cursor, an insertion line shows the drop position, the list auto-scrolls when dragging near the edges, and Reset order updates the list immediately. All Focus groups (Campaign, Important, Quests, etc.) are always shown.
 
 - **Nearby quest detection** — Parent and child maps are considered when finding “nearby” quests, so quests in subzones and parent zones are included.
 

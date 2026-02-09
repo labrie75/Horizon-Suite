@@ -145,6 +145,55 @@ addon.CATEGORY_TO_GROUP = {
     DEFAULT   = "DEFAULT",
 }
 
+-- Persisted Focus category order (validated, fallback to addon.GROUP_ORDER)
+function addon.GetGroupOrder()
+    local default = addon.GROUP_ORDER
+    local saved = addon.GetDB("groupOrder", nil)
+    if not saved or type(saved) ~= "table" or #saved == 0 then
+        return default
+    end
+    local seen = {}
+    local result = {}
+    for _, key in ipairs(default) do
+        seen[key] = true
+    end
+    for _, key in ipairs(saved) do
+        if type(key) == "string" and seen[key] then
+            result[#result + 1] = key
+            seen[key] = nil
+        end
+    end
+    for _, key in ipairs(default) do
+        if seen[key] then
+            result[#result + 1] = key
+        end
+    end
+    return result
+end
+
+function addon.SetGroupOrder(order)
+    if not order or type(order) ~= "table" then return end
+    addon.EnsureDB()
+    local default = addon.GROUP_ORDER
+    local seen = {}
+    for _, key in ipairs(default) do
+        seen[key] = true
+    end
+    local result = {}
+    for _, key in ipairs(order) do
+        if type(key) == "string" and seen[key] then
+            result[#result + 1] = key
+            seen[key] = nil
+        end
+    end
+    for _, key in ipairs(default) do
+        if seen[key] then
+            result[#result + 1] = key
+        end
+    end
+    HorizonSuiteDB.groupOrder = result
+end
+
 function addon.GetDB(key, default)
     if not HorizonSuiteDB then return default end
     local v = HorizonSuiteDB[key]

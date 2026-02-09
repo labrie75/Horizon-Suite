@@ -27,7 +27,7 @@ local Def = {
     SectionGap = 16,
     CardPadding = 12,
     ScrollStep = 40,
-    TabContentHeight = 1200,
+    TabContentHeight = 2400,
     BorderEdge = 1,
     ScrollInset = 1,
     -- Font (from Core)
@@ -217,27 +217,6 @@ closeBtn:SetScript("OnLeave", function()
     if GameTooltip then GameTooltip:Hide() end
 end)
 
-local editBtn = CreateFrame("Button", nil, panel)
-editBtn:SetSize(44, 22)
-editBtn:SetPoint("TOPRIGHT", closeBtn, "TOPLEFT", -6, 0)
-local editLabel = editBtn:CreateFontString(nil, "OVERLAY")
-editLabel:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
-editLabel:SetTextColor(Def.TextColorLabel[1], Def.TextColorLabel[2], Def.TextColorLabel[3], Def.TextColorLabel[4] or 1)
-editLabel:SetJustifyH("CENTER")
-editLabel:SetText("Edit")
-editLabel:SetPoint("CENTER", editBtn, "CENTER", 0, 0)
-editBtn:SetScript("OnClick", function()
-    if _G.ModernQuestTracker_ShowEditPanel then _G.ModernQuestTracker_ShowEditPanel() end
-end)
-editBtn:SetScript("OnEnter", function()
-    editLabel:SetTextColor(Def.TextColorHighlight[1], Def.TextColorHighlight[2], Def.TextColorHighlight[3], Def.TextColorHighlight[4] or 1)
-    if GameTooltip then GameTooltip:SetOwner(editBtn, "ANCHOR_BOTTOM"); GameTooltip:SetText("Open edit screen", nil, nil, nil, nil, true); GameTooltip:Show() end
-end)
-editBtn:SetScript("OnLeave", function()
-    editLabel:SetTextColor(Def.TextColorLabel[1], Def.TextColorLabel[2], Def.TextColorLabel[3], Def.TextColorLabel[4] or 1)
-    if GameTooltip then GameTooltip:Hide() end
-end)
-
 panel:Hide()
 
 local divider = panel:CreateTexture(nil, "ARTWORK")
@@ -349,7 +328,236 @@ local ROW_HEIGHTS = {
     colorGroupLabel = 14,
     colorGroupRow = 24,
     resetBtn = 22,
+    reorderListLabel = 14,
+    reorderListRow = 24,
 }
+
+-- Reorder list widget: live drag (ghost row, insertion line, midpoint hit-test, auto-scroll)
+local REORDER_ROW_GAP = 4
+local REORDER_AUTOSCROLL_MARGIN = 40
+local REORDER_AUTOSCROLL_STEP = 10
+
+local function CreateReorderListControl(currentCard, sectionLabelAnchor, opt, scrollFrameRef, panelRef)
+    local keys = opt.get and opt.get() or {}
+    if type(keys) == "function" then keys = keys() end
+    if type(keys) ~= "table" then keys = {} end
+    -- Ensure we always show all canonical groups
+    local defaultOrder = addon.GROUP_ORDER
+    if #keys < #defaultOrder then
+        local seen = {}
+        for _, k in ipairs(keys) do seen[k] = true end
+        for _, k in ipairs(defaultOrder) do
+            if not seen[k] then keys[#keys + 1] = k end
+        end
+    end
+    local labelMap = opt.labelMap or {}
+    local sectionLabel = CreateSectionLabel(currentCard, opt.name or "Order")
+    sectionLabel:SetPoint("TOPLEFT", sectionLabelAnchor, "BOTTOMLEFT", 0, -Def.SectionGap)
+    local rowHeight = ROW_HEIGHTS.reorderListRow
+    local rows = {}
+    local keyToRow = {}
+    local totalRowHeight = 0
+
+    -- Widget drag state (per control)
+    local state = {
+        active = false,
+        sourceIndex = nil,
+        targetIndex = nil,
+        ghostFrame = nil,
+        insertionLine = nil,
+        sourceRow = nil,
+        rows = rows,
+        keyToRow = keyToRow,
+        get = opt.get,
+        set = opt.set,
+    }
+
+    -- Ghost row (follows cursor)
+    local function ensureGhost()
+        if state.ghostFrame then return state.ghostFrame end
+        local ghost = CreateFrame("Frame", nil, UIParent)
+        ghost:SetFrameStrata("TOOLTIP")
+        ghost:SetSize(240, rowHeight)
+        ghost:SetAlpha(0.85)
+        local bg = ghost:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints(ghost)
+        bg:SetColorTexture(Def.SectionCardBg[1], Def.SectionCardBg[2], Def.SectionCardBg[3], 0.95)
+        state.ghostFrame = ghost
+        state.ghostLabel = ghost:CreateFontString(nil, "OVERLAY")
+        state.ghostLabel:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
+        SetTextColor(state.ghostLabel, Def.TextColorLabel)
+        state.ghostLabel:SetPoint("LEFT", ghost, "LEFT", 28, 0)
+        return ghost
+    end
+
+    -- Insertion line (between rows)
+    local function ensureInsertionLine()
+        if state.insertionLine then return state.insertionLine end
+        local line = currentCard:CreateTexture(nil, "OVERLAY")
+        line:SetHeight(3)
+        line:SetColorTexture(Def.AccentColor[1], Def.AccentColor[2], Def.AccentColor[3], 1)
+        state.insertionLine = line
+        return line
+    end
+
+    local function getInsertionIndexFromCursor()
+        if #rows == 0 then return 1 end
+        for i = 1, #rows do
+            if rows[i]:IsMouseOver() then return i end
+        end
+        return #rows + 1
+    end
+
+    local function repositionRows(orderedKeys)
+        local prev = sectionLabel
+        for i, key in ipairs(orderedKeys) do
+            local row = keyToRow[key]
+            if row then
+                row.index = i
+                row:ClearAllPoints()
+                row:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -REORDER_ROW_GAP)
+                prev = row
+            end
+        end
+        local newRows = {}
+        for i, key in ipairs(orderedKeys) do
+            if keyToRow[key] then newRows[i] = keyToRow[key] end
+        end
+        state.rows = newRows
+    end
+
+    local function applyReorderAndCleanup()
+        if not state.active or not state.rows or #state.rows == 0 then return end
+        panelRef:SetScript("OnUpdate", nil)
+        state.active = false
+        local fromIdx = state.sourceIndex
+        local toIdx = state.targetIndex or fromIdx
+        if state.ghostFrame then state.ghostFrame:Hide() end
+        if state.insertionLine then state.insertionLine:Hide() end
+        if state.sourceRow then state.sourceRow:SetAlpha(1) end
+        if toIdx == fromIdx then return end
+        local orderedKeys = {}
+        for i, row in ipairs(state.rows) do
+            orderedKeys[i] = row.key
+        end
+        local k = orderedKeys[fromIdx]
+        table.remove(orderedKeys, fromIdx)
+        local insertAt = (fromIdx < toIdx) and (toIdx - 1) or toIdx
+        table.insert(orderedKeys, insertAt, k)
+        state.set(orderedKeys)
+        repositionRows(orderedKeys)
+        notifyMainAddon()
+    end
+
+    local function onReorderUpdate()
+        if not state.active or not IsMouseButtonDown("LeftButton") then
+            applyReorderAndCleanup()
+            return
+        end
+        local ghost = ensureGhost()
+        local line = ensureInsertionLine()
+        local x, y = GetCursorPosition()
+        local scale = UIParent:GetEffectiveScale()
+        if scale and scale > 0 then x, y = x / scale, y / scale end
+        ghost:ClearAllPoints()
+        ghost:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+        ghost:Show()
+        if state.ghostLabel then
+            state.ghostLabel:SetText(state.sourceRow and state.sourceRow.label and state.sourceRow.label:GetText() or "")
+        end
+        local insertIdx = getInsertionIndexFromCursor()
+        state.targetIndex = insertIdx
+        if insertIdx <= #rows then
+            local ref = rows[insertIdx]
+            line:ClearAllPoints()
+            line:SetPoint("LEFT", ref, "LEFT", 0, 0)
+            line:SetPoint("RIGHT", ref, "RIGHT", 0, 0)
+            line:SetPoint("BOTTOM", ref, "TOP", 0, REORDER_ROW_GAP / 2)
+            line:Show()
+        elseif #rows > 0 then
+            local last = rows[#rows]
+            line:ClearAllPoints()
+            line:SetPoint("LEFT", last, "LEFT", 0, 0)
+            line:SetPoint("RIGHT", last, "RIGHT", 0, 0)
+            line:SetPoint("TOP", last, "BOTTOM", 0, -REORDER_ROW_GAP / 2)
+            line:Show()
+        end
+        -- Auto-scroll main options scrollframe while dragging near edges
+        if scrollFrameRef then
+            local vh = scrollFrameRef:GetHeight()
+            local cur = scrollFrameRef:GetVerticalScroll()
+            local maxScroll = math.max((scrollFrameRef:GetScrollChild() and scrollFrameRef:GetScrollChild():GetHeight() or 0) - vh, 0)
+            local sy = select(2, GetCursorPosition()) / (scrollFrameRef:GetEffectiveScale() or 1)
+            local sfBottom = scrollFrameRef:GetBottom()
+            local sfTop = scrollFrameRef:GetTop()
+            if sfTop and sy > sfTop - REORDER_AUTOSCROLL_MARGIN and maxScroll > 0 then
+                scrollFrameRef:SetVerticalScroll(math.min(cur + REORDER_AUTOSCROLL_STEP, maxScroll))
+            elseif sfBottom and sy < sfBottom + REORDER_AUTOSCROLL_MARGIN and cur > 0 then
+                scrollFrameRef:SetVerticalScroll(math.max(cur - REORDER_AUTOSCROLL_STEP, 0))
+            end
+        end
+    end
+
+    -- Build rows directly in card (no inner ScrollFrame)
+    local prevAnchor = sectionLabel
+    for i, key in ipairs(keys) do
+        local row = CreateFrame("Button", nil, currentCard)
+        row:SetSize(240, rowHeight)
+        row:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", 0, -REORDER_ROW_GAP)
+        totalRowHeight = totalRowHeight + REORDER_ROW_GAP + rowHeight
+        prevAnchor = row
+        row.key = key
+        row.index = i
+        keyToRow[key] = row
+        local lab = row:CreateFontString(nil, "OVERLAY")
+        lab:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
+        SetTextColor(lab, Def.TextColorLabel)
+        lab:SetText((labelMap[key]) or key:gsub("^%l", string.upper))
+        lab:SetPoint("LEFT", row, "LEFT", 24, 0)
+        row.label = lab
+        local grip = row:CreateFontString(nil, "OVERLAY")
+        grip:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
+        SetTextColor(grip, Def.TextColorSection)
+        grip:SetText("::")
+        grip:SetPoint("LEFT", row, "LEFT", 4, 0)
+        row:SetScript("OnMouseDown", function(_, btn)
+            if btn ~= "LeftButton" then return end
+            state.active = true
+            state.sourceIndex = row.index
+            state.targetIndex = row.index
+            state.sourceRow = row
+            row:SetAlpha(0.5)
+            ensureGhost():Show()
+            state.ghostLabel:SetText(lab:GetText())
+            panelRef:SetScript("OnUpdate", onReorderUpdate)
+        end)
+        rows[i] = row
+    end
+
+    local function refreshReorderList()
+        local newKeys = opt.get and opt.get() or {}
+        if type(newKeys) == "function" then newKeys = newKeys() end
+        if type(newKeys) == "table" then repositionRows(newKeys) end
+    end
+
+    local resetBtn = CreateFrame("Button", nil, currentCard)
+    resetBtn:SetSize(100, 22)
+    resetBtn:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", 0, -6)
+    local resetLabel = resetBtn:CreateFontString(nil, "OVERLAY")
+    resetLabel:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
+    SetTextColor(resetLabel, Def.TextColorLabel)
+    resetLabel:SetText("Reset order")
+    resetLabel:SetPoint("CENTER", resetBtn, "CENTER", 0, 0)
+    resetBtn:SetScript("OnClick", function()
+        if opt.set then opt.set(nil) end
+        if HorizonSuiteDB then HorizonSuiteDB.groupOrder = nil end
+        refreshReorderList()
+        notifyMainAddon()
+    end)
+
+    local heightAdded = Def.SectionGap + ROW_HEIGHTS.reorderListLabel + totalRowHeight + 6 + ROW_HEIGHTS.resetBtn
+    return prevAnchor, resetBtn, heightAdded, refreshReorderList
+end
 
 local function FinalizeSectionCard(card)
     if not card then return end
@@ -537,7 +745,8 @@ local OptionCategories = {
                     { dbKey = "highlightColor", name = "Highlight", default = HIGHLIGHT_COLOR_DEFAULT, tooltip = "Super-tracked quest bar or background." },
                 },
             },
-            { type = "colorGroup", name = "Section header colors", dbKey = "sectionColors", keys = addon.GROUP_ORDER, defaultMap = addon.SECTION_COLORS, labelMap = addon.SECTION_LABELS, tooltip = "Colors for category labels (e.g. CURRENT ZONE, AVAILABLE IN ZONE)." },
+            { type = "reorderList", name = "Focus category order", labelMap = addon.SECTION_LABELS, get = function() return addon.GetGroupOrder() end, set = function(order) addon.SetGroupOrder(order) end, tooltip = "Drag to reorder categories in the Focus list." },
+            { type = "colorGroup", name = "Section header colors", dbKey = "sectionColors", keys = function() return addon.GetGroupOrder() end, defaultMap = addon.SECTION_COLORS, labelMap = addon.SECTION_LABELS, tooltip = "Colors for category labels (e.g. NEARBY, AVAILABLE IN ZONE)." },
         },
     },
     {
@@ -897,12 +1106,22 @@ local function BuildContentFromOptions(tab, options, refreshers)
             currentCard.contentAnchor = row
             table.insert(refreshers, row)
         elseif opt.type == "colorGroup" then
-            local keys = opt.keys or COLOR_KEYS_ORDER
+            -- Section header colors (and any colorGroup) gets its own card so it doesn't share with reorder list.
+            if currentCard then
+                FinalizeSectionCard(currentCard)
+            end
+            local card = CreateSectionCard(tab, anchor)
+            local sectionLabel = CreateSectionLabel(card, opt.name)
+            sectionLabel:SetPoint("TOPLEFT", card, "TOPLEFT", Def.CardPadding, -Def.CardPadding)
+            card.contentAnchor = sectionLabel
+            card.contentHeight = Def.CardPadding + ROW_HEIGHTS.colorGroupLabel
+            currentCard = card
+            anchor = card
+
+            local keys = opt.keys
+            if type(keys) == "function" then keys = keys() end
+            keys = keys or COLOR_KEYS_ORDER
             local defaultMap = opt.defaultMap or QUEST_COLOR_DEFAULTS
-            local sectionLabel = CreateSectionLabel(currentCard, opt.name)
-            sectionLabel:SetPoint("TOPLEFT", currentCard.contentAnchor, "BOTTOMLEFT", 0, -Def.SectionGap)
-            currentCard.contentAnchor = sectionLabel
-            currentCard.contentHeight = currentCard.contentHeight + Def.SectionGap + ROW_HEIGHTS.colorGroupLabel
             local swatches = {}
             for i, key in ipairs(keys) do
                 local row = CreateFrame("Frame", nil, currentCard)
@@ -976,6 +1195,24 @@ local function BuildContentFromOptions(tab, options, refreshers)
                 notifyMainAddon()
             end)
             table.insert(refreshers, { Refresh = function() for _, sw in ipairs(swatches) do sw:Refresh() end end })
+        elseif opt.type == "reorderList" then
+            -- Keep reorder UI in its own card to avoid clipping in larger mixed-content cards.
+            if currentCard then
+                FinalizeSectionCard(currentCard)
+            end
+            local card = CreateSectionCard(tab, anchor)
+            local top = CreateFrame("Frame", nil, card)
+            top:SetPoint("TOPLEFT", card, "TOPLEFT", Def.CardPadding, -Def.CardPadding)
+            top:SetSize(1, 1)
+            card.contentAnchor = top
+            card.contentHeight = Def.CardPadding
+            currentCard = card
+            anchor = card
+
+            local _, resetAnchor, heightAdded, refreshReorderList = CreateReorderListControl(currentCard, currentCard.contentAnchor, opt, scrollFrame, panel)
+            currentCard.contentAnchor = resetAnchor
+            currentCard.contentHeight = currentCard.contentHeight + heightAdded
+            if refreshReorderList then table.insert(refreshers, { Refresh = refreshReorderList }) end
         elseif opt.type == "colorMatrix" then
             if currentCard then
                 FinalizeSectionCard(currentCard)
@@ -1159,6 +1396,27 @@ for i, cat in ipairs(OptionCategories) do
     end
 end
 
+-- Size each tab frame to fit its content (cards accumulate downward from top)
+for i, tab in ipairs(tabFrames) do
+    local lowestBottom = 0
+    local children = { tab:GetChildren() }
+    for j = 1, #children do
+        local child = children[j]
+        if child and child.GetBottom and child:GetBottom() then
+            local b = child:GetBottom()
+            if b < lowestBottom then lowestBottom = b end
+        end
+    end
+    -- lowestBottom is in screen coords; convert to needed height relative to tab top
+    local tabTop = tab:GetTop()
+    if tabTop and lowestBottom < tabTop then
+        local neededH = tabTop - lowestBottom + Def.Padding
+        if neededH > tab:GetHeight() then
+            tab:SetHeight(neededH)
+        end
+    end
+end
+
 -- Update options panel fonts from DB (when shown or when font option changes)
 updateOptionsPanelFonts = function()
     if not panel or not panel:IsShown() then return end
@@ -1166,7 +1424,6 @@ updateOptionsPanelFonts = function()
     titleShadow:SetFont(path, Def.HeaderSize, "OUTLINE")
     titleText:SetFont(path, Def.HeaderSize, "OUTLINE")
     closeLabel:SetFont(path, Def.LabelSize, "OUTLINE")
-    if editLabel then editLabel:SetFont(path, Def.LabelSize, "OUTLINE") end
     for _, btn in ipairs(tabButtons) do
         if btn.label then btn.label:SetFont(path, Def.LabelSize, "OUTLINE") end
     end

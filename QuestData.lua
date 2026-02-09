@@ -252,7 +252,7 @@ end
 
 local function SortAndGroupQuests(quests)
     local groups = {}
-    for _, key in ipairs(addon.GROUP_ORDER) do
+    for _, key in ipairs(addon.GetGroupOrder()) do
         groups[key] = {}
     end
 
@@ -276,7 +276,7 @@ local function SortAndGroupQuests(quests)
     end
 
     local result = {}
-    for _, key in ipairs(addon.GROUP_ORDER) do
+    for _, key in ipairs(addon.GetGroupOrder()) do
         if #groups[key] > 0 then
             result[#result + 1] = { key = key, quests = groups[key] }
         end
