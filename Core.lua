@@ -244,6 +244,7 @@ scrollFrame:SetScrollChild(scrollChild)
 addon.scrollOffset = 0
 
 local function HandleScroll(delta)
+    if InCombatLockdown() then return end
     local childH  = scrollChild:GetHeight() or 0
     local frameH  = scrollFrame:GetHeight() or 0
     local maxScr  = math.max(childH - frameH, 0)
