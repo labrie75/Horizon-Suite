@@ -175,6 +175,44 @@ MQT:SetScript("OnUpdate", function(self, dt)
         end
     end
 
+    -- Group collapse completion: when no entries in a group are collapsing anymore,
+    -- mark that group as collapsed and trigger a layout refresh.
+    if addon.groupCollapses then
+        for groupKey, startTime in pairs(addon.groupCollapses) do
+            local stillCollapsing = false
+            for i = 1, addon.POOL_SIZE do
+                local e = pool[i]
+                if e.groupKey == groupKey and e.animState == "collapsing" then
+                    stillCollapsing = true
+                    break
+                end
+            end
+
+            -- Safety timeout in case something goes wrong with anim state.
+            local timedOut = (GetTime() - startTime) > 2
+
+            if not stillCollapsing or timedOut then
+                addon.groupCollapses[groupKey] = nil
+
+                -- Clean up any lingering collapsing entries for this group.
+                for i = 1, addon.POOL_SIZE do
+                    local e = pool[i]
+                    if e.groupKey == groupKey and e.animState == "collapsing" then
+                        addon.ClearEntry(e)
+                    end
+                end
+
+                -- Re-run layout so remaining groups close up the gap.
+                if addon.FullLayout then
+                    addon.FullLayout()
+                end
+
+                -- Only handle one group per frame; others will be processed next tick.
+                break
+            end
+        end
+    end
+
     if not anyAnimating then
         local hasActive = false
         for i = 1, addon.POOL_SIZE do

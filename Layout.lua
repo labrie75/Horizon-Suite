@@ -21,13 +21,18 @@ local scrollFrame = addon.scrollFrame
 local function PopulateEntry(entry, questData)
     local hasItem = questData.itemTexture and true or false
     local showItemBtn = hasItem and addon.GetDB("showQuestItemButtons", true)
-    local showQuestIcons = addon.GetDB("showQuestTypeIcons", true)
+    local showQuestIcons = addon.GetDB("showQuestTypeIcons", false)
     local hasIcon = questData.questTypeAtlas and showQuestIcons
+    -- Off-map WORLD quest that is tracked (only world quests, not normal quests).
+    local isOffMapWorld = (questData.category == "WORLD") and questData.isTracked and not questData.isNearby
 
     local textWidth = addon.GetPanelWidth() - addon.PADDING * 2 - (addon.CONTENT_RIGHT_PADDING or 0)
     if showItemBtn then
         textWidth = textWidth - addon.ITEM_BTN_SIZE - addon.ITEM_BTN_OFFSET
     end
+
+    -- All titles share the same X offset; we are no longer indenting off-map quests.
+    local titleLeftOffset = 0
 
     if hasIcon then
         entry.questTypeIcon:SetAtlas(questData.questTypeAtlas)
@@ -35,9 +40,13 @@ local function PopulateEntry(entry, questData)
     else
         entry.questTypeIcon:Hide()
     end
+    -- Ensure any legacy off-map icon (if present on the frame) is hidden; we now rely on color/text only.
+    if entry.trackedFromOtherZoneIcon then
+        entry.trackedFromOtherZoneIcon:Hide()
+    end
 
     entry.titleText:ClearAllPoints()
-    entry.titleText:SetPoint("TOPLEFT", entry, "TOPLEFT", 0, 0)
+    entry.titleText:SetPoint("TOPLEFT", entry, "TOPLEFT", titleLeftOffset, 0)
     entry.titleShadow:ClearAllPoints()
     entry.titleShadow:SetPoint("CENTER", entry.titleText, "CENTER", addon.SHADOW_OX, addon.SHADOW_OY)
 
@@ -52,8 +61,12 @@ local function PopulateEntry(entry, questData)
     end
     entry.titleText:SetTextColor(c[1], c[2], c[3], 1)
 
-    local rawHighlight = addon.GetDB("activeQuestHighlight", "bar")
-    local highlightStyle = (rawHighlight == "bar") and "bar" or "highlight"
+    local rawHighlight = addon.GetDB("activeQuestHighlight", "bar-left")
+    -- Migrate legacy value
+    if rawHighlight == "bar" then
+        rawHighlight = "bar-left"
+    end
+    local highlightStyle = rawHighlight == "highlight" and "highlight" or rawHighlight
     local hc = addon.GetDB("highlightColor", nil)
     if not hc or #hc < 3 then hc = { 0.40, 0.70, 1.00 } end
     local ha = tonumber(addon.GetDB("highlightAlpha", 0.25)) or 0.25
@@ -64,12 +77,12 @@ local function PopulateEntry(entry, questData)
         entry.highlightBorderR:Hide()
     end
     if questData.isSuperTracked then
-        if highlightStyle == "bar" then
-            entry.trackBar:SetColorTexture(hc[1], hc[2], hc[3], 0.80)
-            entry.trackBar:Show()
+        if highlightStyle == "bar-left" or highlightStyle == "bar-right" then
             entry.highlightBg:Hide()
             if entry.highlightTop then entry.highlightTop:Hide() end
             hideHighlightBorders()
+            entry.trackBar:SetColorTexture(hc[1], hc[2], hc[3], 0.70)
+            entry.trackBar:Show()
         else
             -- Highlight style: inset bg + border + top strip
             entry.trackBar:Hide()
@@ -92,6 +105,10 @@ local function PopulateEntry(entry, questData)
         if entry.highlightTop then entry.highlightTop:Hide() end
         hideHighlightBorders()
     end
+
+    -- For tracked WORLD quests that are not on the current map (off-map world quests),
+    -- add a subtle tinted background so they stand out, without affecting normal quests.
+    -- No special highlight for off-map quests; only the active (super-tracked) quest uses the highlight styles above.
 
     if showItemBtn then
         entry.itemLink = questData.itemLink
@@ -116,8 +133,13 @@ local function PopulateEntry(entry, questData)
 
     local prevAnchor = entry.titleText
     if addon.GetDB("showZoneLabels", true) and questData.zoneName and not questData.isNearby then
-        entry.zoneText:SetText(questData.zoneName)
-        entry.zoneShadow:SetText(questData.zoneName)
+        local zoneLabel = questData.zoneName
+        -- For off-map WORLD quests, prefix the zone with a clear marker so they are easy to spot.
+        if isOffMapWorld then
+            zoneLabel = ("[Off-map] %s"):format(zoneLabel)
+        end
+        entry.zoneText:SetText(zoneLabel)
+        entry.zoneShadow:SetText(zoneLabel)
         local zoneColor = addon.GetDB("zoneColor", nil)
         if not zoneColor or #zoneColor < 3 then zoneColor = addon.ZONE_COLOR end
         entry.zoneText:SetTextColor(zoneColor[1], zoneColor[2], zoneColor[3], 1)
@@ -193,9 +215,24 @@ local function PopulateEntry(entry, questData)
         totalH = totalH + addon.OBJ_SPACING + objH
     end
 
-    entry.trackBar:SetHeight(math.max(totalH, 1))
     entry.entryHeight = totalH
     entry:SetHeight(totalH)
+
+    -- Active-quest bar: position after entry has final height (one texture, left or right, 2px slim)
+    local BAR_W = 2
+    if (highlightStyle == "bar-left" or highlightStyle == "bar-right") and entry.trackBar:IsShown() then
+        entry.trackBar:ClearAllPoints()
+        if highlightStyle == "bar-left" then
+            local barLeft = addon.BAR_LEFT_OFFSET or 12
+            entry.trackBar:SetPoint("TOPLEFT", entry, "TOPLEFT", -barLeft, 0)
+            entry.trackBar:SetPoint("BOTTOMRIGHT", entry, "BOTTOMLEFT", -barLeft + BAR_W, 0)
+        else
+            local barInsetRight = addon.ICON_COLUMN_WIDTH - addon.PADDING + 4
+            entry.trackBar:SetPoint("TOPRIGHT", entry, "TOPRIGHT", -barInsetRight, 0)
+            entry.trackBar:SetPoint("BOTTOMLEFT", entry, "BOTTOMRIGHT", -barInsetRight - BAR_W, 0)
+        end
+    end
+
     if questData.isRare then
         entry.questID    = nil
         entry.entryKey   = questData.entryKey
@@ -239,6 +276,8 @@ local function AcquireSectionHeader(groupKey)
     addon.sectionIdx = addon.sectionIdx + 1
     if addon.sectionIdx > addon.SECTION_POOL_SIZE then return nil end
     local s = sectionPool[addon.sectionIdx]
+    s.groupKey = groupKey
+
     local label = addon.SECTION_LABELS[groupKey] or groupKey
     if groupKey == "DUNGEON" and addon.IsInMythicDungeon() then
         local dungeonName = addon.GetMythicDungeonName()
@@ -250,6 +289,40 @@ local function AcquireSectionHeader(groupKey)
     s.text:SetText(label)
     s.shadow:SetText(label)
     s.text:SetTextColor(color[1], color[2], color[3], addon.SECTION_COLOR_A)
+
+    -- Update chevron to reflect current collapsed state.
+    if s.chevron then
+        if addon.IsCategoryCollapsed(groupKey) then
+            s.chevron:SetText("+")
+        else
+            s.chevron:SetText("−")
+        end
+    end
+
+    -- Clicking the section header toggles collapsed state for this category,
+    -- using animated collapse when hiding a group.
+    s:SetScript("OnClick", function(self)
+        local key = self.groupKey
+        if not key then return end
+
+        if addon.IsCategoryCollapsed(key) then
+            -- EXPAND: flip state immediately, then reflow; new entries will fade in.
+            addon.SetCategoryCollapsed(key, false)
+            if self.chevron then
+                self.chevron:SetText("−")
+            end
+            addon.FullLayout()
+        else
+            -- COLLAPSE: start animated collapse, do not call FullLayout yet.
+            if self.chevron then
+                self.chevron:SetText("+")
+            end
+            if addon.StartGroupCollapse then
+                addon.StartGroupCollapse(key)
+            end
+        end
+    end)
+
     s.active = true
     s:SetAlpha(1)
     s:Show()
@@ -310,7 +383,51 @@ local function ToggleCollapse()
         addon.FullLayout()
     end
     addon.EnsureDB()
-    ModernQuestTrackerDB.collapsed = addon.collapsed
+    HorizonSuiteDB.collapsed = addon.collapsed
+end
+
+-- Start an animated collapse for a single category group.
+function addon.StartGroupCollapse(groupKey)
+    if not groupKey then return end
+
+    -- Collect visible entries belonging to this group.
+    local entries = {}
+    for i = 1, addon.POOL_SIZE do
+        local e = pool[i]
+        if e.groupKey == groupKey
+           and (e.questID or e.entryKey)
+           and (e.animState == "active" or e.animState == "fadein") then
+            entries[#entries + 1] = e
+        end
+    end
+
+    if #entries == 0 then
+        -- Nothing visible to collapse; just persist state and reflow.
+        addon.SetCategoryCollapsed(groupKey, true)
+        addon.FullLayout()
+        return
+    end
+
+    -- Sort by Y position so we get a clean stagger from top to bottom.
+    table.sort(entries, function(a, b)
+        return a.finalY > b.finalY
+    end)
+
+    -- Set collapsing state with staggered delays.
+    for i, e in ipairs(entries) do
+        e.animState     = "collapsing"
+        e.animTime      = 0
+        e.collapseDelay = (i - 1) * addon.ENTRY_STAGGER
+    end
+
+    -- Mark this group as collapsing so Animation.lua can detect completion.
+    addon.groupCollapses[groupKey] = GetTime()
+
+    -- Immediately mark the category as logically collapsed so layout
+    -- treats it as hidden; animation is just the visual transition.
+    if addon.SetCategoryCollapsed then
+        addon.SetCategoryCollapsed(groupKey, true)
+    end
 end
 
 local headerBtn = CreateFrame("Button", nil, addon.MQT)
@@ -323,11 +440,11 @@ headerBtn:SetScript("OnClick", function()
 end)
 headerBtn:RegisterForDrag("LeftButton")
 headerBtn:SetScript("OnDragStart", function()
-    if ModernQuestTrackerDB and ModernQuestTrackerDB.lockPosition then return end
+    if HorizonSuiteDB and HorizonSuiteDB.lockPosition then return end
     addon.MQT:StartMoving()
 end)
 headerBtn:SetScript("OnDragStop", function()
-    if ModernQuestTrackerDB and ModernQuestTrackerDB.lockPosition then return end
+    if HorizonSuiteDB and HorizonSuiteDB.lockPosition then return end
     addon.MQT:StopMovingOrSizing()
     addon.MQT:SetUserPlaced(false)
     addon.SavePanelPosition()
@@ -457,6 +574,11 @@ local function FullLayout()
                     entry.animTime  = 0
                     activeMap[key] = entry
                 end
+            elseif entry.animState == "idle" and not entry.questID and not entry.entryKey then
+                -- Zombie entry left over from a group collapse: reset it for fadein.
+                entry.animState = "fadein"
+                entry.animTime  = 0
+                entry:SetAlpha(0)
             end
             if entry then
                 PopulateEntry(entry, qData)
@@ -473,6 +595,8 @@ local function FullLayout()
     local showSections = #grouped > 1 and addon.GetDB("showSectionHeaders", true)
 
     for gi, grp in ipairs(grouped) do
+        local isCollapsed = showSections and addon.IsCategoryCollapsed(grp.key)
+
         if showSections then
             if gi > 1 then
                 yOff = yOff - addon.SECTION_SPACING
@@ -485,19 +609,32 @@ local function FullLayout()
             end
         end
 
-        for _, qData in ipairs(grp.quests) do
-            local key = qData.entryKey or qData.questID
-            local entry = activeMap[key]
-            if entry then
-                entry.finalX = addon.PADDING + addon.ICON_COLUMN_WIDTH
-                entry.finalY = yOff
-                entry.staggerDelay = entryIndex * addon.ENTRY_STAGGER
-                entryIndex = entryIndex + 1
+        if isCollapsed then
+            -- Do not position entries for collapsed groups; hide any that are not
+            -- currently animating a collapse.
+            for _, qData in ipairs(grp.quests) do
+                local key = qData.entryKey or qData.questID
+                local entry = activeMap[key]
+                if entry and entry.animState ~= "collapsing" then
+                    entry:Hide()
+                end
+            end
+        else
+            for _, qData in ipairs(grp.quests) do
+                local key = qData.entryKey or qData.questID
+                local entry = activeMap[key]
+                if entry then
+                    entry.groupKey = grp.key
+                    entry.finalX = addon.PADDING + addon.ICON_COLUMN_WIDTH
+                    entry.finalY = yOff
+                    entry.staggerDelay = entryIndex * addon.ENTRY_STAGGER
+                    entryIndex = entryIndex + 1
 
-                entry:ClearAllPoints()
-                entry:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", addon.PADDING + addon.ICON_COLUMN_WIDTH, yOff)
-                entry:Show()
-                yOff = yOff - entry.entryHeight - addon.TITLE_SPACING
+                    entry:ClearAllPoints()
+                    entry:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", addon.PADDING + addon.ICON_COLUMN_WIDTH, yOff)
+                    entry:Show()
+                    yOff = yOff - entry.entryHeight - addon.TITLE_SPACING
+                end
             end
         end
     end

@@ -18,10 +18,9 @@ local function CreateQuestEntry(parent, index)
     local textW = w - (addon.CONTENT_RIGHT_PADDING or 0)
     e:SetSize(w, 20)
 
-    e.trackBar = e:CreateTexture(nil, "BACKGROUND")
-    e.trackBar:SetSize(2, 1)
-    e.trackBar:SetPoint("TOPLEFT", e, "TOPLEFT", -8, 0)
-    e.trackBar:SetColorTexture(0.40, 0.70, 1.00, 0.80)
+    -- Active-quest bar (left or right; position set in Layout)
+    e.trackBar = e:CreateTexture(nil, "OVERLAY")
+    e.trackBar:SetColorTexture(0.45, 0.75, 1.00, 0.70)
     e.trackBar:Hide()
 
     -- Highlight inset
@@ -102,8 +101,17 @@ local function CreateQuestEntry(parent, index)
 
     e.questTypeIcon = e:CreateTexture(nil, "ARTWORK")
     e.questTypeIcon:SetSize(addon.QUEST_TYPE_ICON_SIZE, addon.QUEST_TYPE_ICON_SIZE)
-    e.questTypeIcon:SetPoint("TOPRIGHT", e, "TOPLEFT", -addon.QUEST_TYPE_ICON_GAP, 0)
+    -- Left of the active-quest bar: icon right edge at (BAR_LEFT_OFFSET + 2) px left of entry
+    local iconRight = (addon.BAR_LEFT_OFFSET or 12) + 2
+    e.questTypeIcon:SetPoint("TOPRIGHT", e, "TOPLEFT", -iconRight, 0)
     e.questTypeIcon:Hide()
+
+    -- Small icon for "tracked from other zone" (world quest on watch list but not on current map).
+    local iconSz = addon.TRACKED_OTHER_ZONE_ICON_SIZE or 12
+    e.trackedFromOtherZoneIcon = e:CreateTexture(nil, "ARTWORK")
+    e.trackedFromOtherZoneIcon:SetSize(iconSz, iconSz)
+    e.trackedFromOtherZoneIcon:SetPoint("TOPLEFT", e, "TOPLEFT", 0, 0)
+    e.trackedFromOtherZoneIcon:Hide()
 
     e.titleShadow = e:CreateFontString(nil, "BORDER")
     e.titleShadow:SetFontObject(addon.TitleFont)
@@ -170,6 +178,7 @@ local function CreateQuestEntry(parent, index)
     e.finalY         = 0
     e.staggerDelay   = 0
     e.collapseDelay  = 0
+    e.groupKey       = nil
 
     e:SetAlpha(0)
     e:Hide()
@@ -184,8 +193,10 @@ end
 local sectionPool = {}
 
 local function CreateSectionHeader(parent)
-    local s = CreateFrame("Frame", nil, parent)
+    local s = CreateFrame("Button", nil, parent)
     s:SetSize(addon.GetPanelWidth() - addon.PADDING * 2, addon.SECTION_SIZE + 4)
+
+    s:RegisterForClicks("LeftButtonUp")
 
     s.shadow = s:CreateFontString(nil, "BORDER")
     s.shadow:SetFontObject(addon.SectionFont)
@@ -195,8 +206,15 @@ local function CreateSectionHeader(parent)
     s.text = s:CreateFontString(nil, "OVERLAY")
     s.text:SetFontObject(addon.SectionFont)
     s.text:SetJustifyH("LEFT")
-    s.text:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 0, 0)
+    s.text:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 10, 0)
     s.shadow:SetPoint("CENTER", s.text, "CENTER", addon.SHADOW_OX, addon.SHADOW_OY)
+
+    -- Small chevron indicating expanded/collapsed state for this category.
+    s.chevron = s:CreateFontString(nil, "OVERLAY")
+    s.chevron:SetFont(addon.FONT_PATH, addon.SECTION_SIZE, "OUTLINE")
+    s.chevron:SetJustifyH("LEFT")
+    s.chevron:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 0, 0)
+    s.chevron:SetText("")
 
     s.active = false
     s:SetAlpha(0)
@@ -288,10 +306,12 @@ local function ClearEntry(entry, full)
     entry.creatureID = nil
     entry.itemLink   = nil
     entry.animState  = "idle"
+    entry.groupKey   = nil
     if full ~= false then
         entry:Hide()
         entry:SetAlpha(0)
         if entry.itemBtn then entry.itemBtn:Hide() end
+        if entry.trackBar then entry.trackBar:Hide() end
     end
 end
 

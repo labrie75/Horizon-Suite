@@ -9,14 +9,15 @@ local addon = _G.ModernQuestTracker
 -- QUEST DATA
 -- ============================================================================
 
-addon.enabled           = true
-addon.collapsed         = false
-addon.refreshPending    = false
-addon.prevRareKeys      = {}
+addon.enabled            = true
+addon.collapsed          = false
+addon.refreshPending     = false
+addon.prevRareKeys       = {}
 addon.rareTrackingInit   = false
 addon.zoneJustChanged    = false
-addon.collapseAnimating  = false
+addon.collapseAnimating  = false  -- panel-wide collapse
 addon.collapseAnimStart  = 0
+addon.groupCollapses     = {}     -- per-group collapses: [groupKey] = startTime
 addon.lastPlayerMapID    = nil
 addon.lastMapCheckTime   = 0
 
@@ -29,6 +30,9 @@ local function GetQuestCategory(questID)
     end
     if C_QuestLog.IsImportantQuest and C_QuestLog.IsImportantQuest(questID) then
         return "IMPORTANT"
+    end
+    if C_TaskQuest and C_TaskQuest.IsActive and C_TaskQuest.IsActive(questID) then
+        return "WORLD"
     end
     if C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID) then
         return "WORLD"
@@ -46,7 +50,7 @@ local function GetQuestCategory(questID)
 end
 
 local function GetQuestColor(category)
-    local db = ModernQuestTrackerDB and ModernQuestTrackerDB.questColors
+    local db = HorizonSuiteDB and HorizonSuiteDB.questColors
     if db then
         if db[category] then return db[category] end
         if category == "IMPORTANT" and db.CAMPAIGN then return db.CAMPAIGN end
@@ -56,8 +60,8 @@ local function GetQuestColor(category)
 end
 
 local function GetSectionColor(groupKey)
-    if ModernQuestTrackerDB and ModernQuestTrackerDB.sectionColors and ModernQuestTrackerDB.sectionColors[groupKey] then
-        return ModernQuestTrackerDB.sectionColors[groupKey]
+    if HorizonSuiteDB and HorizonSuiteDB.sectionColors and HorizonSuiteDB.sectionColors[groupKey] then
+        return HorizonSuiteDB.sectionColors[groupKey]
     end
     local questCategory = (groupKey == "RARES") and "RARE" or groupKey
     if questCategory == "CAMPAIGN" or questCategory == "LEGENDARY" or questCategory == "WORLD" or questCategory == "COMPLETE" or questCategory == "RARE" or questCategory == "DEFAULT" then
@@ -103,6 +107,17 @@ local function GetQuestTypeAtlas(questID, category)
 end
 
 local function GetQuestZoneName(questID)
+    -- For world quests / task quests, prefer the task-quest APIs which usually carry a uiMapID.
+    if C_TaskQuest and C_TaskQuest.GetQuestInfoByQuestID then
+        local info = C_TaskQuest.GetQuestInfoByQuestID(questID)
+        local mapID = info and (info.mapID or info.uiMapID)
+        if mapID and C_Map and C_Map.GetMapInfo then
+            local mapInfo = C_Map.GetMapInfo(mapID)
+            if mapInfo and mapInfo.name then
+                return mapInfo.name
+            end
+        end
+    end
     if C_QuestLog.GetNextWaypoint then
         local mapID = C_QuestLog.GetNextWaypoint(questID)
         if mapID and C_Map and C_Map.GetMapInfo then
@@ -137,17 +152,22 @@ local function GetMythicDungeonName()
 end
 
 local function ReadTrackedQuests()
+    -- Allow test data injection from Slash.lua for /horizon test.
+    if addon.testQuests then
+        return addon.testQuests
+    end
+
     local quests = {}
     local seen = {}
     local numWatches = C_QuestLog.GetNumQuestWatches()
     local superTracked = (C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID) and C_SuperTrack.GetSuperTrackedQuestID() or 0
-    local nearbySet = addon.GetNearbyQuestIDs()
+    local nearbySet, taskQuestOnlySet = addon.GetNearbyQuestIDs()
 
     local function addQuest(questID, opts)
         opts = opts or {}
         if not questID or questID <= 0 or seen[questID] then return end
         seen[questID] = true
-        local category   = GetQuestCategory(questID)
+        local category   = opts.forceCategory or GetQuestCategory(questID)
         local title      = C_QuestLog.GetTitleForQuestID(questID) or "..."
         local objectives = C_QuestLog.GetQuestObjectives(questID) or {}
         local color      = GetQuestColor(category)
@@ -160,6 +180,7 @@ local function ReadTrackedQuests()
 
         local itemLink, itemTexture
         local logIndex = C_QuestLog.GetLogIndexForQuestID(questID)
+        local isAccepted = (logIndex ~= nil)
         if logIndex and GetQuestLogSpecialItemInfo then
             local link, tex = GetQuestLogSpecialItemInfo(logIndex)
             if tex then
@@ -180,6 +201,7 @@ local function ReadTrackedQuests()
             isComplete     = isComplete,
             isSuperTracked = isSuper,
             isNearby       = isNearby,
+            isAccepted     = isAccepted,
             zoneName       = zoneName,
             itemLink       = itemLink,
             itemTexture    = itemTexture,
@@ -192,14 +214,21 @@ local function ReadTrackedQuests()
     local filterByZone = addon.GetDB("filterByZone", false)
     for i = 1, numWatches do
         local questID = C_QuestLog.GetQuestIDForQuestWatchIndex(i)
-        if not filterByZone or nearbySet[questID] then
-            addQuest(questID)
+        if questID then
+            -- When \"Filter by current zone\" is enabled, we *still* want tracked WORLD quests
+            -- to remain visible while you're in the broader zone (even if the child map
+            -- changes and they momentarily fall out of nearbySet).
+            local isWorld = C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID)
+            if (not filterByZone or nearbySet[questID] or isWorld) then
+                addQuest(questID)
+            end
         end
     end
 
-    for _, entry in ipairs(addon.GetWorldAndCallingQuestIDsToShow(nearbySet)) do
+    -- Active zone world quests and callings are automatically included from GetNearbyQuestIDs/GetWorldAndCallingQuestIDsToShow.
+    for _, entry in ipairs(addon.GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)) do
         if not seen[entry.questID] then
-            addQuest(entry.questID, { isTracked = entry.isTracked })
+            addQuest(entry.questID, { isTracked = entry.isTracked, forceCategory = entry.forceCategory })
         end
     end
 
@@ -211,6 +240,11 @@ local function ReadTrackedQuests()
                 end
             end
         end
+    end
+
+    -- Always show super-tracked world quest in the list even if not on current map or watch list (e.g. super-tracked from map only).
+    if superTracked and superTracked > 0 and not seen[superTracked] and C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(superTracked) then
+        addQuest(superTracked, { isTracked = true })
     end
 
     return quests
@@ -229,7 +263,11 @@ local function SortAndGroupQuests(quests)
             groups["DUNGEON"][#groups["DUNGEON"] + 1] = q
         elseif q.category == "WORLD" or q.category == "CALLING" then
             groups["WORLD"][#groups["WORLD"] + 1] = q
-        elseif q.isNearby then
+        elseif q.isNearby and not q.isAccepted then
+            -- Non-accepted quests tied to the current zone map.
+            groups["AVAILABLE"][#groups["AVAILABLE"] + 1] = q
+        elseif q.isNearby and q.isAccepted then
+            -- Accepted quests that are in the current zone.
             groups["NEARBY"][#groups["NEARBY"] + 1] = q
         else
             local grp = addon.CATEGORY_TO_GROUP[q.category] or "DEFAULT"

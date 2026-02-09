@@ -52,21 +52,11 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
     elseif cmd == "test" then
         print("|cFF00CCFFHorizon Suite - Focus:|r Showing test data (10 entries)...")
 
-        for i = 1, A.POOL_SIZE do A.ClearEntry(A.pool[i]) end
-        wipe(A.activeMap)
-
-        if A.collapsed then
-            A.collapsed = false
-            A.chevron:SetText("-")
-            A.scrollFrame:Show()
-            if ModernQuestTrackerDB then ModernQuestTrackerDB.collapsed = false end
-        end
-
         local testQuests = {
             { questID = 90001, title = "The Fate of the Horde",
               color = A.QUEST_COLORS.CAMPAIGN, category = "CAMPAIGN",
               questTypeAtlas = "Quest-Campaign-Available",
-              isComplete = false, isSuperTracked = true, isNearby = true,
+              isComplete = false, isSuperTracked = true, isNearby = true, isAccepted = true,
               zoneName = "Valdrakken",
               itemLink = "item:12345:0:0:0:0:0:0:0", itemTexture = "Interface\\Icons\\INV_Misc_Rune_01",
               objectives = {
@@ -75,7 +65,7 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
               }},
             { questID = 90002, title = "Aiding the Accord",
               color = A.QUEST_COLORS.DEFAULT, category = "DEFAULT",
-              isComplete = false, isSuperTracked = false, isNearby = true,
+              isComplete = false, isSuperTracked = false, isNearby = true, isAccepted = true,
               zoneName = "Valdrakken",
               objectives = {
                   { text = "Dragon Glyphs: 3/5", finished = false },
@@ -83,21 +73,21 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
               }},
             { questID = 90007, title = "Scales of War",
               color = A.QUEST_COLORS.DEFAULT, category = "DEFAULT",
-              isComplete = false, isSuperTracked = false, isNearby = true,
+              isComplete = false, isSuperTracked = false, isNearby = true, isAccepted = true,
               zoneName = "Valdrakken",
               objectives = {
                   { text = "War Scales collected: 14/20", finished = false },
               }},
             { questID = 90006, title = "Threads of Fate",
               color = A.QUEST_COLORS.CAMPAIGN, category = "CAMPAIGN",
-              isComplete = false, isSuperTracked = false, isNearby = false,
+              isComplete = false, isSuperTracked = false, isNearby = false, isAccepted = true,
               zoneName = "The Waking Shores",
               objectives = {
                   { text = "Explore the Loom: 1/3", finished = false },
               }},
             { questID = 90008, title = "The Last Stitch",
               color = A.QUEST_COLORS.CAMPAIGN, category = "CAMPAIGN",
-              isComplete = false, isSuperTracked = false, isNearby = false,
+              isComplete = false, isSuperTracked = false, isNearby = false, isAccepted = true,
               zoneName = "Azure Span",
               itemLink = "item:67890:0:0:0:0:0:0:0", itemTexture = "Interface\\Icons\\INV_Fabric_Silk_02",
               objectives = {
@@ -107,14 +97,14 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
             { questID = 90003, title = "World Boss: Doomwalker",
               color = A.QUEST_COLORS.WORLD, category = "WORLD",
               questTypeAtlas = "quest-recurring-available",
-              isComplete = false, isSuperTracked = false, isNearby = false,
+              isComplete = false, isSuperTracked = false, isNearby = false, isAccepted = true,
               zoneName = "Thaldraszus",
               objectives = {
                   { text = "Slay Doomwalker", finished = false },
               }},
             { questID = 90009, title = "Elemental Fury",
               color = A.QUEST_COLORS.WORLD, category = "CALLING",
-              isComplete = false, isSuperTracked = false, isNearby = false,
+              isComplete = false, isSuperTracked = false, isNearby = false, isAccepted = true,
               zoneName = "The Forbidden Reach",
               objectives = {
                   { text = "Elemental cores: 1/3", finished = false },
@@ -122,14 +112,14 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
             { questID = 90004, title = "The Legendary Cloak",
               color = A.QUEST_COLORS.LEGENDARY, category = "LEGENDARY",
               questTypeAtlas = "UI-QuestPoiLegendary-QuestBang",
-              isComplete = false, isSuperTracked = false, isNearby = false,
+              isComplete = false, isSuperTracked = false, isNearby = false, isAccepted = true,
               zoneName = "Ohn'ahran Plains",
               objectives = {
                   { text = "Collect 50 Echoes: 37/50", finished = false },
               }},
             { questID = 90010, title = "Supply Run",
               color = A.QUEST_COLORS.DEFAULT, category = "DEFAULT",
-              isComplete = false, isSuperTracked = false, isNearby = false,
+              isComplete = false, isSuperTracked = false, isNearby = false, isAccepted = true,
               zoneName = "Stormwind City",
               objectives = {
                   { text = "Deliver supplies: 0/1", finished = false },
@@ -137,78 +127,37 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
             { questID = 90005, title = "Boar Pelts",
               color = A.QUEST_COLORS.COMPLETE, category = "COMPLETE",
               questTypeAtlas = "QuestTurnin",
-              isComplete = true, isSuperTracked = false, isNearby = false,
+              isComplete = true, isSuperTracked = false, isNearby = false, isAccepted = true,
               zoneName = "Elwynn Forest",
               objectives = {
                   { text = "Boar Pelts: 10/10", finished = true },
               }},
         }
 
-        local grouped = A.SortAndGroupQuests(testQuests)
-        local showSections = #grouped > 1
-        A.HideAllSectionHeaders()
-        A.sectionIdx = 0
-        local yOff = 0
-        local entryIndex = 0
-        local scrollChild = A.scrollChild
-
-        for gi, grp in ipairs(grouped) do
-            if showSections then
-                if gi > 1 then yOff = yOff - A.SECTION_SPACING end
-                local sec = A.AcquireSectionHeader(grp.key)
-                if sec then
-                    sec:ClearAllPoints()
-                    sec:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", A.PADDING + A.ICON_COLUMN_WIDTH, yOff)
-                    yOff = yOff - (A.SECTION_SIZE + 4) - 2
-                end
-            end
-            for _, qData in ipairs(grp.quests) do
-                local entry = A.AcquireEntry()
-                if entry then
-                    A.PopulateEntry(entry, qData)
-                    entry.finalX = A.PADDING + A.ICON_COLUMN_WIDTH
-                    entry.finalY = yOff
-                    entry.staggerDelay = entryIndex * A.ENTRY_STAGGER
-                    entryIndex = entryIndex + 1
-                    entry:ClearAllPoints()
-                    entry:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", A.PADDING + A.ICON_COLUMN_WIDTH, yOff)
-                    entry:Show()
-                    entry.animState = "fadein"
-                    entry.animTime  = 0
-                    A.activeMap[qData.entryKey or qData.questID] = entry
-                    yOff = yOff - entry.entryHeight - A.TITLE_SPACING
-                end
-            end
+        -- Inject test data into the quest pipeline and use the normal layout engine.
+        A.testQuests = testQuests
+        if A.collapsed then
+            A.collapsed = false
+            A.chevron:SetText("-")
+            A.scrollFrame:Show()
+            if HorizonSuiteDB then HorizonSuiteDB.collapsed = false end
         end
-
-        A.UpdateHeaderQuestCount(#testQuests)
-
-        local totalContentH = math.max(-yOff, 1)
-        scrollChild:SetHeight(totalContentH)
-        A.scrollOffset = 0
-        A.scrollFrame:SetVerticalScroll(0)
-
-        local headerArea = A.PADDING + A.HEADER_HEIGHT + A.DIVIDER_HEIGHT + 6
-        local visibleH   = math.min(totalContentH, A.GetMaxContentHeight())
-        A.targetHeight = math.max(A.MIN_HEIGHT, headerArea + visibleH + A.PADDING)
-        A.MQT:Show()
+        A.FullLayout()
 
     elseif cmd == "reset" then
-        for i = 1, A.POOL_SIZE do A.ClearEntry(A.pool[i]) end
-        wipe(A.activeMap)
-        A.HideAllSectionHeaders()
-        A.sectionIdx = 0
+        -- Clear any injected test data and return to live quest data.
+        A.testQuests = nil
         A.ScheduleRefresh()
         print("|cFF00CCFFHorizon Suite - Focus:|r Reset tracker to live data.")
 
     elseif cmd == "resetpos" then
         A.MQT:ClearAllPoints()
         A.MQT:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", A.PANEL_X, A.PANEL_Y)
-        if ModernQuestTrackerDB then
-            ModernQuestTrackerDB.point    = nil
-            ModernQuestTrackerDB.relPoint = nil
-            ModernQuestTrackerDB.x        = nil
-            ModernQuestTrackerDB.y        = nil
+        if HorizonSuiteDB then
+            HorizonSuiteDB.point    = nil
+            HorizonSuiteDB.relPoint = nil
+            HorizonSuiteDB.x        = nil
+            HorizonSuiteDB.y        = nil
         end
         print("|cFF00CCFFHorizon Suite - Focus:|r Position reset to default.")
 

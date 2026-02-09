@@ -75,7 +75,7 @@ A clean, modern-style replacement for the default World of Warcraft objective tr
 - **Collapse Tracker** can be bound in the Key Bindings UI under **Horizon Suite - Focus**.
 
 ### Technical
-- **SavedVariables**: `ModernQuestTrackerDB` (position, collapsed state, all options).
+- **SavedVariables**: `HorizonSuiteDB` (position, collapsed state, all options).
 - **Combat-safe**: toggling and moving are blocked in combat where required; layout refresh runs after combat if needed.
 - **Interface**: 120001 / 120000 (current retail).
 

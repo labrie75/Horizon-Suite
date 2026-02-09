@@ -32,10 +32,17 @@ for i = 1, addon.POOL_SIZE do
             end
             if not self.questID then return end
 
-            if self.isTracked == false then
-                if C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(self.questID) and C_QuestLog.AddWorldQuestWatch then
+            local isWorldQuest = C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(self.questID)
+            -- World quests: left-click = set active (super-track) only; position does not change. Shift+click = add to watch list for other zones.
+            if isWorldQuest then
+                if IsShiftKeyDown() and C_QuestLog.AddWorldQuestWatch then
                     C_QuestLog.AddWorldQuestWatch(self.questID)
-                else
+                    addon.ScheduleRefresh()
+                    return
+                end
+                -- Single/double click: set super-tracked or open details; do NOT AddWorldQuestWatch so list order stays the same.
+            elseif self.isTracked == false then
+                if C_QuestLog.AddQuestWatch then
                     C_QuestLog.AddQuestWatch(self.questID)
                 end
                 addon.ScheduleRefresh()
@@ -110,10 +117,6 @@ for i = 1, addon.POOL_SIZE do
         elseif self.questID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             pcall(GameTooltip.SetHyperlink, GameTooltip, "quest:" .. self.questID)
-            if self.isTracked == false then
-                GameTooltip:AddLine(" ")
-                GameTooltip:AddLine("Click to track", 0.5, 0.8, 1)
-            end
             GameTooltip:Show()
         elseif self.entryKey then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
