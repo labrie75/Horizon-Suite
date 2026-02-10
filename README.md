@@ -19,6 +19,7 @@ The logic that drives your efficiency.
 **Dynamic Scanning**
 - **Rare Boss Tracker** - Scans for nearby Rare vignettes and adds them to the tracker with a single click to super-track on the map.
 - **World Map Sync** - Opening the world map automatically pulls active World Quests and Available quests into your tracker, keeping your UI in sync with your planning.
+- **Weeklies & Dailies in Zone** - Weekly and daily quests that appear in your current zone are auto-added to the tracker (WEEKLY QUESTS and DAILY QUESTS sections). Quests you have not yet accepted show an "— Available" label so you can see what is ready to pick up.
 
 **Combat & Utility**
 - **Hide in Combat** - Automatically vanishes the tracker during encounters to clear your screen for mechanics.
@@ -35,7 +36,7 @@ The aesthetic that defines your interface.
 
 **Visual Hierarchy**
 - **Quest Type Icons** - Distinct, high-fidelity icons for Campaign, World Quests, Weekly (recurring), Legendaries, and Callings for instant identification.
-- **Weekly Quests** - Recurring/weekly quests (e.g. PvP weeklies) appear in their own "WEEKLY QUESTS" section, using Blizzard's quest classification so they are no longer mixed with World Quests.
+- **Weekly & Daily Quests** - Recurring weekly and daily quests appear in "WEEKLY QUESTS" and "DAILY QUESTS" sections. Zone weeklies and dailies are auto-added like world quests. Quests available to accept but not yet accepted are labeled "— Available".
 - **Turn-in Highlights** - Quests "Ready for Turn-in" receive a unique visual highlight, giving you a clear signal that it's time to head back to the hub.
 - **Category Collapsing** - Granular control over your screen space. Collapse specific sections (like World Quests or Weekly Quests) while keeping your main Campaign visible.
 

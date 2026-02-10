@@ -68,7 +68,7 @@ local function GetQuestCategory(questID)
         if qc == Enum.QuestClassification.Legendary then return "LEGENDARY" end
         -- Meta, Questline, Normal: fall through to frequency then DEFAULT
     end
-    -- Frequency (when in log): Weekly -> WEEKLY; Daily stays DEFAULT (no DAILY section).
+    -- Frequency (when in log): Weekly -> WEEKLY; Daily -> DAILY.
     local freq = GetQuestFrequency(questID)
     if freq ~= nil then
         if Enum.QuestFrequency and Enum.QuestFrequency.Weekly and freq == Enum.QuestFrequency.Weekly then
@@ -76,6 +76,12 @@ local function GetQuestCategory(questID)
         end
         if freq == 2 or (LE_QUEST_FREQUENCY_WEEKLY and freq == LE_QUEST_FREQUENCY_WEEKLY) then
             return "WEEKLY"
+        end
+        if Enum.QuestFrequency and Enum.QuestFrequency.Daily and freq == Enum.QuestFrequency.Daily then
+            return "DAILY"
+        end
+        if freq == 1 or (LE_QUEST_FREQUENCY_DAILY and freq == LE_QUEST_FREQUENCY_DAILY) then
+            return "DAILY"
         end
     end
     return "DEFAULT"
@@ -96,7 +102,7 @@ local function GetSectionColor(groupKey)
         return HorizonDB.sectionColors[groupKey]
     end
     local questCategory = (groupKey == "RARES") and "RARE" or groupKey
-    if questCategory == "CAMPAIGN" or questCategory == "LEGENDARY" or questCategory == "WORLD" or questCategory == "WEEKLY" or questCategory == "COMPLETE" or questCategory == "RARE" or questCategory == "DEFAULT" then
+    if questCategory == "CAMPAIGN" or questCategory == "LEGENDARY" or questCategory == "WORLD" or questCategory == "WEEKLY" or questCategory == "DAILY" or questCategory == "COMPLETE" or questCategory == "RARE" or questCategory == "DEFAULT" then
         return GetQuestColor(questCategory)
     end
     return addon.SECTION_COLORS[groupKey] or addon.SECTION_COLORS.DEFAULT
@@ -126,6 +132,7 @@ local function GetQuestTypeAtlas(questID, category)
     if category == "CALLING" then return "Quest-DailyCampaign-Available" end
     if category == "WORLD" then return "quest-recurring-available" end
     if category == "WEEKLY" then return "quest-recurring-available" end
+    if category == "DAILY" then return "quest-recurring-available" end
     if C_QuestLog.GetQuestTagInfo then
         local tagInfo = C_QuestLog.GetQuestTagInfo(questID)
         if tagInfo and tagInfo.tagID then
@@ -278,6 +285,15 @@ local function ReadTrackedQuests()
     for _, entry in ipairs(addon.GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)) do
         if not seen[entry.questID] then
             addQuest(entry.questID, { isTracked = entry.isTracked, forceCategory = entry.forceCategory })
+        end
+    end
+
+    -- Weeklies and dailies in zone (available to accept or already accepted).
+    if addon.GetWeekliesAndDailiesInZone then
+        for _, entry in ipairs(addon.GetWeekliesAndDailiesInZone(nearbySet)) do
+            if not seen[entry.questID] then
+                addQuest(entry.questID, { isTracked = false, forceCategory = entry.forceCategory })
+            end
         end
     end
 

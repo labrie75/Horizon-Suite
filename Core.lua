@@ -86,7 +86,8 @@ addon.QUEST_COLORS = {
     IMPORTANT = { 1.00, 0.45, 0.80 },  -- pink to match importantavailablequesticon
     LEGENDARY = { 1.00, 0.50, 0.00 },
     WORLD     = { 0.60, 0.20, 1.00 },
-    WEEKLY    = { 0.95, 0.75, 0.25 },  -- amber/gold for recurring weekly quests
+    WEEKLY    = { 0.25, 0.88, 0.92 },  -- match quest-recurring-available icon (cyan)
+    DAILY     = { 0.25, 0.88, 0.92 },  -- match quest-recurring-available icon (cyan)
     CALLING   = { 0.20, 0.60, 1.00 },
     COMPLETE  = { 0.20, 1.00, 0.40 },
     RARE      = { 1.00, 0.55, 0.25 },
@@ -126,6 +127,7 @@ addon.SECTION_LABELS = {
     LEGENDARY = "LEGENDARY",
     WORLD     = "WORLD QUESTS",
     WEEKLY    = "WEEKLY QUESTS",
+    DAILY     = "DAILY QUESTS",
     RARES     = "RARE BOSSES",
     DEFAULT   = "QUESTS",
     COMPLETE  = "READY TO TURN IN",
@@ -139,13 +141,14 @@ addon.SECTION_COLORS = {
     IMPORTANT = { 1.00, 0.45, 0.80 },  -- pink to match importantavailablequesticon
     LEGENDARY = { 1.00, 0.50, 0.00 },
     WORLD     = { 0.60, 0.20, 1.00 },
-    WEEKLY    = { 0.95, 0.75, 0.25 },  -- amber/gold for weekly quests
+    WEEKLY    = { 0.25, 0.88, 0.92 },  -- match quest-recurring-available icon (cyan)
+    DAILY     = { 0.25, 0.88, 0.92 },  -- match quest-recurring-available icon (cyan)
     RARES     = { 1.00, 0.55, 0.25 },
     DEFAULT   = { 0.70, 0.70, 0.70 },
     COMPLETE  = { 0.20, 1.00, 0.40 },
 }
 
-addon.GROUP_ORDER = { "DUNGEON", "COMPLETE", "WORLD", "WEEKLY", "RARES", "NEARBY", "AVAILABLE", "CAMPAIGN", "IMPORTANT", "LEGENDARY", "DEFAULT" }
+addon.GROUP_ORDER = { "DUNGEON", "COMPLETE", "WORLD", "WEEKLY", "DAILY", "RARES", "NEARBY", "AVAILABLE", "CAMPAIGN", "IMPORTANT", "LEGENDARY", "DEFAULT" }
 
 addon.CATEGORY_TO_GROUP = {
     COMPLETE  = "COMPLETE",
@@ -154,6 +157,7 @@ addon.CATEGORY_TO_GROUP = {
     CAMPAIGN  = "CAMPAIGN",
     WORLD     = "WORLD",
     WEEKLY    = "WEEKLY",
+    DAILY     = "DAILY",
     CALLING   = "WORLD",
     DEFAULT   = "DEFAULT",
 }

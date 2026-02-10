@@ -185,6 +185,40 @@ local function GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)
     return out
 end
 
+-- Returns weeklies and dailies that appear in the zone (nearbySet). Used to auto-add them to the tracker like world quests.
+-- Each returned entry has questID and forceCategory ("WEEKLY" or "DAILY"). Quests not yet accepted are "available to collect".
+local function GetWeekliesAndDailiesInZone(nearbySet)
+    local out = {}
+    if not nearbySet or not C_QuestInfoSystem or not C_QuestInfoSystem.GetQuestClassification then return out end
+    local ids = {}
+    for questID, _ in pairs(nearbySet) do
+        if addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID) then
+            -- Skip world quests; they are handled by GetWorldAndCallingQuestIDsToShow.
+        elseif C_QuestLog.IsQuestCalling and C_QuestLog.IsQuestCalling(questID) then
+            -- Skip callings.
+        else
+            local qc = C_QuestInfoSystem.GetQuestClassification(questID)
+            local isRecurring = (qc == Enum.QuestClassification.Recurring)
+            local freq = addon.GetQuestFrequency and addon.GetQuestFrequency(questID)
+            local isWeekly = isRecurring
+                or (freq ~= nil and (freq == 2 or (LE_QUEST_FREQUENCY_WEEKLY and freq == LE_QUEST_FREQUENCY_WEEKLY)))
+                or (freq ~= nil and Enum.QuestFrequency and Enum.QuestFrequency.Weekly and freq == Enum.QuestFrequency.Weekly)
+            local isDaily = (freq ~= nil and (freq == 1 or (LE_QUEST_FREQUENCY_DAILY and freq == LE_QUEST_FREQUENCY_DAILY)))
+                or (freq ~= nil and Enum.QuestFrequency and Enum.QuestFrequency.Daily and freq == Enum.QuestFrequency.Daily)
+            if isWeekly then
+                ids[#ids + 1] = { questID = questID, forceCategory = "WEEKLY" }
+            elseif isDaily then
+                ids[#ids + 1] = { questID = questID, forceCategory = "DAILY" }
+            end
+        end
+    end
+    table.sort(ids, function(a, b) return a.questID < b.questID end)
+    for _, e in ipairs(ids) do
+        out[#out + 1] = e
+    end
+    return out
+end
+
 local function RemoveWorldQuestWatch(questID)
     if not questID then return end
     if (addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID)) and C_QuestLog.RemoveWorldQuestWatch then
@@ -195,5 +229,6 @@ end
 addon.zoneTaskQuestCache = addon.zoneTaskQuestCache or {}
 addon.GetNearbyQuestIDs = GetNearbyQuestIDs
 addon.GetWorldAndCallingQuestIDsToShow = GetWorldAndCallingQuestIDsToShow
+addon.GetWeekliesAndDailiesInZone = GetWeekliesAndDailiesInZone
 addon.GetCurrentWorldQuestWatchSet = GetCurrentWorldQuestWatchSet
 addon.RemoveWorldQuestWatch = RemoveWorldQuestWatch
