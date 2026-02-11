@@ -18,33 +18,17 @@ local sectionPool = addon.sectionPool
 local scrollChild = addon.scrollChild
 local scrollFrame = addon.scrollFrame
 
-local function PopulateEntry(entry, questData)
-    local hasItem = questData.itemTexture and true or false
-    local showItemBtn = hasItem and addon.GetDB("showQuestItemButtons", false)
-    local showQuestIcons = addon.GetDB("showQuestTypeIcons", false)
-    local hasIcon = questData.questTypeAtlas and showQuestIcons
-    -- Off-map WORLD quest that is tracked (only world quests, not normal quests).
-    local isOffMapWorld = (questData.category == "WORLD") and questData.isTracked and not questData.isNearby
+local function hideAllHighlight(entry)
+    entry.trackBar:Hide()
+    entry.highlightBg:Hide()
+    if entry.highlightTop then entry.highlightTop:Hide() end
+    entry.highlightBorderT:Hide()
+    entry.highlightBorderB:Hide()
+    entry.highlightBorderL:Hide()
+    entry.highlightBorderR:Hide()
+end
 
-    local textWidth = addon.GetPanelWidth() - addon.PADDING * 2 - (addon.CONTENT_RIGHT_PADDING or 0)
-    if showItemBtn then
-        textWidth = textWidth - addon.ITEM_BTN_SIZE - addon.ITEM_BTN_OFFSET
-    end
-
-    -- All titles share the same X offset; we are no longer indenting off-map quests.
-    local titleLeftOffset = 0
-
-    if hasIcon then
-        entry.questTypeIcon:SetAtlas(questData.questTypeAtlas)
-        entry.questTypeIcon:Show()
-    else
-        entry.questTypeIcon:Hide()
-    end
-    -- Ensure any legacy off-map icon (if present on the frame) is hidden; we now rely on color/text only.
-    if entry.trackedFromOtherZoneIcon then
-        entry.trackedFromOtherZoneIcon:Hide()
-    end
-
+local function ApplyHighlightStyle(entry, questData)
     local rawHighlight = addon.GetDB("activeQuestHighlight", "bar-left")
     if rawHighlight == "bar" then rawHighlight = "bar-left" end
     local highlightStyle = rawHighlight == "highlight" and "highlight" or rawHighlight
@@ -56,52 +40,14 @@ local function PopulateEntry(entry, questData)
     local bottomPadding = (questData.isSuperTracked and highlightStyle == "bar-bottom") and barW or 0
 
     entry.titleText:ClearAllPoints()
-    entry.titleText:SetPoint("TOPLEFT", entry, "TOPLEFT", titleLeftOffset, -topPadding)
+    entry.titleText:SetPoint("TOPLEFT", entry, "TOPLEFT", 0, -topPadding)
     entry.titleShadow:ClearAllPoints()
     entry.titleShadow:SetPoint("CENTER", entry.titleText, "CENTER", addon.SHADOW_OX, addon.SHADOW_OY)
 
-    entry.titleText:SetWidth(textWidth)
-    entry.titleShadow:SetWidth(textWidth)
-
-    local displayTitle = questData.title
-    if addon.GetDB("showCompletedCount", false) and questData.objectives and #questData.objectives > 0 then
-        local done, total = 0, #questData.objectives
-        for _, o in ipairs(questData.objectives) do if o.finished then done = done + 1 end end
-        displayTitle = ("%s (%d/%d)"):format(questData.title, done, total)
-    end
-    if addon.GetDB("showQuestLevel", false) and questData.level then
-        displayTitle = ("%s [L%d]"):format(displayTitle, questData.level)
-    end
-    -- Indicator for quests that are available to accept but not yet accepted (not for rares).
-    if not questData.isAccepted and questData.category ~= "RARE" then
-        displayTitle = displayTitle .. "  — Available"
-    end
-    entry.titleText:SetText(displayTitle)
-    entry.titleShadow:SetText(displayTitle)
-    local c = questData.color
-    if questData.isDungeonQuest and not questData.isTracked then
-        c = { c[1] * 0.65, c[2] * 0.65, c[3] * 0.65 }
-    elseif addon.GetDB("dimNonSuperTracked", false) and not questData.isSuperTracked then
-        c = { c[1] * 0.60, c[2] * 0.60, c[3] * 0.60 }
-    end
-    entry.titleText:SetTextColor(c[1], c[2], c[3], 1)
-    entry._savedColor = nil
-
-    local function hideAllHighlight()
-        entry.trackBar:Hide()
-        entry.highlightBg:Hide()
-        if entry.highlightTop then entry.highlightTop:Hide() end
-        entry.highlightBorderT:Hide()
-        entry.highlightBorderB:Hide()
-        entry.highlightBorderL:Hide()
-        entry.highlightBorderR:Hide()
-    end
-
+    hideAllHighlight(entry)
     if questData.isSuperTracked then
-        hideAllHighlight()
         local borderAlpha = math.min(1, (ha + 0.35))
         if highlightStyle == "bar-left" or highlightStyle == "bar-right" or highlightStyle == "pill-left" then
-            local w = (highlightStyle == "pill-left") and barW or 2
             entry.trackBar:SetColorTexture(hc[1], hc[2], hc[3], 0.70)
             entry.trackBar:Show()
         elseif highlightStyle == "bar-top" then
@@ -138,9 +84,152 @@ local function PopulateEntry(entry, questData)
                 tex:Show()
             end
         end
-    else
-        hideAllHighlight()
     end
+    return highlightStyle, hc, ha, barW, topPadding, bottomPadding
+end
+
+local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, c)
+    local objIndent = addon.GetObjIndent()
+    local objTextWidth = textWidth - objIndent
+    if objTextWidth < 1 then objTextWidth = addon.GetPanelWidth() - addon.PADDING * 2 - objIndent - (addon.CONTENT_RIGHT_PADDING or 0) end
+
+    local objColor = addon.GetDB("objectiveColor", nil)
+    if not objColor or #objColor < 3 then objColor = c end
+    local doneColor = addon.GetDB("objectiveDoneColor", nil)
+    if not doneColor or #doneColor < 3 then doneColor = addon.OBJ_DONE_COLOR end
+
+    local shownObjs = 0
+    for j = 1, addon.MAX_OBJECTIVES do
+        local obj = entry.objectives[j]
+        local oData = questData.objectives[j]
+
+        obj.text:SetWidth(objTextWidth)
+        obj.shadow:SetWidth(objTextWidth)
+
+        if oData then
+            local objText = oData.text or ""
+            if addon.GetDB("showObjectiveNumbers", false) then
+                objText = ("%d. %s"):format(j, objText)
+            end
+            obj.text:SetText(objText)
+            obj.shadow:SetText(objText)
+
+            if oData.finished then
+                obj.text:SetTextColor(doneColor[1], doneColor[2], doneColor[3], 1)
+            else
+                obj.text:SetTextColor(objColor[1], objColor[2], objColor[3], 1)
+            end
+
+            obj.text:ClearAllPoints()
+            local indent = (shownObjs == 0 and prevAnchor == entry.titleText) and objIndent or 0
+            obj.text:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", indent, -addon.GetObjSpacing())
+            obj.text:Show()
+            obj.shadow:Show()
+
+            local objH = obj.text:GetStringHeight()
+            if not objH or objH < 1 then objH = addon.OBJ_SIZE + 2 end
+            totalH = totalH + addon.GetObjSpacing() + objH
+
+            prevAnchor = obj.text
+            shownObjs = shownObjs + 1
+        else
+            obj.text:Hide()
+            obj.shadow:Hide()
+        end
+    end
+
+    if questData.isComplete and shownObjs == 0 then
+        local obj = entry.objectives[1]
+        local turnInText = addon.GetDB("showObjectiveNumbers", false) and "1. Ready to turn in" or "Ready to turn in"
+        obj.text:SetText(turnInText)
+        obj.shadow:SetText(turnInText)
+        obj.text:SetTextColor(doneColor[1], doneColor[2], doneColor[3], 1)
+        obj.text:ClearAllPoints()
+        local turnInIndent = (prevAnchor == entry.titleText) and objIndent or 0
+        obj.text:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", turnInIndent, -addon.GetObjSpacing())
+        obj.text:Show()
+        obj.shadow:Show()
+        local objH = obj.text:GetStringHeight()
+        if not objH or objH < 1 then objH = addon.OBJ_SIZE + 2 end
+        totalH = totalH + addon.GetObjSpacing() + objH
+    end
+
+    return totalH
+end
+
+local function ApplyShadowColors(entry, questData, highlightStyle, hc, ha)
+    local shadowA = addon.GetDB("showTextShadow", true) and (tonumber(addon.GetDB("shadowAlpha", 0.8)) or 0.8) or 0
+    local glowAlpha = math.min(1, ha + 0.4)
+    if questData.isSuperTracked and highlightStyle == "glow" then
+        entry.titleShadow:SetTextColor(hc[1], hc[2], hc[3], glowAlpha)
+        entry.zoneShadow:SetTextColor(hc[1], hc[2], hc[3], glowAlpha)
+        for j = 1, addon.MAX_OBJECTIVES do
+            entry.objectives[j].shadow:SetTextColor(hc[1], hc[2], hc[3], glowAlpha)
+        end
+    else
+        entry.titleShadow:SetTextColor(0, 0, 0, shadowA)
+        entry.zoneShadow:SetTextColor(0, 0, 0, shadowA)
+        for j = 1, addon.MAX_OBJECTIVES do
+            entry.objectives[j].shadow:SetTextColor(0, 0, 0, shadowA)
+        end
+    end
+end
+
+local function PopulateEntry(entry, questData)
+    local hasItem = questData.itemTexture and true or false
+    local showItemBtn = hasItem and addon.GetDB("showQuestItemButtons", false)
+    local showQuestIcons = addon.GetDB("showQuestTypeIcons", false)
+    local hasIcon = questData.questTypeAtlas and showQuestIcons
+    -- Off-map WORLD quest that is tracked (only world quests, not normal quests).
+    local isOffMapWorld = (questData.category == "WORLD") and questData.isTracked and not questData.isNearby
+
+    local textWidth = addon.GetPanelWidth() - addon.PADDING * 2 - (addon.CONTENT_RIGHT_PADDING or 0)
+    if showItemBtn then
+        textWidth = textWidth - addon.ITEM_BTN_SIZE - addon.ITEM_BTN_OFFSET
+    end
+
+    -- All titles share the same X offset; we are no longer indenting off-map quests.
+    local titleLeftOffset = 0
+
+    if hasIcon then
+        entry.questTypeIcon:SetAtlas(questData.questTypeAtlas)
+        entry.questTypeIcon:Show()
+    else
+        entry.questTypeIcon:Hide()
+    end
+    -- Ensure any legacy off-map icon (if present on the frame) is hidden; we now rely on color/text only.
+    if entry.trackedFromOtherZoneIcon then
+        entry.trackedFromOtherZoneIcon:Hide()
+    end
+
+    entry.titleText:SetWidth(textWidth)
+    entry.titleShadow:SetWidth(textWidth)
+
+    local displayTitle = questData.title
+    if addon.GetDB("showCompletedCount", false) and questData.objectives and #questData.objectives > 0 then
+        local done, total = 0, #questData.objectives
+        for _, o in ipairs(questData.objectives) do if o.finished then done = done + 1 end end
+        displayTitle = ("%s (%d/%d)"):format(questData.title, done, total)
+    end
+    if addon.GetDB("showQuestLevel", false) and questData.level then
+        displayTitle = ("%s [L%d]"):format(displayTitle, questData.level)
+    end
+    -- Indicator for quests that are available to accept but not yet accepted (not for rares).
+    if not questData.isAccepted and questData.category ~= "RARE" then
+        displayTitle = displayTitle .. "  — Available"
+    end
+    entry.titleText:SetText(displayTitle)
+    entry.titleShadow:SetText(displayTitle)
+    local c = questData.color
+    if questData.isDungeonQuest and not questData.isTracked then
+        c = { c[1] * 0.65, c[2] * 0.65, c[3] * 0.65 }
+    elseif addon.GetDB("dimNonSuperTracked", false) and not questData.isSuperTracked then
+        c = { c[1] * 0.60, c[2] * 0.60, c[3] * 0.60 }
+    end
+    entry.titleText:SetTextColor(c[1], c[2], c[3], 1)
+    entry._savedColor = nil
+
+    local highlightStyle, hc, ha, barW, topPadding, bottomPadding = ApplyHighlightStyle(entry, questData)
 
     -- For tracked WORLD quests that are not on the current map (off-map world quests),
     -- add a subtle tinted background so they stand out, without affecting normal quests.
@@ -192,89 +281,12 @@ local function PopulateEntry(entry, questData)
         entry.zoneShadow:Hide()
     end
 
-    local shownObjs  = 0
-    local objIndent = addon.GetObjIndent()
-    local objTextWidth = textWidth - objIndent
-    if objTextWidth < 1 then objTextWidth = addon.GetPanelWidth() - addon.PADDING * 2 - objIndent - (addon.CONTENT_RIGHT_PADDING or 0) end
-
-    local objColor = addon.GetDB("objectiveColor", nil)
-    if not objColor or #objColor < 3 then objColor = c end
-    local doneColor = addon.GetDB("objectiveDoneColor", nil)
-    if not doneColor or #doneColor < 3 then doneColor = addon.OBJ_DONE_COLOR end
-
-    for j = 1, addon.MAX_OBJECTIVES do
-        local obj = entry.objectives[j]
-        local oData = questData.objectives[j]
-
-        obj.text:SetWidth(objTextWidth)
-        obj.shadow:SetWidth(objTextWidth)
-
-        if oData then
-            local objText = oData.text or ""
-            if addon.GetDB("showObjectiveNumbers", false) then
-                objText = ("%d. %s"):format(j, objText)
-            end
-            obj.text:SetText(objText)
-            obj.shadow:SetText(objText)
-
-            if oData.finished then
-                obj.text:SetTextColor(doneColor[1], doneColor[2], doneColor[3], 1)
-            else
-                obj.text:SetTextColor(objColor[1], objColor[2], objColor[3], 1)
-            end
-
-            obj.text:ClearAllPoints()
-            local indent = (shownObjs == 0 and prevAnchor == entry.titleText) and objIndent or 0
-            obj.text:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", indent, -addon.GetObjSpacing())
-            obj.text:Show()
-            obj.shadow:Show()
-
-            local objH = obj.text:GetStringHeight()
-            if not objH or objH < 1 then objH = addon.OBJ_SIZE + 2 end
-            totalH = totalH + addon.GetObjSpacing() + objH
-
-            prevAnchor = obj.text
-            shownObjs  = shownObjs + 1
-        else
-            obj.text:Hide()
-            obj.shadow:Hide()
-        end
-    end
-
-    if questData.isComplete and shownObjs == 0 then
-        local obj = entry.objectives[1]
-        local turnInText = addon.GetDB("showObjectiveNumbers", false) and "1. Ready to turn in" or "Ready to turn in"
-        obj.text:SetText(turnInText)
-        obj.shadow:SetText(turnInText)
-        obj.text:SetTextColor(doneColor[1], doneColor[2], doneColor[3], 1)
-        obj.text:ClearAllPoints()
-        local turnInIndent = (prevAnchor == entry.titleText) and objIndent or 0
-        obj.text:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", turnInIndent, -addon.GetObjSpacing())
-        obj.text:Show()
-        obj.shadow:Show()
-        local objH = obj.text:GetStringHeight()
-        if not objH or objH < 1 then objH = addon.OBJ_SIZE + 2 end
-        totalH = totalH + addon.GetObjSpacing() + objH
-    end
+    totalH = ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, c)
 
     entry.entryHeight = totalH + topPadding + bottomPadding
     entry:SetHeight(totalH + topPadding + bottomPadding)
 
-    local shadowA = addon.GetDB("showTextShadow", true) and (tonumber(addon.GetDB("shadowAlpha", 0.8)) or 0.8) or 0
-    local glowAlpha = math.min(1, ha + 0.4)
-    if questData.isSuperTracked and highlightStyle == "glow" then
-        entry.titleShadow:SetTextColor(hc[1], hc[2], hc[3], glowAlpha)
-        entry.zoneShadow:SetTextColor(hc[1], hc[2], hc[3], glowAlpha)
-        for j = 1, addon.MAX_OBJECTIVES do
-            entry.objectives[j].shadow:SetTextColor(hc[1], hc[2], hc[3], glowAlpha)
-        end
-    else
-        entry.titleShadow:SetTextColor(0, 0, 0, shadowA)
-        entry.zoneShadow:SetTextColor(0, 0, 0, shadowA)
-        for j = 1, addon.MAX_OBJECTIVES do
-            entry.objectives[j].shadow:SetTextColor(0, 0, 0, shadowA)
-        end
-    end
+    ApplyShadowColors(entry, questData, highlightStyle, hc, ha)
 
     -- Active-quest bar: position after entry has final height (left, right, or pill-left)
     local trackBarW = (highlightStyle == "pill-left") and barW or 2
@@ -527,6 +539,14 @@ local function ShouldShowInInstance()
     return true
 end
 
+--- Full layout of the objectives panel.
+-- Algorithm: (1) Bail if disabled or in combat. (2) Hide panel if instance visibility
+-- forbids. (3) Apply grow-up anchor and header visibility from DB. (4) When collapsed,
+-- update floating item and header count then return. (5) Read and sort/group quests,
+-- mark entries no longer in list for fadeout. (6) For each grouped quest, acquire or
+-- reuse pool entry and PopulateEntry. (7) Place section headers and entries by group,
+-- respecting collapsed categories. (8) Set scroll child height, clamp scroll offset,
+-- compute target panel height and show frame.
 local function FullLayout()
     if not addon.enabled then return end
     if InCombatLockdown() then

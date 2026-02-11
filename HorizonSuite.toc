@@ -7,6 +7,7 @@
 
 HorizonSuite.lua
 Utilities.lua
+Config.lua
 Core.lua
 WorldQuests.lua
 Rares.lua
