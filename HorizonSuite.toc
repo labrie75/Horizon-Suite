@@ -2,7 +2,7 @@
 ## Title: Horizon Suite - Focus
 ## Notes: Clean glassmorphism objective tracker for the Midnight era.
 ## Author: Crystilac
-## Version: 0.6.5
+## Version: 0.6.6
 ## SavedVariables: HorizonDB
 
 HorizonSuite.lua
