@@ -585,7 +585,8 @@ local function FullLayout()
         if addon.rareTrackingInit and not addon.zoneJustChanged then
             for key in pairs(currentRareKeys) do
                 if not addon.prevRareKeys[key] and PlaySound and addon.GetDB("rareAddedSound", true) then
-                    pcall(PlaySound, addon.RARE_ADDED_SOUND)
+                    local ok, err = pcall(PlaySound, addon.RARE_ADDED_SOUND)
+                    if not ok and addon.HSPrint then addon.HSPrint("PlaySound rare failed: " .. tostring(err)) end
                     break
                 end
             end

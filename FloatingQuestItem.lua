@@ -24,7 +24,8 @@ floatingQuestItemBtn.cooldown:SetAllPoints()
 floatingQuestItemBtn:SetScript("OnEnter", function(self)
     if self._itemLink and GameTooltip then
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        pcall(GameTooltip.SetHyperlink, GameTooltip, self._itemLink)
+        local ok, err = pcall(GameTooltip.SetHyperlink, GameTooltip, self._itemLink)
+        if not ok and addon.HSPrint then addon.HSPrint("FloatingQuestItem tooltip failed: " .. tostring(err)) end
         GameTooltip:Show()
     end
 end)

@@ -47,7 +47,8 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
 
     elseif cmd == "testsound" then
         if PlaySound then
-            pcall(PlaySound, addon.RARE_ADDED_SOUND)
+            local ok, err = pcall(PlaySound, addon.RARE_ADDED_SOUND)
+            if not ok and HSPrint then HSPrint("PlaySound rare failed: " .. tostring(err)) end
             HSPrint("Played rare-added sound.")
         else
             HSPrint("Could not play sound.")

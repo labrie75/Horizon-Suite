@@ -42,7 +42,7 @@ for i = 1, addon.POOL_SIZE do
                 if vignetteGUID and C_SuperTrack and C_SuperTrack.SetSuperTrackedVignette then
                     C_SuperTrack.SetSuperTrackedVignette(vignetteGUID)
                 end
-                if not WorldMapFrame or not WorldMapFrame:IsShown() then
+                if WorldMapFrame and not WorldMapFrame:IsShown() and ToggleWorldMap then
                     ToggleWorldMap()
                 end
                 return
@@ -135,19 +135,22 @@ for i = 1, addon.POOL_SIZE do
         if self.creatureID then
             local link = ("unit:Creature-0-0-0-0-%d-0000000000"):format(self.creatureID)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            pcall(GameTooltip.SetHyperlink, GameTooltip, link)
+            local ok, err = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
+            if not ok and addon.HSPrint then addon.HSPrint("Tooltip SetHyperlink (creature) failed: " .. tostring(err)) end
             local att = _G.AllTheThings
             if att and att.Modules and att.Modules.Tooltip then
                 local attach = att.Modules.Tooltip.AttachTooltipSearchResults
                 local searchFn = att.SearchForObject or att.SearchForField
                 if attach and searchFn then
-                    pcall(attach, GameTooltip, searchFn, "npcID", self.creatureID)
+                    local ok, err = pcall(attach, GameTooltip, searchFn, "npcID", self.creatureID)
+                    if not ok and addon.HSPrint then addon.HSPrint("ATT tooltip attach failed: " .. tostring(err)) end
                 end
             end
             GameTooltip:Show()
         elseif self.questID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            pcall(GameTooltip.SetHyperlink, GameTooltip, "quest:" .. self.questID)
+            local ok, err = pcall(GameTooltip.SetHyperlink, GameTooltip, "quest:" .. self.questID)
+            if not ok and addon.HSPrint then addon.HSPrint("Tooltip SetHyperlink (quest) failed: " .. tostring(err)) end
             GameTooltip:Show()
         elseif self.entryKey then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")

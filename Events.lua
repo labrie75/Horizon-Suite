@@ -486,6 +486,7 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
                         end
                     end)
                 end)
+                if not ok and A and A.HSPrint then A.HSPrint("WorldQuestDataProviderMixin hook failed: " .. tostring(err)) end
             end)
         elseif addonName == "Blizzard_ObjectiveTracker" then
             if A.enabled then A.TrySuppressTracker() end

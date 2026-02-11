@@ -23,10 +23,10 @@ local function GetNearbyQuestIDs()
     local myMapInfo = C_Map.GetMapInfo and C_Map.GetMapInfo(mapID) or nil
     local myMapType = myMapInfo and myMapInfo.mapType
     if C_Map.GetMapInfo and myMapType ~= nil and myMapType >= 4 then
-        local parentInfo = C_Map.GetMapInfo(mapID)
+        local parentInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)) or nil
         local parentMapID = parentInfo and parentInfo.parentMapID and parentInfo.parentMapID ~= 0 and parentInfo.parentMapID or nil
         if parentMapID then
-            local parentMapInfo = C_Map.GetMapInfo(parentMapID)
+            local parentMapInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(parentMapID)) or nil
             local mapType = parentMapInfo and parentMapInfo.mapType
             if mapType == nil or mapType >= 3 then
                 if not seen[parentMapID] then

@@ -1,6 +1,6 @@
 --[[
     Horizon Suite - Focus - Options Panel
-    Main panel frame, title bar, search bar, sidebar, content scroll, BuildCategory, FilterBySearch, animations, edit stub.
+    Main panel frame, title bar, search bar, sidebar, content scroll, BuildCategory, FilterBySearch, animations.
 ]]
 
 local addon = _G.ModernQuestTracker
@@ -138,56 +138,8 @@ for i = 2, #tabFrames do tabFrames[i]:Hide() end
 local versionLabel = sidebar:CreateFontString(nil, "OVERLAY")
 versionLabel:SetFont(Def.FontPath or "Fonts\\FRIZQT__.TTF", Def.SectionSize or 10, "OUTLINE")
 SetTextColor(versionLabel, Def.TextColorSection)
-versionLabel:SetText("v0.6.5")
+versionLabel:SetText("v0.6.6")
 versionLabel:SetPoint("BOTTOMLEFT", sidebar, "BOTTOMLEFT", 8, 8)
-
--- ---------------------------------------------------------------------------
--- Helper: create one color swatch row (for colorGroup/colorMatrix)
--- ---------------------------------------------------------------------------
-local function CreateColorSwatchRow(parent, anchor, labelText, dbKey, defaultTbl, getTbl, setKeyVal, notify)
-    local row = CreateFrame("Frame", nil, parent)
-    row:SetSize(280, 24)
-    row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -4)
-    local lab = row:CreateFontString(nil, "OVERLAY")
-    lab:SetFont(Def.FontPath or "Fonts\\FRIZQT__.TTF", Def.LabelSize or 13, "OUTLINE")
-    lab:SetJustifyH("LEFT")
-    SetTextColor(lab, Def.TextColorLabel)
-    lab:SetText(labelText)
-    lab:SetPoint("LEFT", row, "LEFT", 0, 0)
-    local swatch = CreateFrame("Button", nil, row)
-    swatch:SetSize(20, 20)
-    swatch:SetPoint("LEFT", lab, "RIGHT", 10, 0)
-    local tex = swatch:CreateTexture(nil, "BACKGROUND")
-    tex:SetAllPoints(swatch)
-    local bc = Def.SectionCardBorder
-    local e = 1
-    do
-        local t1 = swatch:CreateTexture(nil, "BORDER") t1:SetColorTexture(bc[1], bc[2], bc[3], bc[4]) t1:SetHeight(e) t1:SetPoint("TOPLEFT", swatch, "TOPLEFT", 0, 0) t1:SetPoint("TOPRIGHT", swatch, "TOPRIGHT", 0, 0)
-        local t2 = swatch:CreateTexture(nil, "BORDER") t2:SetColorTexture(bc[1], bc[2], bc[3], bc[4]) t2:SetHeight(e) t2:SetPoint("BOTTOMLEFT", swatch, "BOTTOMLEFT", 0, 0) t2:SetPoint("BOTTOMRIGHT", swatch, "BOTTOMRIGHT", 0, 0)
-        local t3 = swatch:CreateTexture(nil, "BORDER") t3:SetColorTexture(bc[1], bc[2], bc[3], bc[4]) t3:SetWidth(e) t3:SetPoint("TOPLEFT", swatch, "TOPLEFT", 0, 0) t3:SetPoint("BOTTOMLEFT", swatch, "BOTTOMLEFT", 0, 0)
-        local t4 = swatch:CreateTexture(nil, "BORDER") t4:SetColorTexture(bc[1], bc[2], bc[3], bc[4]) t4:SetWidth(e) t4:SetPoint("TOPRIGHT", swatch, "TOPRIGHT", 0, 0) t4:SetPoint("BOTTOMRIGHT", swatch, "BOTTOMRIGHT", 0, 0)
-    end
-    swatch.tex = tex
-    function swatch:Refresh()
-        local r,g,b = defaultTbl[1], defaultTbl[2], defaultTbl[3]
-        local tbl = getTbl()
-        if tbl and tbl[1] then r,g,b = tbl[1], tbl[2], tbl[3] end
-        tex:SetColorTexture(r,g,b,1)
-    end
-    swatch:SetScript("OnClick", function()
-        local r,g,b = defaultTbl[1], defaultTbl[2], defaultTbl[3]
-        local tbl = getTbl()
-        if tbl and tbl[1] then r,g,b = tbl[1], tbl[2], tbl[3] end
-        ColorPickerFrame:SetupColorPickerAndShow({
-            r=r,g=g,b=b, hasOpacity=false,
-            swatchFunc = function() local nr,ng,nb = ColorPickerFrame:GetColorRGB() setKeyVal({nr,ng,nb}) tex:SetColorTexture(nr,ng,nb,1) if notify then notify() end end,
-            cancelFunc = function() local p = ColorPickerFrame.previousValues if p then setKeyVal({p.r,p.g,p.b}) end end,
-            finishedFunc = function() local nr,ng,nb = ColorPickerFrame:GetColorRGB() setKeyVal({nr,ng,nb}) if notify then notify() end end,
-        })
-    end)
-    row.Refresh = function() swatch:Refresh() end
-    return row
-end
 
 -- ---------------------------------------------------------------------------
 -- Build one category's content
@@ -251,7 +203,7 @@ local function BuildCategory(tab, options, refreshers)
             for _, key in ipairs(keys) do
                 local getTbl = function() local db = getDB(opt.dbKey, nil) return db and db[key] end
                 local setKeyVal = function(v) addon.EnsureDB() if not HorizonDB[opt.dbKey] then HorizonDB[opt.dbKey] = {} end HorizonDB[opt.dbKey][key] = v notifyMainAddon() end
-                local row = CreateColorSwatchRow(currentCard, currentCard.contentAnchor, (opt.labelMap and opt.labelMap[key]) or key:gsub("^%l", string.upper), nil, defaultMap[key], getTbl, setKeyVal, notifyMainAddon)
+                local row = OptionsWidgets_CreateColorSwatchRow(currentCard, currentCard.contentAnchor, (opt.labelMap and opt.labelMap[key]) or key:gsub("^%l", string.upper), defaultMap[key], getTbl, setKeyVal, notifyMainAddon)
                 currentCard.contentAnchor = row
                 currentCard.contentHeight = currentCard.contentHeight + 4 + 24
                 swatches[#swatches+1] = row
@@ -280,7 +232,7 @@ local function BuildCategory(tab, options, refreshers)
             for _, ov in ipairs(opt.overrides or {}) do
                 local getTbl = function() return getDB(ov.dbKey, nil) end
                 local setKeyVal = function(v) setDB(ov.dbKey, v) notifyMainAddon() end
-                local row = CreateColorSwatchRow(currentCard, currentCard.contentAnchor, ov.name, ov.dbKey, ov.default, getTbl, setKeyVal, notifyMainAddon)
+                local row = OptionsWidgets_CreateColorSwatchRow(currentCard, currentCard.contentAnchor, ov.name, ov.default, getTbl, setKeyVal, notifyMainAddon)
                 currentCard.contentAnchor = row
                 currentCard.contentHeight = currentCard.contentHeight + 4 + 24
                 overrideRows[#overrideRows+1] = row
@@ -316,7 +268,7 @@ local function BuildCategory(tab, options, refreshers)
                 local getTbl = function() local db = getDB(opt.dbKey, nil) return db and db[key] end
                 local setKeyVal = function(v) addon.EnsureDB() if not HorizonDB[opt.dbKey] then HorizonDB[opt.dbKey] = {} end HorizonDB[opt.dbKey][key] = v notifyMainAddon() end
                 local def = defaultMap[key] or {0.5,0.5,0.5}
-                local row = CreateColorSwatchRow(currentCard, currentCard.contentAnchor, (opt.labelMap and opt.labelMap[key]) or key:gsub("^%l", string.upper), nil, def, getTbl, setKeyVal, notifyMainAddon)
+                local row = OptionsWidgets_CreateColorSwatchRow(currentCard, currentCard.contentAnchor, (opt.labelMap and opt.labelMap[key]) or key:gsub("^%l", string.upper), def, getTbl, setKeyVal, notifyMainAddon)
                 currentCard.contentAnchor = row
                 currentCard.contentHeight = currentCard.contentHeight + 4 + 24
                 swatches[#swatches+1] = row

@@ -391,6 +391,60 @@ function OptionsWidgets_CreateCustomDropdown(parent, labelText, description, opt
     return row
 end
 
+-- Color swatch row: label + clickable swatch (for colorMatrix/colorGroup in options panel).
+-- defaultTbl: {r,g,b} or nil (nil => {0.5,0.5,0.5}). getTbl() returns current color or nil. setKeyVal({r,g,b}), notify() on change.
+function OptionsWidgets_CreateColorSwatchRow(parent, anchor, labelText, defaultTbl, getTbl, setKeyVal, notify)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetSize(280, 24)
+    row:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -4)
+    local lab = row:CreateFontString(nil, "OVERLAY")
+    lab:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
+    lab:SetJustifyH("LEFT")
+    SetTextColor(lab, Def.TextColorLabel)
+    lab:SetText(labelText or "")
+    lab:SetPoint("LEFT", row, "LEFT", 0, 0)
+    local swatch = CreateFrame("Button", nil, row)
+    swatch:SetSize(20, 20)
+    swatch:SetPoint("LEFT", lab, "RIGHT", 10, 0)
+    local tex = swatch:CreateTexture(nil, "BACKGROUND")
+    tex:SetAllPoints(swatch)
+    addon.CreateBorder(swatch, Def.SectionCardBorder)
+    swatch.tex = tex
+    local def = defaultTbl and #defaultTbl >= 3 and defaultTbl or { 0.5, 0.5, 0.5 }
+    function swatch:Refresh()
+        local r, g, b = def[1], def[2], def[3]
+        local tbl = getTbl and getTbl()
+        if tbl and tbl[1] then r, g, b = tbl[1], tbl[2], tbl[3] end
+        tex:SetColorTexture(r, g, b, 1)
+    end
+    swatch:SetScript("OnClick", function()
+        local r, g, b = def[1], def[2], def[3]
+        local tbl = getTbl and getTbl()
+        if tbl and tbl[1] then r, g, b = tbl[1], tbl[2], tbl[3] end
+        ColorPickerFrame:SetupColorPickerAndShow({
+            r = r, g = g, b = b, hasOpacity = false,
+            swatchFunc = function()
+                local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+                setKeyVal({ nr, ng, nb })
+                tex:SetColorTexture(nr, ng, nb, 1)
+                if notify then notify() end
+            end,
+            cancelFunc = function()
+                local p = ColorPickerFrame.previousValues
+                if p then setKeyVal({ p.r, p.g, p.b }) end
+            end,
+            finishedFunc = function()
+                local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+                setKeyVal({ nr, ng, nb })
+                if notify then notify() end
+            end,
+        })
+    end)
+    row.Refresh = function() swatch:Refresh() end
+    row:Refresh()
+    return row
+end
+
 -- Search input: full width, optional magnifier icon and clear button
 function OptionsWidgets_CreateSearchInput(parent, onTextChanged)
     local row = CreateFrame("Frame", nil, parent)

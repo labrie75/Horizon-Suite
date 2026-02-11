@@ -629,6 +629,7 @@ end
 function addon.ApplyItemCooldown(cooldownFrame, itemLink)
     if not cooldownFrame or not itemLink then return end
     local ok, itemID = pcall(GetItemInfoInstant, itemLink)
+    if not ok and addon.HSPrint then addon.HSPrint("GetItemInfoInstant failed: " .. tostring(itemLink)) end
     if not ok or not itemID or not GetItemCooldown then return end
     local start, duration = GetItemCooldown(itemID)
     if start and duration and duration > 0 then

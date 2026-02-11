@@ -50,6 +50,7 @@ local function UpdateMplusBlock()
     local timerStr, pctStr, affixStr = "", "", ""
     if C_Scenario and C_Scenario.GetScenarioInfo then
         local ok, info = pcall(C_Scenario.GetScenarioInfo)
+        if not ok and addon.HSPrint then addon.HSPrint("C_Scenario.GetScenarioInfo failed") end
         if ok and info and info.name then
             if info.currentStage and info.numStages and info.numStages > 0 then
                 pctStr = string.format("%d/%d", info.currentStage or 0, info.numStages or 0)
@@ -60,6 +61,7 @@ local function UpdateMplusBlock()
         local ok, stepInfo = pcall(function()
             return C_Scenario.GetScenarioStepInfo()
         end)
+        if not ok and addon.HSPrint then addon.HSPrint("C_Scenario.GetScenarioStepInfo failed") end
         if ok and stepInfo then
             local progress = (type(stepInfo) == "table" and stepInfo.progress) or (type(stepInfo) == "number" and stepInfo)
             if progress then pctStr = tostring(progress) .. "%" end
@@ -67,12 +69,14 @@ local function UpdateMplusBlock()
     end
     if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneLevel then
         local ok, level = pcall(C_ChallengeMode.GetActiveKeystoneLevel)
+        if not ok and addon.HSPrint then addon.HSPrint("C_ChallengeMode.GetActiveKeystoneLevel failed") end
         if ok and level and level > 0 then
             timerStr = "Keystone +" .. tostring(level)
         end
     end
     if C_MythicPlus and C_MythicPlus.GetCurrentAffixes then
         local ok, affixes = pcall(C_MythicPlus.GetCurrentAffixes)
+        if not ok and addon.HSPrint then addon.HSPrint("C_MythicPlus.GetCurrentAffixes failed") end
         if ok and affixes and #affixes > 0 then
             local names = {}
             for _, a in ipairs(affixes) do
