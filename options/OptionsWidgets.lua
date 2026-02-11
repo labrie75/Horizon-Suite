@@ -603,6 +603,14 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
             if keyToRow[key] then newRows[i] = keyToRow[key] end
         end
         state.rows = newRows
+        local resetBtn = state.resetBtn
+        if resetBtn and orderedKeys[#orderedKeys] then
+            local lastRow = keyToRow[orderedKeys[#orderedKeys]]
+            if lastRow then
+                resetBtn:ClearAllPoints()
+                resetBtn:SetPoint("TOPLEFT", lastRow, "BOTTOMLEFT", 0, -6)
+            end
+        end
     end
 
     local function applyReorderAndCleanup()
@@ -710,6 +718,7 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
     end
 
     local resetBtn = CreateFrame("Button", nil, container)
+    state.resetBtn = resetBtn
     resetBtn:SetSize(100, 22)
     resetBtn:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", 0, -6)
     local resetLabel = resetBtn:CreateFontString(nil, "OVERLAY")
