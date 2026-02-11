@@ -232,6 +232,8 @@ local OptionCategories = {
         options = {
             { type = "section", name = "Focus order" },
             { type = "reorderList", name = "Focus category order", labelMap = addon.SECTION_LABELS, get = function() return addon.GetGroupOrder() end, set = function(order) addon.SetGroupOrder(order) end, tooltip = "Drag to reorder categories in the Focus list." },
+            { type = "section", name = "Sort within categories" },
+            { type = "dropdown", name = "Focus sort mode", desc = "How entries are ordered within each category.", dbKey = "entrySortMode", options = { { "Alphabetical", "alpha" }, { "Quest Type", "questType" }, { "Zone", "zone" }, { "Quest Level", "level" } }, get = function() return getDB("entrySortMode", "questType") end, set = function(v) setDB("entrySortMode", v) end },
             { type = "section", name = "Effects" },
             { type = "toggle", name = "Animations", desc = "Enable cinematic slide and fade for quests.", dbKey = "animations", get = function() return getDB("animations", true) end, set = function(v) setDB("animations", v) end },
             { type = "toggle", name = "Objective progress flash", desc = "Show a green flash when an objective is completed.", dbKey = "objectiveProgressFlash", get = function() return getDB("objectiveProgressFlash", true) end, set = function(v) setDB("objectiveProgressFlash", v) end },

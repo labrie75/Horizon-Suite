@@ -315,6 +315,49 @@ local function ReadTrackedQuests()
     return quests
 end
 
+-- Entry sort mode: alpha, questType, zone, level (DB key entrySortMode, default questType)
+local VALID_ENTRY_SORT = { alpha = true, questType = true, zone = true, level = true }
+local function GetSortMode()
+    local mode = addon.GetDB("entrySortMode", "questType")
+    if type(mode) == "string" and VALID_ENTRY_SORT[mode] then return mode end
+    return "questType"
+end
+
+-- Category order for questType sort (lower = earlier)
+local CATEGORY_SORT_ORDER = {
+    COMPLETE = 1, CAMPAIGN = 2, IMPORTANT = 3, LEGENDARY = 4,
+    WORLD = 5, WEEKLY = 6, DAILY = 7, CALLING = 8, RARE = 9, DEFAULT = 10,
+}
+
+local function CompareEntriesBySortMode(a, b)
+    local mode = GetSortMode()
+    local ta, tb = (a.title or ""):lower(), (b.title or ""):lower()
+
+    if mode == "alpha" then
+        return ta < tb
+    end
+
+    if mode == "questType" then
+        local ra, rb = CATEGORY_SORT_ORDER[a.category] or 99, CATEGORY_SORT_ORDER[b.category] or 99
+        if ra ~= rb then return ra < rb end
+        return ta < tb
+    end
+
+    if mode == "zone" then
+        local za, zb = (a.zoneName or ""):lower(), (b.zoneName or ""):lower()
+        if za ~= zb then return za < zb end
+        return ta < tb
+    end
+
+    if mode == "level" then
+        local la, lb = a.level or 0, b.level or 0
+        if la ~= lb then return la > lb end
+        return ta < tb
+    end
+
+    return ta < tb
+end
+
 local function SortAndGroupQuests(quests)
     local groups = {}
     for _, key in ipairs(addon.GetGroupOrder()) do
@@ -338,6 +381,12 @@ local function SortAndGroupQuests(quests)
         end
     end
 
+    for _, key in ipairs(addon.GetGroupOrder()) do
+        if #groups[key] > 0 then
+            table.sort(groups[key], CompareEntriesBySortMode)
+        end
+    end
+
     local result = {}
     for _, key in ipairs(addon.GetGroupOrder()) do
         if #groups[key] > 0 then
@@ -358,3 +407,4 @@ addon.IsInMythicDungeon  = IsInMythicDungeon
 addon.GetMythicDungeonName = GetMythicDungeonName
 addon.ReadTrackedQuests  = ReadTrackedQuests
 addon.SortAndGroupQuests = SortAndGroupQuests
+addon.GetSortMode        = GetSortMode

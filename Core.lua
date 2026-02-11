@@ -53,7 +53,7 @@ addon.ITEM_BTN_OFFSET = 4
 addon.QUEST_TYPE_ICON_SIZE = 16
 addon.QUEST_TYPE_ICON_GAP  = 4
 addon.ICON_COLUMN_WIDTH    = addon.QUEST_TYPE_ICON_SIZE + addon.QUEST_TYPE_ICON_GAP
-addon.BAR_LEFT_OFFSET      = 12  -- space from entry left (more = more gap between bar and quest type icon)
+addon.BAR_LEFT_OFFSET      = 9
 addon.TRACKED_OTHER_ZONE_ICON_SIZE = 12
 
 addon.SHADOW_OX       = 2

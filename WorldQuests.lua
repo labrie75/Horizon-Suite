@@ -17,22 +17,27 @@ local function GetNearbyQuestIDs()
     local mapID = C_Map.GetBestMapForUnit("player")
     if not mapID then return nearbySet, taskQuestOnlySet end
 
+    -- In a city (Zone type): only that map. In a subzone (Micro/Dungeon): that map + one parent so we see the city's quests (e.g. Foundation Hall + Dornogal).
     local mapIDsToCheck = { mapID }
     local seen = { [mapID] = true }
-    if C_Map.GetMapParentInfo then
-        local current = mapID
-        for _ = 1, 20 do
-            local parentInfo = C_Map.GetMapParentInfo(current)
-            if not parentInfo or not parentInfo.parentMapID or parentInfo.parentMapID == 0 then break end
-            current = parentInfo.parentMapID
-            if not seen[current] then
-                seen[current] = true
-                mapIDsToCheck[#mapIDsToCheck + 1] = current
+    local myMapInfo = C_Map.GetMapInfo and C_Map.GetMapInfo(mapID) or nil
+    local myMapType = myMapInfo and myMapInfo.mapType
+    if C_Map.GetMapInfo and myMapType ~= nil and myMapType >= 4 then
+        local parentInfo = C_Map.GetMapInfo(mapID)
+        local parentMapID = parentInfo and parentInfo.parentMapID and parentInfo.parentMapID ~= 0 and parentInfo.parentMapID or nil
+        if parentMapID then
+            local parentMapInfo = C_Map.GetMapInfo(parentMapID)
+            local mapType = parentMapInfo and parentMapInfo.mapType
+            if mapType == nil or mapType >= 3 then
+                if not seen[parentMapID] then
+                    seen[parentMapID] = true
+                    mapIDsToCheck[#mapIDsToCheck + 1] = parentMapID
+                end
             end
         end
     end
-    local numMapsAfterParentWalk = #mapIDsToCheck
-    if C_Map.GetMapChildrenInfo then
+    -- Only add children when player's map is Micro (5) or Dungeon (4); never when in a Zone (city).
+    if C_Map.GetMapChildrenInfo and myMapType ~= nil and myMapType >= 4 then
         local children = C_Map.GetMapChildrenInfo(mapID, nil, true)
         if children then
             for _, child in ipairs(children) do
@@ -40,19 +45,6 @@ local function GetNearbyQuestIDs()
                 if childID and not seen[childID] then
                     seen[childID] = true
                     mapIDsToCheck[#mapIDsToCheck + 1] = childID
-                end
-            end
-        end
-        for i = 2, numMapsAfterParentWalk do
-            local parentMapID = mapIDsToCheck[i]
-            local parentChildren = C_Map.GetMapChildrenInfo(parentMapID, nil, true)
-            if parentChildren then
-                for _, child in ipairs(parentChildren) do
-                    local childID = child and child.mapID
-                    if childID and not seen[childID] then
-                        seen[childID] = true
-                        mapIDsToCheck[#mapIDsToCheck + 1] = childID
-                    end
                 end
             end
         end
@@ -95,15 +87,44 @@ local function GetNearbyQuestIDs()
         end
     end
 
-    -- Use cached zone WQ IDs (from map open or heartbeat) for player map and all checked maps.
+    -- Waypoint-based fallback: only when next waypoint is on the player's exact map (not parent), so we don't pull in quests from other zones that share a hub.
+    if C_QuestLog.GetNextWaypoint then
+        local questIDsToCheck = {}
+        if C_QuestLog.GetNumQuestWatches and C_QuestLog.GetQuestIDForQuestWatchIndex then
+            for i = 1, C_QuestLog.GetNumQuestWatches() do
+                local qid = C_QuestLog.GetQuestIDForQuestWatchIndex(i)
+                if qid then questIDsToCheck[qid] = true end
+            end
+        end
+        if C_QuestLog.GetNumQuestLogEntries then
+            for i = 1, C_QuestLog.GetNumQuestLogEntries() do
+                local info = C_QuestLog.GetInfo(i)
+                if info and not info.isHeader and info.questID then
+                    questIDsToCheck[info.questID] = true
+                end
+            end
+        end
+        for questID, _ in pairs(questIDsToCheck) do
+            if not nearbySet[questID] then
+                local waypointMapID = C_QuestLog.GetNextWaypoint(questID)
+                if waypointMapID == mapID then
+                    nearbySet[questID] = true
+                end
+            end
+        end
+    end
+
+    -- Use cached zone WQ IDs for player map; only use parent's cache when we're in a subzone (Micro/Dungeon) so we don't pull in sibling zones from a broad parent cache.
     if addon.zoneTaskQuestCache then
-        for _, checkMapID in ipairs(mapIDsToCheck) do
-            local cached = addon.zoneTaskQuestCache[checkMapID]
-            if cached then
-                for id, _ in pairs(cached) do
-                    if id then
-                        nearbySet[id] = true
-                        taskQuestOnlySet[id] = true
+        for i, checkMapID in ipairs(mapIDsToCheck) do
+            if i == 1 or (myMapType ~= nil and myMapType >= 4) then
+                local cached = addon.zoneTaskQuestCache[checkMapID]
+                if cached then
+                    for id, _ in pairs(cached) do
+                        if id then
+                            nearbySet[id] = true
+                            taskQuestOnlySet[id] = true
+                        end
                     end
                 end
             end

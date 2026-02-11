@@ -14,7 +14,7 @@ The logic that drives your efficiency.
 
 **Spatial Awareness**
 - **Current Zone Filter** - Automatically hides quests that aren't in your immediate area to cut through the noise.
-- **Proximity Priority** - Dynamically floats "Nearby" quests to the top of the list so you never have to hunt for your next objective.
+- **Proximity Priority** - Dynamically floats "Nearby" quests to the top of the list so you never have to hunt for your next objective. Quest grouping into "Current Zone" works correctly in sub-zones and micro-dungeons (e.g. Foundation Hall within Dornogal) on initial load, without needing to open the map first.
 
 **Dynamic Scanning**
 - **Rare Boss Tracker** - Scans for nearby Rare vignettes and adds them to the tracker with a single click to super-track on the map.
@@ -39,6 +39,7 @@ The aesthetic that defines your interface.
 - **Weekly & Daily Quests** - Recurring weekly and daily quests appear in "WEEKLY QUESTS" and "DAILY QUESTS" sections. Zone weeklies and dailies are auto-added like world quests. Quests available to accept but not yet accepted are labeled "— Available".
 - **Turn-in Highlights** - Quests "Ready for Turn-in" receive a unique visual highlight, giving you a clear signal that it's time to head back to the hub.
 - **Category Collapsing** - Granular control over your screen space. Collapse specific sections (like World Quests or Weekly Quests) while keeping your main Campaign visible.
+- **Focus sort mode** - In Options → Categories, choose how entries are ordered within each category: Alphabetical, Quest Type, Zone, or Quest Level.
 
 **Total Customization**
 - **The Color Matrix** - Define your own hex-code reality. Customize the colors for every quest category and objective state via `/horizon options`.

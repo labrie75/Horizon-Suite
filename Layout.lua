@@ -72,8 +72,8 @@ local function PopulateEntry(entry, questData)
     if addon.GetDB("showQuestLevel", false) and questData.level then
         displayTitle = ("%s [L%d]"):format(displayTitle, questData.level)
     end
-    -- Indicator for quests that are available to accept but not yet accepted.
-    if not questData.isAccepted then
+    -- Indicator for quests that are available to accept but not yet accepted (not for rares).
+    if not questData.isAccepted and questData.category ~= "RARE" then
         displayTitle = displayTitle .. "  — Available"
     end
     entry.titleText:SetText(displayTitle)

@@ -59,7 +59,7 @@ local function GetRaresOnMap()
                                 entryKey    = "vignette:" .. tostring(vignetteGUID),
                                 questID     = nil,
                                 title       = vi.name or "Unknown",
-                                objectives  = { { text = "Available", finished = false } },
+                                objectives  = {},
                                 color       = rareColor,
                                 category    = "RARE",
                                 isComplete  = false,
@@ -86,10 +86,10 @@ local function GetRaresOnMap()
     if not mapID then return out end
 
     local rares = RARES_BY_MAP[mapID]
-    if not rares and C_Map.GetMapParentInfo then
+    if not rares and C_Map.GetMapInfo then
         local current = mapID
         for _ = 1, 20 do
-            local parentInfo = C_Map.GetMapParentInfo(current)
+            local parentInfo = C_Map.GetMapInfo(current)
             if not parentInfo or not parentInfo.parentMapID then break end
             current = parentInfo.parentMapID
             rares = RARES_BY_MAP[current]
@@ -106,7 +106,7 @@ local function GetRaresOnMap()
                 entryKey   = "rare:" .. tostring(creatureID),
                 questID    = nil,
                 title      = name,
-                objectives = { { text = "Available", finished = false } },
+                objectives = {},
                 color      = rareColor,
                 category   = "RARE",
                 isComplete = false,

@@ -239,10 +239,29 @@ local function StartMapCacheHeartbeat()
         if WorldMapFrame and WorldMapFrame:IsVisible() then
             RunWQTMapCache(false)
         else
-            -- Map closed: still cache player's current zone so world quests show without opening map.
+            -- Map closed: cache player's current zone (and parent maps) so quests show without opening map.
             local playerMapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-            if A.enabled and playerMapID and CacheWQDataWQT(playerMapID) then
-                ScheduleRefresh()
+            if A.enabled and playerMapID then
+                local didCache = false
+                if CacheWQDataWQT(playerMapID) then didCache = true end
+                -- Cache GetQuestsOnMap: city (Zone) = player map only; subzone (Micro/Dungeon) = player map + one parent.
+                if A.zoneTaskQuestCache and C_Map.GetMapInfo then
+                    if CacheQuestsOnMapForMap(A.zoneTaskQuestCache, playerMapID) then didCache = true end
+                    local myMapInfo = C_Map.GetMapInfo(playerMapID)
+                    local myMapType = myMapInfo and myMapInfo.mapType
+                    if myMapType ~= nil and myMapType >= 4 then
+                        local parentInfo = C_Map.GetMapInfo(playerMapID)
+                        local parentMapID = parentInfo and parentInfo.parentMapID and parentInfo.parentMapID ~= 0 and parentInfo.parentMapID or nil
+                        if parentMapID then
+                            local parentMapInfo = C_Map.GetMapInfo(parentMapID)
+                            local mapType = parentMapInfo and parentMapInfo.mapType
+                            if mapType == nil or mapType >= 3 then
+                                if CacheQuestsOnMapForMap(A.zoneTaskQuestCache, parentMapID) then didCache = true end
+                            end
+                        end
+                    end
+                end
+                if didCache then ScheduleRefresh() end
             end
         end
     end)
