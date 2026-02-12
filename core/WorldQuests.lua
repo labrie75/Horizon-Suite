@@ -15,6 +15,20 @@ local addon = _G.HorizonSuite
 local function GetNearbyQuestIDs()
     local nearbySet = {}
     local taskQuestOnlySet = {}
+    -- Primary in-area source when available: Blizzard's GetTasksTable (works without map open; no heartbeat needed).
+    if _G.GetTasksTable and type(_G.GetTasksTable) == "function" then
+        local ok, tasks = pcall(_G.GetTasksTable)
+        if ok and tasks and type(tasks) == "table" then
+            for _, entry in pairs(tasks) do
+                local questID = (type(entry) == "number" and entry) or (type(entry) == "table" and entry and entry.questID)
+                if questID and type(questID) == "number" and questID > 0 then
+                    nearbySet[questID] = true
+                    taskQuestOnlySet[questID] = true
+                end
+            end
+        end
+    end
+
     if not C_Map or not C_Map.GetBestMapForUnit or not C_QuestLog.GetQuestsOnMap then return nearbySet, taskQuestOnlySet end
 
     local mapID = C_Map.GetBestMapForUnit("player")

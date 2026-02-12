@@ -280,25 +280,27 @@ local function StartMapCacheHeartbeat()
         if WorldMapFrame and WorldMapFrame:IsVisible() then
             RunWQTMapCache(false)
         else
-            -- Map closed: cache player's current zone (and parent maps) so quests show without opening map.
-            local playerMapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
-            if addon.enabled and playerMapID and IsZoneLevelOrSmaller(playerMapID) then
-                local didCache = false
-                if CacheTaskQuestsForMap(addon.zoneTaskQuestCache, playerMapID) then didCache = true end
-                -- Cache GetQuestsOnMap: city (Zone) = player map only; subzone (Micro/Dungeon) = player map + one parent.
-                if addon.zoneTaskQuestCache and C_Map and C_Map.GetMapInfo then
-                    if CacheQuestsOnMapForMap(addon.zoneTaskQuestCache, playerMapID) then didCache = true end
-                    local myMapInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(playerMapID)) or nil
-                    local myMapType = myMapInfo and myMapInfo.mapType
-                    if myMapType ~= nil and myMapType >= 4 then
-                        local parentInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(playerMapID)) or nil
-                        local parentMapID = parentInfo and parentInfo.parentMapID and parentInfo.parentMapID ~= 0 and parentInfo.parentMapID or nil
-                        if parentMapID and IsZoneLevelOrSmaller(parentMapID) then
-                            if CacheQuestsOnMapForMap(addon.zoneTaskQuestCache, parentMapID) then didCache = true end
+            -- Map closed: only poll when GetTasksTable is unavailable (otherwise GetNearbyQuestIDs uses it; no heartbeat needed).
+            local useGetTasksTable = _G.GetTasksTable and type(_G.GetTasksTable) == "function"
+            if not useGetTasksTable then
+                local playerMapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+                if addon.enabled and playerMapID and IsZoneLevelOrSmaller(playerMapID) then
+                    local didCache = false
+                    if CacheTaskQuestsForMap(addon.zoneTaskQuestCache, playerMapID) then didCache = true end
+                    if addon.zoneTaskQuestCache and C_Map and C_Map.GetMapInfo then
+                        if CacheQuestsOnMapForMap(addon.zoneTaskQuestCache, playerMapID) then didCache = true end
+                        local myMapInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(playerMapID)) or nil
+                        local myMapType = myMapInfo and myMapInfo.mapType
+                        if myMapType ~= nil and myMapType >= 4 then
+                            local parentInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(playerMapID)) or nil
+                            local parentMapID = parentInfo and parentInfo.parentMapID and parentInfo.parentMapID ~= 0 and parentInfo.parentMapID or nil
+                            if parentMapID and IsZoneLevelOrSmaller(parentMapID) then
+                                if CacheQuestsOnMapForMap(addon.zoneTaskQuestCache, parentMapID) then didCache = true end
+                            end
                         end
                     end
+                    if didCache then ScheduleRefresh() end
                 end
-                if didCache then ScheduleRefresh() end
             end
         end
     end)
@@ -409,6 +411,7 @@ local function OnAddonLoaded(addonName)
             end)
         elseif addonName == "Blizzard_ObjectiveTracker" then
             if addon.enabled then addon.TrySuppressTracker() end
+            ScheduleRefresh()
         end
 end
 

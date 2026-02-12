@@ -21,6 +21,7 @@ The logic that drives your efficiency.
 - **Delves** - When you are in a Delve (e.g. Kriegval's Rest), all Delve objectives appear in a separate **DELVES** section pinned at the top of the tracker. The display shows the delve name and its objectives. The current Delve tier (e.g. Tier 4) is shown next to the delve name when available.
 - **Rare Boss Tracker** - Scans for nearby Rare vignettes and adds them to the tracker with a single click to super-track on the map. Optional sound when a rare is added (Options → Content).
 - **World Map Sync** - Opening the world map automatically pulls active World Quests and Available quests into your tracker, keeping your UI in sync with your planning.
+- **World quest updates without map** - In-zone world quests and task quests can update without opening the world map, using the same source as the default objective tracker when available.
 - **Weeklies & Dailies in Zone** - Weekly and daily quests that appear in your current zone are auto-added to the tracker (WEEKLY QUESTS and DAILY QUESTS sections). Quests you have not yet accepted show an "— Available" label so you can see what is ready to pick up.
 
 **Combat & Utility**
