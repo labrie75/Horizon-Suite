@@ -104,7 +104,7 @@ local function GetSectionColor(groupKey)
         return HorizonDB.sectionColors[groupKey]
     end
     local questCategory = (groupKey == "RARES") and "RARE" or groupKey
-    if questCategory == "CAMPAIGN" or questCategory == "LEGENDARY" or questCategory == "WORLD" or questCategory == "WEEKLY" or questCategory == "DAILY" or questCategory == "COMPLETE" or questCategory == "RARE" or questCategory == "DELVES" or questCategory == "SCENARIO" or questCategory == "DEFAULT" then
+    if questCategory == "CAMPAIGN" or questCategory == "LEGENDARY" or questCategory == "WORLD" or questCategory == "WEEKLY" or questCategory == "DAILY" or questCategory == "COMPLETE" or questCategory == "RARE" or questCategory == "DUNGEON" or questCategory == "DELVES" or questCategory == "SCENARIO" or questCategory == "DEFAULT" then
         return GetQuestColor(questCategory)
     end
     return addon.SECTION_COLORS[groupKey] or addon.SECTION_COLORS.DEFAULT
@@ -135,6 +135,7 @@ local function GetQuestTypeAtlas(questID, category)
     if category == "WORLD" then return "quest-recurring-available" end
     if category == "WEEKLY" then return "quest-recurring-available" end
     if category == "DAILY" then return "quest-recurring-available" end
+    if category == "DUNGEON" then return "questlog-questtypeicon-dungeon" end
     if C_QuestLog.GetQuestTagInfo then
         local tagInfo = C_QuestLog.GetQuestTagInfo(questID)
         if tagInfo and tagInfo.tagID then
@@ -181,6 +182,12 @@ local function GetQuestZoneName(questID)
         end
     end
     return nil
+end
+
+--- True when the player is in any party dungeon (Normal, Heroic, Mythic, or Mythic+). Guarded.
+local function IsInPartyDungeon()
+    local ok, _, instanceType = pcall(GetInstanceInfo)
+    return ok and instanceType == "party"
 end
 
 local function IsInMythicDungeon()
@@ -231,7 +238,7 @@ local function ReadTrackedQuests()
         local isSuper    = (questID == superTracked)
         local isNearby   = nearbySet[questID] or false
         local zoneName   = GetQuestZoneName(questID)
-        local isDungeonQuest = opts.isDungeonQuest or (IsInMythicDungeon() and isNearby)
+        local isDungeonQuest = opts.isDungeonQuest or (IsInPartyDungeon() and isNearby)
         local isTracked  = opts.isTracked ~= false
 
         local itemLink, itemTexture
@@ -312,11 +319,11 @@ local function ReadTrackedQuests()
         end
     end
 
-    if IsInMythicDungeon() then
+    if IsInPartyDungeon() then
         for questID, _ in pairs(nearbySet) do
             if not seen[questID] and not IsQuestWorldQuest(questID) then
                 if not (C_QuestLog.IsQuestCalling and C_QuestLog.IsQuestCalling(questID)) then
-                    addQuest(questID, { isDungeonQuest = true, isTracked = false })
+                    addQuest(questID, { isDungeonQuest = true, isTracked = false, forceCategory = "DUNGEON" })
                 end
             end
         end
@@ -364,7 +371,7 @@ end
 -- Category order for questType sort (lower = earlier)
 local CATEGORY_SORT_ORDER = {
     COMPLETE = 1, CAMPAIGN = 2, IMPORTANT = 3, LEGENDARY = 4,
-    DELVES = 5, SCENARIO = 5, WORLD = 6, WEEKLY = 7, DAILY = 8, CALLING = 9, RARE = 10, DEFAULT = 11,
+    DELVES = 5, SCENARIO = 5, DUNGEON = 5, WORLD = 6, WEEKLY = 7, DAILY = 8, CALLING = 9, RARE = 10, DEFAULT = 11,
 }
 
 local function CompareEntriesBySortMode(a, b)
@@ -404,7 +411,7 @@ local function SortAndGroupQuests(quests)
     for _, q in ipairs(quests) do
         if q.isRare or q.category == "RARE" then
             groups["RARES"][#groups["RARES"] + 1] = q
-        elseif q.isDungeonQuest then
+        elseif q.isDungeonQuest or q.category == "DUNGEON" then
             groups["DUNGEON"][#groups["DUNGEON"] + 1] = q
         elseif q.category == "DELVES" then
             groups["DELVES"][#groups["DELVES"] + 1] = q
@@ -435,16 +442,20 @@ local function SortAndGroupQuests(quests)
             result[#result + 1] = { key = key, quests = groups[key] }
         end
     end
-    -- When in a Delve and setting is on, show only the DELVES group.
-    if addon.IsDelveActive and addon.IsDelveActive() and addon.GetDB("hideOtherCategoriesInDelve", false) then
-        local delveOnly = {}
-        for _, grp in ipairs(result) do
-            if grp.key == "DELVES" then
-                delveOnly[#delveOnly + 1] = grp
-                break
+    -- When in a Delve or party dungeon and setting is on, show only that section.
+    if addon.GetDB("hideOtherCategoriesInDelve", false) then
+        if addon.IsDelveActive and addon.IsDelveActive() then
+            for _, grp in ipairs(result) do
+                if grp.key == "DELVES" then return { grp } end
             end
+            return {}
         end
-        return delveOnly
+        if addon.IsInPartyDungeon and addon.IsInPartyDungeon() then
+            for _, grp in ipairs(result) do
+                if grp.key == "DUNGEON" then return { grp } end
+            end
+            return {}
+        end
     end
     return result
 end
@@ -456,6 +467,7 @@ addon.GetQuestColor      = GetQuestColor
 addon.GetSectionColor    = GetSectionColor
 addon.GetQuestTypeAtlas  = GetQuestTypeAtlas
 addon.GetQuestZoneName   = GetQuestZoneName
+addon.IsInPartyDungeon   = IsInPartyDungeon
 addon.IsInMythicDungeon  = IsInMythicDungeon
 addon.GetMythicDungeonName = GetMythicDungeonName
 addon.ReadTrackedQuests  = ReadTrackedQuests

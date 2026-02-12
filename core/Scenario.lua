@@ -118,7 +118,8 @@ local function ReadScenarioEntries()
     if not IsScenarioActive() then return out end
 
     local isDelve = IsDelveActive()
-    local category = isDelve and "DELVES" or "SCENARIO"
+    local inPartyDungeon = addon.IsInPartyDungeon and addon.IsInPartyDungeon()
+    local category = isDelve and "DELVES" or (inPartyDungeon and "DUNGEON") or "SCENARIO"
     local scenarioColor = addon.GetQuestColor and addon.GetQuestColor(category) or (addon.QUEST_COLORS and addon.QUEST_COLORS[category]) or { 0.38, 0.52, 0.88 }
     local delveTier = isDelve and GetActiveDelveTier() or nil
 

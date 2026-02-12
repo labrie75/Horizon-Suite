@@ -79,6 +79,7 @@ addon.QUEST_COLORS = {
     CAMPAIGN  = { 1.00, 0.82, 0.20 },
     IMPORTANT = { 1.00, 0.45, 0.80 },  -- pink to match importantavailablequesticon
     LEGENDARY = { 1.00, 0.50, 0.00 },
+    DUNGEON   = { 0.60, 0.40, 1.00 },  -- purple: party dungeon quests (Normal/Heroic/Mythic/M+)
     DELVES    = { 0.32, 0.72, 0.68 },  -- teal/seafoam: Delve steps (distinct from all other categories)
     SCENARIO  = { 0.38, 0.52, 0.88 },  -- deep blue: event/scenario steps (Twilight's Call etc.)
     WORLD     = { 0.60, 0.20, 1.00 },
@@ -113,7 +114,7 @@ addon.SectionFont = CreateFont("HorizonSuiteSectionFont")
 addon.SectionFont:SetFont(addon.FONT_PATH, addon.SECTION_SIZE, "OUTLINE")
 
 addon.SECTION_LABELS = {
-    DUNGEON   = "IN THIS DUNGEON",
+    DUNGEON   = "Dungeon",
     DELVES    = "DELVES",
     SCENARIO  = "SCENARIO EVENTS",
     AVAILABLE = "AVAILABLE IN ZONE",
@@ -166,6 +167,7 @@ addon.ATLAS_QUEST_PVP = "questlog-questtypeicon-pvp"
 
 addon.CATEGORY_TO_GROUP = {
     COMPLETE  = "COMPLETE",
+    DUNGEON   = "DUNGEON",
     DELVES    = "DELVES",
     SCENARIO  = "SCENARIO",
     LEGENDARY = "LEGENDARY",

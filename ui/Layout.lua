@@ -91,7 +91,7 @@ local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, 
     local objTextWidth = textWidth - objIndent
     if objTextWidth < 1 then objTextWidth = addon.GetPanelWidth() - addon.PADDING * 2 - objIndent - (addon.CONTENT_RIGHT_PADDING or 0) end
 
-    local objSpacing = (questData.category == "DELVES" and addon.DELVE_OBJ_SPACING) or addon.GetObjSpacing()
+    local objSpacing = ((questData.category == "DELVES" or questData.category == "DUNGEON") and addon.DELVE_OBJ_SPACING) or addon.GetObjSpacing()
 
     local objColor = addon.GetDB("objectiveColor", nil)
     if not objColor or #objColor < 3 then objColor = c end
@@ -404,8 +404,8 @@ local function PopulateEntry(entry, questData)
     if questData.category == "DELVES" and type(questData.delveTier) == "number" then
         displayTitle = displayTitle .. (" (Tier %d)"):format(questData.delveTier)
     end
-    -- Indicator for quests that are available to accept but not yet accepted (not for rares, scenario, or delve).
-    if not questData.isAccepted and questData.category ~= "RARE" and questData.category ~= "SCENARIO" and questData.category ~= "DELVES" then
+    -- Indicator for quests that are available to accept but not yet accepted (not for rares, scenario, delve, or dungeon).
+    if not questData.isAccepted and questData.category ~= "RARE" and questData.category ~= "SCENARIO" and questData.category ~= "DELVES" and questData.category ~= "DUNGEON" then
         displayTitle = displayTitle .. "  — Available"
     end
     entry.titleText:SetText(displayTitle)
@@ -447,7 +447,7 @@ local function PopulateEntry(entry, questData)
     local totalH = titleH
 
     local prevAnchor = entry.titleText
-    local titleToContentSpacing = (questData.category == "DELVES" and addon.DELVE_OBJ_SPACING) or addon.GetObjSpacing()
+    local titleToContentSpacing = ((questData.category == "DELVES" or questData.category == "DUNGEON") and addon.DELVE_OBJ_SPACING) or addon.GetObjSpacing()
     if addon.GetDB("showZoneLabels", true) and questData.zoneName and not questData.isNearby then
         local zoneLabel = questData.zoneName
         -- For off-map WORLD quests, prefix the zone with a clear marker so they are easy to spot.
@@ -546,12 +546,6 @@ local function AcquireSectionHeader(groupKey)
     s.groupKey = groupKey
 
     local label = addon.SECTION_LABELS[groupKey] or groupKey
-    if groupKey == "DUNGEON" and addon.IsInMythicDungeon() then
-        local dungeonName = addon.GetMythicDungeonName()
-        if dungeonName and dungeonName ~= "" then
-            label = label .. " — " .. dungeonName
-        end
-    end
     local color = addon.GetSectionColor(groupKey)
     s.text:SetText(label)
     s.shadow:SetText(label)
@@ -909,7 +903,7 @@ local function FullLayout()
                 end
             end
         else
-            local entrySpacing = (grp.key == "DELVES" and addon.DELVE_ENTRY_SPACING) or addon.GetTitleSpacing()
+            local entrySpacing = ((grp.key == "DELVES" or grp.key == "DUNGEON") and addon.DELVE_ENTRY_SPACING) or addon.GetTitleSpacing()
             for _, qData in ipairs(grp.quests) do
                 local key = qData.entryKey or qData.questID
                 local entry = activeMap[key]
