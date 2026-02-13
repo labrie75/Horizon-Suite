@@ -6,47 +6,92 @@
 local addon = _G.HorizonSuite
 
 -- ============================================================================
--- MYTHIC+ BLOCK (TIMER, COMPLETION %, AFFIXES)
+-- MYTHIC+ BANNER (ALWAYS-VISIBLE ABOVE / BELOW LIST)
 -- ============================================================================
 
-local scrollFrame = addon.scrollFrame
 local mplusBlock = CreateFrame("Frame", nil, addon.HS)
 mplusBlock:SetSize(addon.GetPanelWidth() - addon.PADDING * 2, 40)
-mplusBlock:SetPoint("BOTTOM", scrollFrame, "TOP", 0, -4)
 mplusBlock:Hide()
+
+-- Soft glassy background.
+local mplusBg = mplusBlock:CreateTexture(nil, "BACKGROUND")
+mplusBg:SetAllPoints()
+mplusBg:SetColorTexture(0.02, 0.02, 0.05, 0.75)
+
+-- Left accent bar using Dungeon color.
+local accent = mplusBlock:CreateTexture(nil, "BORDER")
+accent:SetWidth(3)
+accent:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", 0, 0)
+accent:SetPoint("BOTTOMLEFT", mplusBlock, "BOTTOMLEFT", 0, 0)
+local dungeonColor = (addon.QUEST_COLORS and addon.QUEST_COLORS.DUNGEON) or { 0.6, 0.4, 1.0 }
+accent:SetColorTexture(dungeonColor[1], dungeonColor[2], dungeonColor[3], 0.9)
+
+local contentOffsetX = 6
+
 local mplusTimerText = mplusBlock:CreateFontString(nil, "OVERLAY")
-mplusTimerText:SetFontObject(addon.ObjFont)
-mplusTimerText:SetTextColor(0.9, 0.9, 0.9, 1)
-mplusTimerText:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", 0, 0)
+mplusTimerText:SetFontObject(addon.TitleFont)
+mplusTimerText:SetTextColor(0.95, 0.95, 0.98, 1)
+mplusTimerText:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", contentOffsetX, -1)
+
 local mplusPctText = mplusBlock:CreateFontString(nil, "OVERLAY")
 mplusPctText:SetFontObject(addon.ObjFont)
-mplusPctText:SetTextColor(0.6, 0.8, 1, 1)
-mplusPctText:SetPoint("TOPLEFT", mplusTimerText, "BOTTOMLEFT", 0, -2)
+mplusPctText:SetTextColor(0.6, 0.85, 1, 1)
+mplusPctText:SetPoint("TOPRIGHT", mplusBlock, "TOPRIGHT", -contentOffsetX, -2)
+mplusPctText:SetJustifyH("RIGHT")
+
 local mplusAffixesText = mplusBlock:CreateFontString(nil, "OVERLAY")
 mplusAffixesText:SetFontObject(addon.SectionFont)
-mplusAffixesText:SetTextColor(0.7, 0.7, 0.8, 1)
-mplusAffixesText:SetPoint("TOPLEFT", mplusPctText, "BOTTOMLEFT", 0, -2)
+mplusAffixesText:SetTextColor(0.75, 0.78, 0.9, 1)
+mplusAffixesText:SetPoint("TOPLEFT", mplusTimerText, "BOTTOMLEFT", 0, -3)
+mplusAffixesText:SetPoint("TOPRIGHT", mplusBlock, "TOPRIGHT", -contentOffsetX, -6)
 mplusAffixesText:SetWordWrap(true)
-mplusAffixesText:SetWidth(addon.GetPanelWidth() - addon.PADDING * 2)
+mplusAffixesText:SetJustifyH("LEFT")
 
+addon.mplusBlock       = mplusBlock
 addon.mplusTimerText   = mplusTimerText
 addon.mplusPctText     = mplusPctText
 addon.mplusAffixesText = mplusAffixesText
 
+local function PositionMplusBlock(pos)
+    mplusBlock:SetWidth(addon.GetPanelWidth() - addon.PADDING * 2)
+    mplusAffixesText:SetWidth(addon.GetPanelWidth() - addon.PADDING * 2 - contentOffsetX * 2)
+    mplusBlock:ClearAllPoints()
+    if pos == "bottom" then
+        -- Sit just above the panel's bottom padding.
+        mplusBlock:SetPoint("BOTTOMLEFT", addon.HS, "BOTTOMLEFT", addon.PADDING, addon.PADDING)
+        mplusBlock:SetPoint("BOTTOMRIGHT", addon.HS, "BOTTOMRIGHT", -addon.PADDING, addon.PADDING)
+    else
+        -- Sit directly under the header / divider area.
+        local topOffset = addon.GetContentTop()
+        mplusBlock:SetPoint("TOPLEFT", addon.HS, "TOPLEFT", addon.PADDING, topOffset)
+        mplusBlock:SetPoint("TOPRIGHT", addon.HS, "TOPRIGHT", -addon.PADDING, topOffset)
+    end
+end
+
 local function UpdateMplusBlock()
+    local pos = addon.GetDB("mplusBlockPosition", "top") or "top"
+
+    -- Debug preview: always show the banner with example data when enabled via /horizon mplusdebug.
+    if addon.mplusDebugPreview then
+        PositionMplusBlock(pos)
+
+        local timerStr  = "Keystone +15"
+        local pctStr    = "67%"
+        local affixStr  = "Fortified  Bursting  Sanguine"
+
+        mplusTimerText:SetText(timerStr)
+        mplusPctText:SetText(pctStr)
+        mplusAffixesText:SetText(affixStr)
+        mplusBlock:Show()
+        return
+    end
+
     if not addon.GetDB("showMythicPlusBlock", false) or not addon.IsInMythicDungeon() then
         mplusBlock:Hide()
         return
     end
-    mplusBlock:SetWidth(addon.GetPanelWidth() - addon.PADDING * 2)
-    mplusAffixesText:SetWidth(addon.GetPanelWidth() - addon.PADDING * 2)
-    local pos = addon.GetDB("mplusBlockPosition", "top") or "top"
-    mplusBlock:ClearAllPoints()
-    if pos == "bottom" then
-        mplusBlock:SetPoint("TOP", scrollFrame, "BOTTOM", 0, 4)
-    else
-        mplusBlock:SetPoint("BOTTOM", scrollFrame, "TOP", 0, -4)
-    end
+
+    PositionMplusBlock(pos)
     local timerStr, pctStr, affixStr = "", "", ""
     if C_Scenario and C_Scenario.GetScenarioInfo then
         local ok, info = pcall(C_Scenario.GetScenarioInfo)

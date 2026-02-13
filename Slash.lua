@@ -83,6 +83,11 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
             HSPrint("Could not play sound.")
         end
 
+    elseif cmd == "mplusdebug" then
+        addon.mplusDebugPreview = not addon.mplusDebugPreview
+        if addon.FullLayout then addon.FullLayout() end
+        HSPrint("M+ block debug preview: " .. (addon.mplusDebugPreview and "on" or "off"))
+
     elseif cmd == "test" then
         HSPrint("Showing test data (10 entries)...")
 

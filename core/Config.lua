@@ -114,7 +114,7 @@ addon.SectionFont = CreateFont("HorizonSuiteSectionFont")
 addon.SectionFont:SetFont(addon.FONT_PATH, addon.SECTION_SIZE, "OUTLINE")
 
 addon.SECTION_LABELS = {
-    DUNGEON   = "Dungeon",
+    DUNGEON   = "DUNGEON",
     DELVES    = "DELVES",
     SCENARIO  = "SCENARIO EVENTS",
     AVAILABLE = "AVAILABLE IN ZONE",

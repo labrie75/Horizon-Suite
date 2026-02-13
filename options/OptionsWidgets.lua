@@ -7,28 +7,28 @@
 local addon = _G.HorizonSuite
 if not addon then return end
 
--- Design tokens (Modern Cinematic). Panel can override FontPath/HeaderSize via SetDef.
+-- Design tokens (Hyper Modern Clean). Panel can override FontPath/HeaderSize via SetDef.
 local Def = {
-    Padding = 14,
-    OptionGap = 10,
-    SectionGap = 16,
-    CardPadding = 12,
+    Padding = 16,
+    OptionGap = 12,
+    SectionGap = 20,
+    CardPadding = 14,
     BorderEdge = 1,
     LabelSize = 13,
-    SectionSize = 10,
+    SectionSize = 11,
     FontPath = (addon.GetDefaultFontPath and addon.GetDefaultFontPath()) or "Fonts\\FRIZQT__.TTF",
     HeaderSize = addon.HEADER_SIZE or 16,
     TextColorNormal = { 1, 1, 1 },
-    TextColorHighlight = { 0.65, 0.72, 0.85, 1 },
-    TextColorLabel = { 0.78, 0.78, 0.78 },
-    TextColorSection = { 0.55, 0.65, 0.75 },
-    SectionCardBg = { 0.12, 0.12, 0.18, 0.95 },
-    SectionCardBorder = { 0.35, 0.38, 0.45, 0.45 },
-    AccentColor = { 0.5, 0.6, 0.85, 0.9 },
-    InputBg = { 0.08, 0.08, 0.12, 0.95 },
-    InputBorder = { 0.35, 0.38, 0.45, 0.7 },
-    TrackOff = { 0.15, 0.15, 0.2, 0.95 },
-    TrackOn = { 0.5, 0.6, 0.85, 0.9 },
+    TextColorHighlight = { 0.7, 0.78, 0.95, 1 },
+    TextColorLabel = { 0.82, 0.82, 0.86 },
+    TextColorSection = { 0.6, 0.68, 0.78 },
+    SectionCardBg = { 0.08, 0.08, 0.12, 0.96 },
+    SectionCardBorder = { 0.28, 0.32, 0.4, 0.5 },
+    AccentColor = { 0.5, 0.62, 0.88, 0.95 },
+    InputBg = { 0.06, 0.06, 0.1, 0.96 },
+    InputBorder = { 0.28, 0.32, 0.4, 0.6 },
+    TrackOff = { 0.12, 0.12, 0.16, 0.95 },
+    TrackOn = { 0.5, 0.62, 0.88, 0.9 },
     ThumbColor = { 1, 1, 1, 1 },
 }
 Def.BorderColor = Def.SectionCardBorder
@@ -46,30 +46,35 @@ end
 local easeOut = addon.easeOut or function(t) return 1 - (1 - t) * (1 - t) end
 local TOGGLE_ANIM_DUR = 0.15
 
--- Pill-shaped toggle: 36x18 track, 14px thumb. On = accent fill, Off = dark.
+-- Rounded pill toggle: 48x22 track with inset for softer look, 18px thumb. On = accent fill, Off = dark.
+local TOGGLE_TRACK_W, TOGGLE_TRACK_H = 48, 22
+local TOGGLE_INSET = 2
+local TOGGLE_THUMB_SIZE = 18
+
 function OptionsWidgets_CreateToggleSwitch(parent, labelText, description, get, set)
     local row = CreateFrame("Frame", nil, parent)
-    row:SetHeight(36)
+    row:SetHeight(38)
     local searchText = (labelText or "") .. " " .. (description or "")
     row.searchText = searchText:lower()
 
-    local trackW, trackH = 36, 18
-    local thumbSize = 14
+    local trackW, trackH = TOGGLE_TRACK_W, TOGGLE_TRACK_H
+    local thumbSize = TOGGLE_THUMB_SIZE
     local track = CreateFrame("Frame", nil, row)
     track:SetSize(trackW, trackH)
-    track:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -9)
+    track:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -10)
     local trackBg = track:CreateTexture(nil, "BACKGROUND")
-    trackBg:SetAllPoints(track)
+    trackBg:SetPoint("TOPLEFT", track, "TOPLEFT", TOGGLE_INSET, -TOGGLE_INSET)
+    trackBg:SetPoint("BOTTOMRIGHT", track, "BOTTOMRIGHT", -TOGGLE_INSET, TOGGLE_INSET)
     trackBg:SetColorTexture(Def.TrackOff[1], Def.TrackOff[2], Def.TrackOff[3], Def.TrackOff[4])
     local trackFill = track:CreateTexture(nil, "ARTWORK")
-    trackFill:SetPoint("TOPLEFT", track, "TOPLEFT", 0, 0)
-    trackFill:SetPoint("BOTTOMLEFT", track, "BOTTOMLEFT", 0, 0)
+    trackFill:SetPoint("TOPLEFT", track, "TOPLEFT", TOGGLE_INSET, -TOGGLE_INSET)
+    trackFill:SetPoint("BOTTOMLEFT", track, "BOTTOMLEFT", TOGGLE_INSET, TOGGLE_INSET)
     trackFill:SetWidth(0)
     trackFill:SetColorTexture(Def.TrackOn[1], Def.TrackOn[2], Def.TrackOn[3], Def.TrackOn[4])
     local thumb = track:CreateTexture(nil, "OVERLAY")
     thumb:SetSize(thumbSize, thumbSize)
     thumb:SetColorTexture(Def.ThumbColor[1], Def.ThumbColor[2], Def.ThumbColor[3], Def.ThumbColor[4])
-    thumb:SetPoint("CENTER", track, "LEFT", thumbSize/2, 0)
+    thumb:SetPoint("CENTER", track, "LEFT", TOGGLE_INSET + thumbSize/2, 0)
 
     local label = row:CreateFontString(nil, "OVERLAY")
     label:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
@@ -104,10 +109,12 @@ function OptionsWidgets_CreateToggleSwitch(parent, labelText, description, get, 
     row.animFrom = nil
     row.animTo = nil
 
+    local fillW = trackW - 2 * TOGGLE_INSET
+    local thumbTravel = fillW - thumbSize
     local function updateVisuals(t)
         thumb:ClearAllPoints()
-        thumb:SetPoint("CENTER", track, "LEFT", thumbSize/2 + t * (trackW - thumbSize), 0)
-        trackFill:SetWidth(t * trackW)
+        thumb:SetPoint("CENTER", track, "LEFT", TOGGLE_INSET + thumbSize/2 + t * thumbTravel, 0)
+        trackFill:SetWidth(t * fillW)
     end
 
     track:SetScript("OnUpdate", function()
@@ -445,8 +452,8 @@ function OptionsWidgets_CreateColorSwatchRow(parent, anchor, labelText, defaultT
     return row
 end
 
--- Search input: full width, optional magnifier icon and clear button
-function OptionsWidgets_CreateSearchInput(parent, onTextChanged)
+-- Search input: full width, placeholder, clear button. onTextChanged(text) called on input.
+function OptionsWidgets_CreateSearchInput(parent, onTextChanged, placeholder)
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(32)
     local edit = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
@@ -455,14 +462,33 @@ function OptionsWidgets_CreateSearchInput(parent, onTextChanged)
     edit:SetPoint("TOPRIGHT", row, "TOPRIGHT", -28, 0)
     edit:SetAutoFocus(false)
     edit:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
+    if placeholder then
+        local ph = edit:CreateFontString(nil, "OVERLAY")
+        ph:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
+        SetTextColor(ph, Def.TextColorSection)
+        ph:SetText(placeholder)
+        ph:SetPoint("LEFT", edit, "LEFT", 8, 0)
+        ph:SetJustifyH("LEFT")
+        edit.placeholder = ph
+        edit:SetScript("OnEditFocusGained", function() if ph then ph:Hide() end end)
+        edit:SetScript("OnEditFocusLost", function() if ph and edit:GetText() == "" then ph:Show() end end)
+    end
     edit:SetScript("OnEscapePressed", function()
         edit:SetText("")
+        if edit.placeholder then edit.placeholder:Show() end
         edit:ClearFocus()
         if onTextChanged then onTextChanged("") end
     end)
-    edit:SetScript("OnTextChanged", function(self, userInput)
-        if userInput and onTextChanged then onTextChanged(self:GetText()) end
-    end)
+    if not placeholder then
+        edit:SetScript("OnTextChanged", function(self, userInput)
+            if userInput and onTextChanged then onTextChanged(self:GetText()) end
+        end)
+    else
+        edit:SetScript("OnTextChanged", function(self, userInput)
+            if edit.placeholder then edit.placeholder:SetShown(self:GetText() == "") end
+            if userInput and onTextChanged then onTextChanged(self:GetText()) end
+        end)
+    end
 
     local clearBtn = CreateFrame("Button", nil, row)
     clearBtn:SetSize(24, 24)

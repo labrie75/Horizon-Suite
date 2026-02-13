@@ -25,7 +25,7 @@ An aesthetic that complements the modern game client.
 
 * **Visual Hierarchy** – High-fidelity icons for Campaign, Legendary, and World Quests.
 * **Turn-In Guidance** – Quests "Ready for Turn-in" receive a unique, high-contrast visual highlight and priority positioning, giving you a clear signal to head back to the hub.
-* **The Color Matrix** – Define your own aesthetic with full hex-code customization for every category and state via `/horizon options`.
+* **The Color Matrix** – Define your own aesthetic with per-category colour customization (Title, Objective, Zone, Section) via `/horizon options`. Each category group is collapsible for easy navigation.
 * **Typography Suite** – Total control over fonts, sizes, outlines, and text shadows for Headers, Titles, and Objectives. Optional text case: set the main OBJECTIVES header, section headers and quest titles to Lower Case, Upper Case, or Proper (title case).
 * **Fluid Motion** – Smooth entry/exit animations, a subtle "pulse" on objective completion, and adaptive layouts that support "Grow Upward" anchoring.
 
@@ -46,20 +46,33 @@ Built for the heat of gameplay.
 ### Slash Commands
 | Command | Action |
 |:---|:---|
-| `/horizon options` | Launch the customization suite and search for settings. |
+| `/horizon options` | Launch the customization suite. Use the search bar to find and jump to individual settings. |
 | `/horizon collapse` | Toggle the entire tracker or specific categories. |
 | `/horizon nearby` | Toggle the Nearby (Current Zone) grouping on or off; when off, in-zone quests appear in their normal category (e.g. Dailies, Campaign). |
 | `/horizon test` | Populate sample data to preview your styling. |
 | `/horizon reset` | Clear test data and return to live objectives. |
 | `/horizon resetpos` | Snap the tracker back to its default screen position. |
+| `/horizon mplusdebug` | Toggle the Mythic+ block preview with example timer, completion %, and affixes so you can tune its appearance outside a dungeon. |
 
-Key bindings for **Collapse Tracker** and **Toggle Nearby Group** can be set under *Key Bindings → Horizon Suite - Focus*. The option "Show Nearby (Current Zone) group" in Content → List controls the same Nearby grouping. "Show category headers when collapsed" (Content → List) keeps section headers (Campaign, World Quests, etc.) visible when the tracker is collapsed; click a header to expand that category.
+### Settings Panel
+
+The options panel is organized into eight categories: **Layout** (panel behaviour, dimensions), **Visibility** (instance, combat, filtering), **Display** (header, list options), **Features** (rare bosses, floating quest item, Mythic+, scenario & Delve), **Typography** (font, sizes, outline, text case, shadow), **Appearance** (panel backdrop/border, highlight), **Colors** (per-category colours with collapsible groups, override behaviour, and global colours), and **Organization** (focus order, sort mode, behaviour). Use the **search bar** to find any setting—type at least two characters to see matching results, then click a result to jump directly to that option. Press Escape to clear the search.
+
+Key bindings for **Collapse Tracker** and **Toggle Nearby Group** can be set under *Key Bindings → Horizon Suite - Focus*. The option "Show Nearby (Current Zone) group" in Display → List controls the same Nearby grouping. "Show category headers when collapsed" (Display → List) keeps section headers (Campaign, World Quests, etc.) visible when the tracker is collapsed; click a header to expand that category.
 
 ### Mouse Bindings
-* **Left-Click**: Set as Super-Tracked (Map Pin) or open Quest Log.
-* **Double-Click**: View Map details; **Right Double-Click** to abandon quest.
-* **Right-Click**: Untrack objective.
+* **Left-Click**: Focus the quest (map pin). If the quest is not yet tracked, it is added to the tracker first. For world quests, left-click focuses without changing the watch list.
+* **Shift+Left-Click**: Open Quest Log and map details for the quest. For world quests, this also adds the world quest to the watch list so it remains visible across zones.
+* **Right-Click**: If the quest is currently focused, clear the focus (remove the map pin) but keep it tracked; otherwise untrack/remove the quest from the tracker.
+* **Shift+Right-Click**: Abandon the quest (with confirmation).
 * **Drag & Drop**: Reorder categories or resize the panel via the corner grip.
+
+When **Require Ctrl for focus & remove** is enabled under **Options → Organization → Behaviour**, quest add/remove actions require Ctrl:
+
+* **Ctrl+Left-Click**: Focus/add quests (including adding untracked quests to the tracker).
+* **Ctrl+Right-Click**: Unfocus the quest if focused, or untrack/remove it from the tracker.
+* **Shift+Left-Click**: Still opens Quest Log & Map without needing Ctrl; for world quests, Ctrl+Shift+Left also adds them to the watch list.
+* **Shift+Right-Click**: Still abandons quests (with confirmation).
 
 ---
 

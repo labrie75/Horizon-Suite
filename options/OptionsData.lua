@@ -1,6 +1,6 @@
 --[[
     Horizon Suite - Focus - Options Data
-    OptionCategories (General, Content, Style, Colors, Categories), getDB/setDB/notifyMainAddon, search index.
+    OptionCategories (Layout, Visibility, Display, Features, Typography, Appearance, Colors, Organization), getDB/setDB/notifyMainAddon, search index.
 ]]
 
 if not HorizonDB then HorizonDB = {} end
@@ -119,33 +119,41 @@ local function getActiveQuestHighlight()
 end
 
 -- ---------------------------------------------------------------------------
--- OptionCategories: General, Content, Style, Colors, Categories
+-- OptionCategories: Layout, Visibility, Display, Features, Typography, Appearance, Colors, Organization
 -- ---------------------------------------------------------------------------
 
 local OptionCategories = {
     {
-        key = "General",
-        name = "General",
+        key = "Layout",
+        name = "Layout",
         options = {
-            { type = "section", name = "Panel behavior" },
+            { type = "section", name = "Panel behaviour" },
             { type = "toggle", name = "Lock position", desc = "Prevent dragging to reposition the tracker.", dbKey = "lockPosition", get = function() return (HorizonDB and HorizonDB.lockPosition) == true end, set = function(v) setDB("lockPosition", v) end },
             { type = "toggle", name = "Grow upward", desc = "Anchor the tracker by its bottom edge so the list expands upward.", dbKey = "growUp", get = function() return getDB("growUp", false) end, set = function(v) setDB("growUp", v) end },
             { type = "toggle", name = "Start collapsed", desc = "When enabled, the objectives panel starts collapsed (header only) until you expand it.", dbKey = "collapsed", get = function() return (HorizonDB and HorizonDB.collapsed) == true end, set = function(v) setDB("collapsed", v) end },
-            { type = "section", name = "Instance visibility" },
-            { type = "toggle", name = "Show in dungeon", desc = "Show the tracker while in a party dungeon.", dbKey = "showInDungeon", get = function() return getDB("showInDungeon", false) end, set = function(v) setDB("showInDungeon", v) end },
-            { type = "toggle", name = "Show in raid", desc = "Show the tracker while in a raid.", dbKey = "showInRaid", get = function() return getDB("showInRaid", false) end, set = function(v) setDB("showInRaid", v) end },
-            { type = "toggle", name = "Show in battleground", desc = "Show the tracker while in a battleground.", dbKey = "showInBattleground", get = function() return getDB("showInBattleground", false) end, set = function(v) setDB("showInBattleground", v) end },
-            { type = "toggle", name = "Show in arena", desc = "Show the tracker while in an arena.", dbKey = "showInArena", get = function() return getDB("showInArena", false) end, set = function(v) setDB("showInArena", v) end },
-            { type = "section", name = "Combat" },
-            { type = "toggle", name = "Hide in combat", desc = "Hide the tracker and floating quest item while in combat.", dbKey = "hideInCombat", get = function() return getDB("hideInCombat", false) end, set = function(v) setDB("hideInCombat", v) end },
             { type = "section", name = "Dimensions" },
             { type = "slider", name = "Panel width", desc = "Width of the tracker in pixels.", dbKey = "panelWidth", min = 180, max = 800, get = function() return getDB("panelWidth", 260) end, set = function(v) setDB("panelWidth", math.max(180, math.min(800, v))) end },
             { type = "slider", name = "Max content height", desc = "Maximum height of the scrollable content area.", dbKey = "maxContentHeight", min = 200, max = 1000, get = function() return getDB("maxContentHeight", 480) end, set = function(v) setDB("maxContentHeight", math.max(200, math.min(1000, v))) end },
         },
     },
     {
-        key = "Content",
-        name = "Content",
+        key = "Visibility",
+        name = "Visibility",
+        options = {
+            { type = "section", name = "Instance" },
+            { type = "toggle", name = "Show in dungeon", desc = "Show the tracker while in a party dungeon.", dbKey = "showInDungeon", get = function() return getDB("showInDungeon", false) end, set = function(v) setDB("showInDungeon", v) end },
+            { type = "toggle", name = "Show in raid", desc = "Show the tracker while in a raid.", dbKey = "showInRaid", get = function() return getDB("showInRaid", false) end, set = function(v) setDB("showInRaid", v) end },
+            { type = "toggle", name = "Show in battleground", desc = "Show the tracker while in a battleground.", dbKey = "showInBattleground", get = function() return getDB("showInBattleground", false) end, set = function(v) setDB("showInBattleground", v) end },
+            { type = "toggle", name = "Show in arena", desc = "Show the tracker while in an arena.", dbKey = "showInArena", get = function() return getDB("showInArena", false) end, set = function(v) setDB("showInArena", v) end },
+            { type = "section", name = "Combat" },
+            { type = "toggle", name = "Hide in combat", desc = "Hide the tracker and floating quest item while in combat.", dbKey = "hideInCombat", get = function() return getDB("hideInCombat", false) end, set = function(v) setDB("hideInCombat", v) end },
+            { type = "section", name = "Filtering" },
+            { type = "toggle", name = "Only show quests in current zone", desc = "Hide tracked quests not in your current zone.", dbKey = "filterByZone", get = function() return getDB("filterByZone", false) end, set = function(v) setDB("filterByZone", v) end },
+        },
+    },
+    {
+        key = "Display",
+        name = "Display",
         options = {
             { type = "section", name = "Header" },
             { type = "toggle", name = "Show quest count", desc = "Show the tracked quest count in the header.", dbKey = "showQuestCount", get = function() return getDB("showQuestCount", true) end, set = function(v) setDB("showQuestCount", v) end },
@@ -164,10 +172,12 @@ local OptionCategories = {
             { type = "toggle", name = "Compact mode", desc = "Reduce spacing between quest entries.", dbKey = "compactMode", get = function() return getDB("compactMode", false) end, set = function(v) setDB("compactMode", v) end },
             { type = "toggle", name = "Show quest level", desc = "Show quest level next to the title.", dbKey = "showQuestLevel", get = function() return getDB("showQuestLevel", false) end, set = function(v) setDB("showQuestLevel", v) end },
             { type = "toggle", name = "Dim non-super-tracked quests", desc = "Slightly dim quests that are not super-tracked.", dbKey = "dimNonSuperTracked", get = function() return getDB("dimNonSuperTracked", false) end, set = function(v) setDB("dimNonSuperTracked", v) end },
-            { type = "toggle", name = "Click title to open quest log", desc = "Single left-click opens quest log instead of super-tracking.", dbKey = "clickTitleOpensQuestLog", get = function() return getDB("clickTitleOpensQuestLog", false) end, set = function(v) setDB("clickTitleOpensQuestLog", v) end },
-            { type = "toggle", name = "Right double-click to abandon", desc = "Right double-click on a quest abandons it with confirmation.", dbKey = "doubleClickToAbandon", get = function() return getDB("doubleClickToAbandon", true) end, set = function(v) setDB("doubleClickToAbandon", v) end },
-            { type = "section", name = "Filtering" },
-            { type = "toggle", name = "Only show quests in current zone", desc = "Hide tracked quests not in your current zone.", dbKey = "filterByZone", get = function() return getDB("filterByZone", false) end, set = function(v) setDB("filterByZone", v) end },
+        },
+    },
+    {
+        key = "Features",
+        name = "Features",
+        options = {
             { type = "section", name = "Rare bosses" },
             { type = "toggle", name = "Show rare bosses", desc = "Show rare boss vignettes in the list.", dbKey = "showRareBosses", get = function() return getDB("showRareBosses", true) end, set = function(v) setDB("showRareBosses", v) end },
             { type = "toggle", name = "Rare added sound", desc = "Play a sound when a rare is added to the list.", dbKey = "rareAddedSound", get = function() return getDB("rareAddedSound", true) end, set = function(v) setDB("rareAddedSound", v) end },
@@ -177,7 +187,7 @@ local OptionCategories = {
             { type = "section", name = "Mythic+" },
             { type = "toggle", name = "Show Mythic+ block", desc = "Show timer, completion %, and affixes when in a Mythic+ dungeon.", dbKey = "showMythicPlusBlock", get = function() return getDB("showMythicPlusBlock", false) end, set = function(v) setDB("showMythicPlusBlock", v) end },
             { type = "dropdown", name = "M+ block position", desc = "Position of the Mythic+ block relative to the quest list.", dbKey = "mplusBlockPosition", options = MPLUS_POSITION_OPTIONS, get = function() return getDB("mplusBlockPosition", "top") end, set = function(v) setDB("mplusBlockPosition", v) end },
-            { type = "section", name = "Scenario & Delve events" },
+            { type = "section", name = "Scenario & Delve" },
             { type = "toggle", name = "Show scenario events", desc = "Show active scenario and Delve activities (main and bonus steps). Delves appear in a dedicated DELVES section with all in-delve objectives; other scenarios use SCENARIO EVENTS.", dbKey = "showScenarioEvents", get = function() return getDB("showScenarioEvents", true) end, set = function(v) setDB("showScenarioEvents", v) end },
             { type = "toggle", name = "Hide other categories in Delve or Dungeon", desc = "When in a Delve, show only the DELVES section; when in a party dungeon, show only the Dungeon section. All other categories (quests, rares, etc.) are hidden.", dbKey = "hideOtherCategoriesInDelve", get = function() return getDB("hideOtherCategoriesInDelve", false) end, set = function(v) setDB("hideOtherCategoriesInDelve", v) end },
             { type = "toggle", name = "Cinematic scenario bar", desc = "Show the timer and progress bar for scenario entries with a clean cinematic style.", dbKey = "cinematicScenarioBar", get = function() return getDB("cinematicScenarioBar", true) end, set = function(v) setDB("cinematicScenarioBar", v) end },
@@ -186,10 +196,10 @@ local OptionCategories = {
         },
     },
     {
-        key = "Style",
-        name = "Style",
+        key = "Typography",
+        name = "Typography",
         options = {
-            { type = "section", name = "Typography" },
+            { type = "section", name = "Font" },
             { type = "dropdown", name = "Font", desc = "Font family for the tracker.", dbKey = "fontPath", options = GetFontDropdownOptions, get = function() return getDB("fontPath", defaultFontPath) end, set = function(v) setDB("fontPath", v) end, displayFn = addon.GetFontNameForPath },
             { type = "slider", name = "Header size", desc = "Font size for the OBJECTIVES header.", dbKey = "headerFontSize", min = 8, max = 32, get = function() return getDB("headerFontSize", 16) end, set = function(v) setDB("headerFontSize", v) end },
             { type = "slider", name = "Title size", desc = "Font size for quest titles.", dbKey = "titleFontSize", min = 8, max = 24, get = function() return getDB("titleFontSize", 13) end, set = function(v) setDB("titleFontSize", v) end },
@@ -197,6 +207,7 @@ local OptionCategories = {
             { type = "slider", name = "Zone size", desc = "Font size for zone labels.", dbKey = "zoneFontSize", min = 8, max = 18, get = function() return getDB("zoneFontSize", 10) end, set = function(v) setDB("zoneFontSize", v) end },
             { type = "slider", name = "Section size", desc = "Font size for section headers.", dbKey = "sectionFontSize", min = 8, max = 18, get = function() return getDB("sectionFontSize", 10) end, set = function(v) setDB("sectionFontSize", v) end },
             { type = "dropdown", name = "Outline", desc = "Font outline style.", dbKey = "fontOutline", options = OUTLINE_OPTIONS, get = function() return getDB("fontOutline", "OUTLINE") end, set = function(v) setDB("fontOutline", v) end },
+            { type = "section", name = "Text case" },
             { type = "dropdown", name = "Header text case", desc = "Display case for the OBJECTIVES header.", dbKey = "headerTextCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("headerTextCase", "upper"); return (v == "default") and "upper" or v end, set = function(v) setDB("headerTextCase", v) end },
             { type = "dropdown", name = "Section header case", desc = "Display case for category labels (e.g. QUESTS, DELVES).", dbKey = "sectionHeaderTextCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("sectionHeaderTextCase", "upper"); return (v == "default") and "upper" or v end, set = function(v) setDB("sectionHeaderTextCase", v) end },
             { type = "dropdown", name = "Quest title case", desc = "Display case for quest titles.", dbKey = "questTitleCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("questTitleCase", "proper"); return (v == "default") and "proper" or v end, set = function(v) setDB("questTitleCase", v) end },
@@ -205,6 +216,12 @@ local OptionCategories = {
             { type = "slider", name = "Shadow X", desc = "Horizontal shadow offset.", dbKey = "shadowOffsetX", min = -10, max = 10, get = function() return getDB("shadowOffsetX", 2) end, set = function(v) setDB("shadowOffsetX", v) end },
             { type = "slider", name = "Shadow Y", desc = "Vertical shadow offset.", dbKey = "shadowOffsetY", min = -10, max = 10, get = function() return getDB("shadowOffsetY", -2) end, set = function(v) setDB("shadowOffsetY", v) end },
             { type = "slider", name = "Shadow alpha", desc = "Shadow opacity (0–1).", dbKey = "shadowAlpha", min = 0, max = 1, get = function() return getDB("shadowAlpha", 0.8) end, set = function(v) setDB("shadowAlpha", v) end },
+        },
+    },
+    {
+        key = "Appearance",
+        name = "Appearance",
+        options = {
             { type = "section", name = "Panel" },
             { type = "slider", name = "Backdrop opacity", desc = "Opacity of the tracker panel background (0–1).", dbKey = "backdropOpacity", min = 0, max = 1, get = function() return tonumber(getDB("backdropOpacity", 0)) or 0 end, set = function(v) setDB("backdropOpacity", v) end },
             { type = "toggle", name = "Show border", desc = "Show a border around the tracker panel.", dbKey = "showBorder", get = function() return getDB("showBorder", false) end, set = function(v) setDB("showBorder", v) end },
@@ -217,27 +234,20 @@ local OptionCategories = {
         key = "Colors",
         name = "Colors",
         options = {
-            { type = "section", name = "Quest type colors" },
-            { type = "colorMatrix", name = "Colors", dbKey = "questColors", keys = COLOR_KEYS_ORDER, defaultMap = addon.QUEST_COLORS, resetSectionKeys = true,
-                overrides = {
-                    { dbKey = "zoneColor", name = "Zone label", default = ZONE_COLOR_DEFAULT, tooltip = "Zone name under quest title." },
-                    { dbKey = "objectiveColor", name = "Objective text", default = OBJ_COLOR_DEFAULT, tooltip = "Active objectives." },
-                    { dbKey = "objectiveDoneColor", name = "Completed objective", default = OBJ_DONE_COLOR_DEFAULT, tooltip = "Done objectives, ready to turn in." },
-                    { dbKey = "highlightColor", name = "Highlight", default = HIGHLIGHT_COLOR_DEFAULT, tooltip = "Super-tracked quest bar or background." },
-                },
-            },
-            { type = "colorGroup", name = "Section header colors", dbKey = "sectionColors", keys = function() return addon.GetGroupOrder() end, defaultMap = addon.SECTION_COLORS, labelMap = addon.SECTION_LABELS, tooltip = "Colors for category labels." },
+            { type = "section", name = "Color matrix" },
+            { type = "colorMatrixFull", name = "Colors", dbKey = "colorMatrix" },
         },
     },
     {
-        key = "Categories",
-        name = "Categories",
+        key = "Organization",
+        name = "Organization",
         options = {
             { type = "section", name = "Focus order" },
             { type = "reorderList", name = "Focus category order", labelMap = addon.SECTION_LABELS, get = function() return addon.GetGroupOrder() end, set = function(order) addon.SetGroupOrder(order) end, tooltip = "Drag to reorder categories in the Focus list. DELVES and SCENARIO EVENTS are always pinned first and second." },
-            { type = "section", name = "Sort within categories" },
+            { type = "section", name = "Sort" },
             { type = "dropdown", name = "Focus sort mode", desc = "How entries are ordered within each category.", dbKey = "entrySortMode", options = { { "Alphabetical", "alpha" }, { "Quest Type", "questType" }, { "Zone", "zone" }, { "Quest Level", "level" } }, get = function() return getDB("entrySortMode", "questType") end, set = function(v) setDB("entrySortMode", v) end },
-            { type = "section", name = "Effects" },
+            { type = "section", name = "Behaviour" },
+            { type = "toggle", name = "Require Ctrl for focus & remove", desc = "Require holding Ctrl for focus/add (Left) and unfocus/untrack (Right) on quests to prevent misclicks.", dbKey = "requireCtrlForQuestClicks", get = function() return getDB("requireCtrlForQuestClicks", false) end, set = function(v) setDB("requireCtrlForQuestClicks", v) end },
             { type = "toggle", name = "Animations", desc = "Enable cinematic slide and fade for quests.", dbKey = "animations", get = function() return getDB("animations", true) end, set = function(v) setDB("animations", v) end },
             { type = "toggle", name = "Objective progress flash", desc = "Show a green flash when an objective is completed.", dbKey = "objectiveProgressFlash", get = function() return getDB("objectiveProgressFlash", true) end, set = function(v) setDB("objectiveProgressFlash", v) end },
         },
@@ -245,21 +255,30 @@ local OptionCategories = {
 }
 
 -- ---------------------------------------------------------------------------
--- Search index: flatten all options for search (name + desc)
+-- Search index: flatten all options for search (name + desc + section)
+-- Includes optionId, sectionName, categoryIndex for navigation.
 -- ---------------------------------------------------------------------------
 
 function OptionsData_BuildSearchIndex()
     local index = {}
-    for _, cat in ipairs(OptionCategories) do
+    for catIdx, cat in ipairs(OptionCategories) do
+        local currentSection = ""
         for _, opt in ipairs(cat.options) do
-            if opt.type ~= "section" then
+            if opt.type == "section" then
+                currentSection = opt.name or ""
+            elseif opt.type ~= "section" then
                 local name = (opt.name or ""):lower()
                 local desc = (opt.desc or opt.tooltip or ""):lower()
-                local searchText = name .. " " .. desc
+                local sectionLower = (currentSection or ""):lower()
+                local searchText = name .. " " .. desc .. " " .. sectionLower
+                local optionId = opt.dbKey or (cat.key .. "_" .. (opt.name or ""):gsub("%s+", "_"))
                 index[#index + 1] = {
                     categoryKey = cat.key,
                     categoryName = cat.name,
+                    categoryIndex = catIdx,
+                    sectionName = currentSection,
                     option = opt,
+                    optionId = optionId,
                     searchText = searchText,
                 }
             end

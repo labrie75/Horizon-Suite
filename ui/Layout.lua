@@ -86,15 +86,15 @@ local function ApplyHighlightStyle(entry, questData)
     return highlightStyle, hc, ha, barW, topPadding, bottomPadding
 end
 
-local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, c)
+local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, c, effectiveCat)
     local objIndent = addon.GetObjIndent()
     local objTextWidth = textWidth - objIndent
     if objTextWidth < 1 then objTextWidth = addon.GetPanelWidth() - addon.PADDING * 2 - objIndent - (addon.CONTENT_RIGHT_PADDING or 0) end
 
     local objSpacing = ((questData.category == "DELVES" or questData.category == "DUNGEON") and addon.DELVE_OBJ_SPACING) or addon.GetObjSpacing()
 
-    local objColor = addon.GetDB("objectiveColor", nil)
-    if not objColor or #objColor < 3 then objColor = c end
+    local cat = (effectiveCat ~= nil and effectiveCat ~= "") and effectiveCat or questData.category
+    local objColor = (addon.GetObjectiveColor and addon.GetObjectiveColor(cat)) or addon.OBJ_COLOR or c
     local doneColor = addon.GetDB("objectiveDoneColor", nil)
     if not doneColor or #doneColor < 3 then doneColor = addon.OBJ_DONE_COLOR end
 
@@ -358,8 +358,9 @@ end
 --- Populate a single quest/rare entry frame with title, zone, objectives, highlight, and track bar.
 -- @param entry table Pool entry frame (from addon.pool)
 -- @param questData table Quest or rare data (title, objectives, color, isSuperTracked, etc.)
+-- @param groupKey string Group this entry is in (e.g. COMPLETE, NEARBY); used for override colour resolution.
 -- @return number Total height of the entry in pixels
-local function PopulateEntry(entry, questData)
+local function PopulateEntry(entry, questData, groupKey)
     local hasItem = (questData.itemTexture and questData.itemLink) and true or false
     local showItemBtn = hasItem and addon.GetDB("showQuestItemButtons", false)
     local showQuestIcons = addon.GetDB("showQuestTypeIcons", false)
@@ -405,7 +406,8 @@ local function PopulateEntry(entry, questData)
     displayTitle = addon.ApplyTextCase(displayTitle, "questTitleCase", "proper")
     entry.titleText:SetText(displayTitle)
     entry.titleShadow:SetText(displayTitle)
-    local c = questData.color
+    local effectiveCat = (addon.GetEffectiveColorCategory and addon.GetEffectiveColorCategory(questData.category, groupKey)) or questData.category
+    local c = (addon.GetTitleColor and addon.GetTitleColor(effectiveCat)) or questData.color
     if questData.isDungeonQuest and not questData.isTracked then
         c = { c[1] * 0.65, c[2] * 0.65, c[3] * 0.65 }
     elseif addon.GetDB("dimNonSuperTracked", false) and not questData.isSuperTracked then
@@ -454,8 +456,7 @@ local function PopulateEntry(entry, questData)
         end
         entry.zoneText:SetText(zoneLabel)
         entry.zoneShadow:SetText(zoneLabel)
-        local zoneColor = addon.GetDB("zoneColor", nil)
-        if not zoneColor or #zoneColor < 3 then zoneColor = addon.ZONE_COLOR end
+        local zoneColor = (addon.GetZoneColor and addon.GetZoneColor(effectiveCat)) or addon.ZONE_COLOR
         entry.zoneText:SetTextColor(zoneColor[1], zoneColor[2], zoneColor[3], 1)
         entry.zoneText:ClearAllPoints()
         entry.zoneText:SetPoint("TOPLEFT", entry.titleText, "BOTTOMLEFT", addon.GetObjIndent(), -titleToContentSpacing)
@@ -470,7 +471,7 @@ local function PopulateEntry(entry, questData)
         entry.zoneShadow:Hide()
     end
 
-    totalH, prevAnchor = ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, c)
+    totalH, prevAnchor = ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, c, effectiveCat)
     totalH = ApplyScenarioOrWQTimerBar(entry, questData, textWidth, prevAnchor or entry.titleText, totalH)
 
     entry.entryHeight = totalH + topPadding + bottomPadding
@@ -923,11 +924,33 @@ local function FullLayout()
         addon.divider:SetShown(addon.GetDB("showHeaderDivider", true))
         headerBtn:SetHeight(addon.PADDING + addon.HEADER_HEIGHT)
     end
-    scrollFrame:ClearAllPoints()
-    scrollFrame:SetPoint("TOPLEFT", addon.HS, "TOPLEFT", 0, addon.GetContentTop())
-    scrollFrame:SetPoint("BOTTOMRIGHT", addon.HS, "BOTTOMRIGHT", 0, addon.PADDING)
 
-    addon.UpdateMplusBlock()
+    local contentTop = addon.GetContentTop()
+
+    -- Update the Mythic+ banner first so we can anchor the scrollFrame around it.
+    if addon.UpdateMplusBlock then
+        addon.UpdateMplusBlock()
+    end
+
+    scrollFrame:ClearAllPoints()
+    local mplus = addon.mplusBlock
+    local hasMplus = mplus and mplus:IsShown()
+    local mplusPos = addon.GetDB("mplusBlockPosition", "top") or "top"
+    local gap = 4
+
+    if hasMplus and mplusPos == "top" then
+        -- Banner sits directly under header; list starts just below the banner.
+        scrollFrame:SetPoint("TOPLEFT", mplus, "BOTTOMLEFT", 0, -gap)
+        scrollFrame:SetPoint("BOTTOMRIGHT", addon.HS, "BOTTOMRIGHT", 0, addon.PADDING)
+    elseif hasMplus and mplusPos == "bottom" then
+        -- List runs from header down to just above the banner.
+        scrollFrame:SetPoint("TOPLEFT", addon.HS, "TOPLEFT", 0, contentTop)
+        scrollFrame:SetPoint("BOTTOMRIGHT", mplus, "TOPRIGHT", 0, gap)
+    else
+        -- No Mythic+ banner: use the full content area.
+        scrollFrame:SetPoint("TOPLEFT", addon.HS, "TOPLEFT", 0, contentTop)
+        scrollFrame:SetPoint("BOTTOMRIGHT", addon.HS, "BOTTOMRIGHT", 0, addon.PADDING)
+    end
 
     local rares = addon.GetDB("showRareBosses", true) and addon.GetRaresOnMap() or {}
     if #rares > 0 then
@@ -1039,7 +1062,7 @@ local function FullLayout()
                 entry:SetAlpha(0)
             end
             if entry then
-                PopulateEntry(entry, qData)
+                PopulateEntry(entry, qData, grp.key)
             end
         end
     end

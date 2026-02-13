@@ -5,11 +5,9 @@
 
 local addon = _G.HorizonSuite
 
--- ============================================================================
 -- INTERACTIONS
 -- ============================================================================
 
-local DOUBLE_CLICK_WINDOW = 0.30
 local pool = addon.pool
 
 StaticPopupDialogs["HORIZONSUITE_ABANDON_QUEST"] = StaticPopupDialogs["HORIZONSUITE_ABANDON_QUEST"] or {
@@ -30,10 +28,6 @@ StaticPopupDialogs["HORIZONSUITE_ABANDON_QUEST"] = StaticPopupDialogs["HORIZONSU
 for i = 1, addon.POOL_SIZE do
     local e = pool[i]
     e:EnableMouse(true)
-    e._lastClickTime = 0
-    e._lastClickQuest = nil
-    e._lastRightClickTime = 0
-    e._lastRightClickQuest = nil
 
     e:SetScript("OnMouseDown", function(self, button)
         if button == "LeftButton" then
@@ -49,16 +43,30 @@ for i = 1, addon.POOL_SIZE do
             end
             if not self.questID then return end
 
+            local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
             local isWorldQuest = addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(self.questID)
-            -- World quests: left-click = set active (super-track) only; position does not change. Shift+click = add to watch list for other zones.
-            if isWorldQuest then
-                if IsShiftKeyDown() and C_QuestLog.AddWorldQuestWatch then
-                    C_QuestLog.AddWorldQuestWatch(self.questID)
-                    addon.ScheduleRefresh()
+
+            -- Shift+Left: always open quest log & map (safe, read-only). For world quests, optionally add to watch list.
+            if IsShiftKeyDown() then
+                if isWorldQuest and C_QuestLog.AddWorldQuestWatch then
+                    -- With safety enabled, adding to watch for world quests requires Ctrl+Shift+Left.
+                    if not requireCtrl or IsControlKeyDown() then
+                        C_QuestLog.AddWorldQuestWatch(self.questID)
+                        addon.ScheduleRefresh()
+                    end
+                end
+                if addon.OpenQuestDetails then
+                    addon.OpenQuestDetails(self.questID)
+                end
+                return
+            end
+
+            -- Non-world quests that are not yet tracked: add to tracker (respect Ctrl safety if enabled).
+            if not isWorldQuest and self.isTracked == false then
+                if requireCtrl and not IsControlKeyDown() then
+                    -- Safety: ignore plain Left-click when Ctrl is required.
                     return
                 end
-                -- Single/double click: set super-tracked or open details; do NOT AddWorldQuestWatch so list order stays the same.
-            elseif self.isTracked == false then
                 if C_QuestLog.AddQuestWatch then
                     C_QuestLog.AddQuestWatch(self.questID)
                 end
@@ -66,28 +74,16 @@ for i = 1, addon.POOL_SIZE do
                 return
             end
 
-            local clickOpensLog = addon.GetDB("clickTitleOpensQuestLog", false)
-            local now = GetTime()
-            local isDoubleClick = self._lastClickQuest == self.questID
-                and (now - self._lastClickTime) <= DOUBLE_CLICK_WINDOW
-
-            if isDoubleClick then
-                self._lastClickTime = 0
-                self._lastClickQuest = nil
-                addon.OpenQuestDetails(self.questID)
-            elseif clickOpensLog then
-                self._lastClickTime = now
-                self._lastClickQuest = self.questID
-                addon.OpenQuestDetails(self.questID)
-            else
-                self._lastClickTime = now
-                self._lastClickQuest = self.questID
-                if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
-                    C_SuperTrack.SetSuperTrackedQuestID(self.questID)
-                end
-                if addon.FullLayout and not InCombatLockdown() then
-                    addon.FullLayout()
-                end
+            -- Left (no modifier): focus (set as super-tracked quest).
+            if requireCtrl and not IsControlKeyDown() then
+                -- Safety: ignore plain Left-click on quests when Ctrl is required.
+                return
+            end
+            if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
+                C_SuperTrack.SetSuperTrackedQuestID(self.questID)
+            end
+            if addon.FullLayout and not InCombatLockdown() then
+                addon.FullLayout()
             end
         elseif button == "RightButton" then
             if self.entryKey then
@@ -100,26 +96,37 @@ for i = 1, addon.POOL_SIZE do
                 return
             end
             if self.questID then
-                local now = GetTime()
-                local rightDoubleClick = addon.GetDB("doubleClickToAbandon", true)
-                    and self._lastRightClickQuest == self.questID
-                    and (now - self._lastRightClickTime) <= DOUBLE_CLICK_WINDOW
-
-                if rightDoubleClick then
-                    self._lastRightClickTime = 0
-                    self._lastRightClickQuest = nil
+                -- Shift+Right: abandon quest with confirmation.
+                if IsShiftKeyDown() then
                     local questName = C_QuestLog.GetTitleForQuestID(self.questID) or "this quest"
                     StaticPopup_Show("HORIZONSUITE_ABANDON_QUEST", questName, nil, { questID = self.questID })
-                else
-                    self._lastRightClickTime = now
-                    self._lastRightClickQuest = self.questID
-                    if addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(self.questID) and addon.RemoveWorldQuestWatch then
-                        addon.RemoveWorldQuestWatch(self.questID)
-                    elseif C_QuestLog.RemoveQuestWatch then
-                        C_QuestLog.RemoveQuestWatch(self.questID)
-                    end
-                    addon.ScheduleRefresh()
+                    return
                 end
+
+                local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
+                if requireCtrl and not IsControlKeyDown() then
+                    -- Safety: ignore plain Right-click on quests when Ctrl is required.
+                    return
+                end
+
+                -- Right (no modifier): if this quest is focused, unfocus only; otherwise untrack.
+                if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.SetSuperTrackedQuestID then
+                    local focusedQuestID = C_SuperTrack.GetSuperTrackedQuestID()
+                    if focusedQuestID and focusedQuestID == self.questID then
+                        C_SuperTrack.SetSuperTrackedQuestID(0)
+                        if addon.FullLayout and not InCombatLockdown() then
+                            addon.FullLayout()
+                        end
+                        return
+                    end
+                end
+
+                if addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(self.questID) and addon.RemoveWorldQuestWatch then
+                    addon.RemoveWorldQuestWatch(self.questID)
+                elseif C_QuestLog.RemoveQuestWatch then
+                    C_QuestLog.RemoveQuestWatch(self.questID)
+                end
+                addon.ScheduleRefresh()
             end
         end
     end)
