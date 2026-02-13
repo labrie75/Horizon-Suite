@@ -6,7 +6,19 @@ All notable changes to Horizon Suite are documented here.
 
 ## [Unreleased]
 
+*Nothing yet.*
+
+---
+
+## [1.0.3] – 2026-02-13
+
+### New Features
+
+- **Quest header count** — Option to show quest count as tracked/in-log (e.g. 4/19, default) or in-log/max-slots (e.g. 19/35). Uses `isHidden` for an accurate in-log count.
+
 ### Improvements
+
+- **Focus — Granular spacing options** — Vertical gaps are now user-configurable via sliders in Display → Spacing: between quest entries (2–20 px), before and after category headers (0–24 px, 0–16 px), and between objectives (0–8 px). Compact mode applies a preset (4 px entries, 1 px objectives).
 
 - **Presence — World Quest Accept** — World quest accepts now use a dedicated purple-style notification type (`WORLD_QUEST_ACCEPT`) instead of sharing the standard quest accept style.
 
