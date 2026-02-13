@@ -293,7 +293,9 @@ local function BuildCategory(tab, tabIndex, options, refreshers, optionFrames)
 
             local function getOverride(key)
                 local m = getMatrix()
-                return m.overrides and m.overrides[key]
+                local v = m.overrides and m.overrides[key]
+                if key == "useCompletedOverride" and v == nil then return true end  -- Default on
+                return v
             end
             local function setOverride(key, v)
                 local m = getMatrix()

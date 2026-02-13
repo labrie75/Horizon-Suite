@@ -438,7 +438,10 @@ function OptionsWidgets_CreateColorSwatchRow(parent, anchor, labelText, defaultT
             end,
             cancelFunc = function()
                 local p = ColorPickerFrame.previousValues
-                if p then setKeyVal({ p.r, p.g, p.b }) end
+                if p then
+                    setKeyVal({ p.r, p.g, p.b })
+                    swatch:Refresh()
+                end
             end,
             finishedFunc = function()
                 local nr, ng, nb = ColorPickerFrame:GetColorRGB()

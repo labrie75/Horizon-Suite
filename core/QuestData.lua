@@ -141,8 +141,8 @@ local function GetEffectiveColorCategory(category, groupKey, baseCategory)
     if not category then return groupKey or "DEFAULT" end
     local cm = GetColorMatrix()
     local ov = cm and cm.overrides and type(cm.overrides) == "table" and cm.overrides or {}
-    if groupKey == "COMPLETE" and ov.useCompletedOverride then
-        return "COMPLETE"
+    if groupKey == "COMPLETE" and (ov.useCompletedOverride == nil or ov.useCompletedOverride) then
+        return "COMPLETE"  -- Default true when not explicitly set to false
     end
     if groupKey == "COMPLETE" and baseCategory then
         return baseCategory  -- Use underlying category when override is off
