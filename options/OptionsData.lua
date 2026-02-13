@@ -130,6 +130,7 @@ local OptionCategories = {
         options = {
             { type = "section", name = "Module enablement" },
             { type = "toggle", name = "Enable Focus module", desc = "Show the objective tracker for quests, world quests, rares, achievements, and scenarios.", dbKey = "_module_focus", get = function() return addon:IsModuleEnabled("focus") end, set = function(v) addon:SetModuleEnabled("focus", v) end },
+            { type = "toggle", name = "Enable Vista module", desc = "Cinematic zone text and notifications (zone changes, level up, boss emotes, achievements, quest updates).", dbKey = "_module_vista", get = function() return addon:IsModuleEnabled("vista") end, set = function(v) addon:SetModuleEnabled("vista", v) end },
         },
     },
     {
@@ -283,6 +284,8 @@ function OptionsData_BuildSearchIndex()
     local index = {}
     for catIdx, cat in ipairs(OptionCategories) do
         local currentSection = ""
+        local moduleKey = cat.moduleKey
+        local moduleLabel = (moduleKey == "focus" and "Focus") or (moduleKey == "vista" and "Vista") or "Modules"
         for _, opt in ipairs(cat.options) do
             if opt.type == "section" then
                 currentSection = opt.name or ""
@@ -290,12 +293,14 @@ function OptionsData_BuildSearchIndex()
                 local name = (opt.name or ""):lower()
                 local desc = (opt.desc or opt.tooltip or ""):lower()
                 local sectionLower = (currentSection or ""):lower()
-                local searchText = name .. " " .. desc .. " " .. sectionLower
+                local searchText = name .. " " .. desc .. " " .. sectionLower .. " " .. (moduleLabel or ""):lower()
                 local optionId = opt.dbKey or (cat.key .. "_" .. (opt.name or ""):gsub("%s+", "_"))
                 index[#index + 1] = {
                     categoryKey = cat.key,
                     categoryName = cat.name,
                     categoryIndex = catIdx,
+                    moduleKey = moduleKey,
+                    moduleLabel = moduleLabel,
                     sectionName = currentSection,
                     option = opt,
                     optionId = optionId,

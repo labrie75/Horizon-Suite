@@ -666,10 +666,20 @@ local function BuildCategory(tab, tabIndex, options, refreshers, optionFrames)
     if currentCard then FinalizeCard(currentCard) end
 end
 
--- Build sidebar buttons and tab content
+-- Build sidebar grouped by moduleKey (Modules, Focus, Vista)
+-- Use "modules" as sentinel for nil (WoW Lua disallows nil as table index)
+local MODULE_LABELS = { ["modules"] = "Modules", ["focus"] = "Focus", ["vista"] = "Vista" }
+local groups = {}
+for i, cat in ipairs(addon.OptionCategories) do
+    local mk = cat.moduleKey or "modules"
+    if not groups[mk] then groups[mk] = { label = MODULE_LABELS[mk] or "Other", categories = {} } end
+    table.insert(groups[mk].categories, i)
+end
+local groupOrder = { "modules", "focus", "vista" }
+
 local function UpdateTabVisuals()
-    for i, btn in ipairs(tabButtons) do
-        local sel = (i == selectedTab)
+    for _, btn in ipairs(tabButtons) do
+        local sel = (btn.categoryIndex == selectedTab)
         btn.selected = sel
         SetTextColor(btn.label, sel and Def.TextColorNormal or Def.TextColorSection)
         if btn.leftAccent then btn.leftAccent:SetShown(sel) end
@@ -679,49 +689,74 @@ end
 
 local optionFrames = {}
 local TAB_ROW_HEIGHT = 32
-for i, cat in ipairs(addon.OptionCategories) do
-    local btn = CreateFrame("Button", nil, sidebar)
-    btn:SetSize(SIDEBAR_WIDTH, TAB_ROW_HEIGHT)
-    if i == 1 then btn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 0, -4)
-    else btn:SetPoint("TOPLEFT", tabButtons[i-1], "BOTTOMLEFT", 0, 0) end
-    btn.label = btn:CreateFontString(nil, "OVERLAY")
-    btn.label:SetFont(Def.FontPath or "Fonts\\FRIZQT__.TTF", Def.LabelSize or 13, "OUTLINE")
-    btn.label:SetPoint("LEFT", btn, "LEFT", 12, 0)
-    btn.label:SetText(cat.name)
-    btn.highlight = btn:CreateTexture(nil, "BACKGROUND")
-    btn.highlight:SetAllPoints(btn)
-    btn.highlight:SetColorTexture(1, 1, 1, 0.05)
-    btn.hoverBg = btn:CreateTexture(nil, "BACKGROUND")
-    btn.hoverBg:SetAllPoints(btn)
-    btn.hoverBg:SetColorTexture(1, 1, 1, 0.03)
-    btn.hoverBg:Hide()
-    btn.leftAccent = btn:CreateTexture(nil, "OVERLAY")
-    btn.leftAccent:SetWidth(3)
-    btn.leftAccent:SetColorTexture(Def.AccentColor[1], Def.AccentColor[2], Def.AccentColor[3], Def.AccentColor[4] or 0.9)
-    btn.leftAccent:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
-    btn.leftAccent:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
-    btn:SetScript("OnClick", function()
-        selectedTab = i
-        UpdateTabVisuals()
-        for j = 1, #tabFrames do tabFrames[j]:SetShown(j == i) end
-        scrollFrame:SetScrollChild(tabFrames[i])
-        scrollFrame:SetVerticalScroll(0)
-    end)
-    btn:SetScript("OnEnter", function()
-        if not btn.selected then
-            SetTextColor(btn.label, Def.TextColorHighlight)
-            if btn.hoverBg then btn.hoverBg:Show() end
-        end
-    end)
-    btn:SetScript("OnLeave", function()
-        if btn.hoverBg then btn.hoverBg:Hide() end
-        UpdateTabVisuals()
-    end)
-    tabButtons[i] = btn
+local HEADER_ROW_HEIGHT = 24
+local SIDEBAR_TOP_PAD = 4
 
-    local refreshers = {}
-    BuildCategory(tabFrames[i], i, cat.options, refreshers, optionFrames)
-    for _, r in ipairs(refreshers) do allRefreshers[#allRefreshers+1] = r end
+local lastSidebarRow = nil
+for _, mk in ipairs(groupOrder) do
+    local g = groups[mk]
+    if not g or #g.categories == 0 then
+        -- skip empty groups
+    else
+    -- Header row (non-clickable)
+    local header = CreateFrame("Frame", nil, sidebar)
+    header:SetSize(SIDEBAR_WIDTH, HEADER_ROW_HEIGHT)
+    if not lastSidebarRow then header:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 0, -SIDEBAR_TOP_PAD)
+    else header:SetPoint("TOPLEFT", lastSidebarRow, "BOTTOMLEFT", 0, 0) end
+    lastSidebarRow = header
+    local headerLabel = header:CreateFontString(nil, "OVERLAY")
+    headerLabel:SetFont(Def.FontPath or "Fonts\\FRIZQT__.TTF", (Def.LabelSize or 13) - 1, "OUTLINE")
+    headerLabel:SetPoint("LEFT", header, "LEFT", 12, 0)
+    SetTextColor(headerLabel, Def.TextColorSection)
+    headerLabel:SetText(g.label)
+    -- Tab rows for each category in this group
+    for _, catIdx in ipairs(g.categories) do
+        local cat = addon.OptionCategories[catIdx]
+        local btn = CreateFrame("Button", nil, sidebar)
+        btn:SetSize(SIDEBAR_WIDTH, TAB_ROW_HEIGHT)
+        btn:SetPoint("TOPLEFT", lastSidebarRow, "BOTTOMLEFT", 0, 0)
+        lastSidebarRow = btn
+        btn.categoryIndex = catIdx
+        btn.label = btn:CreateFontString(nil, "OVERLAY")
+        btn.label:SetFont(Def.FontPath or "Fonts\\FRIZQT__.TTF", Def.LabelSize or 13, "OUTLINE")
+        btn.label:SetPoint("LEFT", btn, "LEFT", 12, 0)
+        btn.label:SetText(cat.name)
+        btn.highlight = btn:CreateTexture(nil, "BACKGROUND")
+        btn.highlight:SetAllPoints(btn)
+        btn.highlight:SetColorTexture(1, 1, 1, 0.05)
+        btn.hoverBg = btn:CreateTexture(nil, "BACKGROUND")
+        btn.hoverBg:SetAllPoints(btn)
+        btn.hoverBg:SetColorTexture(1, 1, 1, 0.03)
+        btn.hoverBg:Hide()
+        btn.leftAccent = btn:CreateTexture(nil, "OVERLAY")
+        btn.leftAccent:SetWidth(3)
+        btn.leftAccent:SetColorTexture(Def.AccentColor[1], Def.AccentColor[2], Def.AccentColor[3], Def.AccentColor[4] or 0.9)
+        btn.leftAccent:SetPoint("TOPLEFT", btn, "TOPLEFT", 0, 0)
+        btn.leftAccent:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 0, 0)
+        btn:SetScript("OnClick", function()
+            selectedTab = catIdx
+            UpdateTabVisuals()
+            for j = 1, #tabFrames do tabFrames[j]:SetShown(j == catIdx) end
+            scrollFrame:SetScrollChild(tabFrames[catIdx])
+            scrollFrame:SetVerticalScroll(0)
+        end)
+        btn:SetScript("OnEnter", function()
+            if not btn.selected then
+                SetTextColor(btn.label, Def.TextColorHighlight)
+                if btn.hoverBg then btn.hoverBg:Show() end
+            end
+        end)
+        btn:SetScript("OnLeave", function()
+            if btn.hoverBg then btn.hoverBg:Hide() end
+            UpdateTabVisuals()
+        end)
+        tabButtons[#tabButtons + 1] = btn
+
+        local refreshers = {}
+        BuildCategory(tabFrames[catIdx], catIdx, cat.options, refreshers, optionFrames)
+        for _, r in ipairs(refreshers) do allRefreshers[#allRefreshers+1] = r end
+    end
+    end
 end
 UpdateTabVisuals()
 
@@ -849,7 +884,12 @@ local function ShowSearchResults(matches)
         end
         local row = searchDropdownButtons[i]
         local m = matches[i]
-        local breadcrumb = (m.categoryName or "") .. " \194\187 " .. (m.sectionName or "")
+        local breadcrumb
+        if m.moduleLabel and m.moduleLabel ~= "" and m.moduleLabel ~= (m.categoryName or "") then
+            breadcrumb = (m.moduleLabel or "") .. " \194\187 " .. (m.categoryName or "") .. " \194\187 " .. (m.sectionName or "")
+        else
+            breadcrumb = (m.categoryName or "") .. " \194\187 " .. (m.sectionName or "")
+        end
         local optionName = m.option and m.option.name or ""
         row.btn.subLabel:SetText(breadcrumb)
         row.btn.label:SetText(optionName)

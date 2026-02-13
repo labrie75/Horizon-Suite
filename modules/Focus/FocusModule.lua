@@ -70,7 +70,7 @@ local function tryHookWorldMap()
     HookWorldMapOnShow()
 end
 
--- Expose for Events.lua when Blizzard_WorldMap loads after us
+-- Expose for FocusEvents when Blizzard_WorldMap loads after us
 addon.FocusModuleHooks = addon.FocusModuleHooks or {}
 addon.FocusModuleHooks.WorldMap = tryHookWorldMap
 

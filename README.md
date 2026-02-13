@@ -1,6 +1,6 @@
 # 🌌 Horizon Suite
 
-**Horizon Suite** is a core addon with pluggable modules. The **Focus** module is a cinematic overhaul of the World of Warcraft objective tracker—the first suite in the collection. Designed for the Midnight era, it replaces static, cluttered lists with a fluid interface that grants you total agency over your goals. Additional suites will appear as modules in the same options panel.
+**Horizon Suite** is a core addon with pluggable modules. The **Focus** module is a cinematic overhaul of the World of Warcraft objective tracker—the first suite in the collection. The **Vista** module replaces default zone text, level-up, boss emotes, achievements, and quest notifications with high-fidelity cinematic displays. Designed for the Midnight era, it replaces static, cluttered lists with a fluid interface that grants you total agency over your goals. Additional suites will appear as modules in the same options panel.
 
 <p align="center">
   <img width="400" alt="Horizon Suite Preview" src="https://github.com/user-attachments/assets/72072df2-7ba3-4205-a984-df561eaf3ed4" />
@@ -18,6 +18,7 @@ The systems driving your efficiency.
 * **Live Sync** – World Quests, Dailies, and Weeklies update dynamically so you never miss a pickup. The world quest list is re-evaluated when you move between zones.
 * **Secure Quest Items** – High-performance quest item buttons built on secure templates, ensuring they work flawlessly mid-fight without UI errors.
 * **ATT Integration** – Full native support for **All The Things**, displaying collection data directly within your objectives.
+* **Vista Notifications** – Cinematic zone text, subzone changes, and "Discovered" lines. Level-up, boss emotes, achievements, quest accept/complete/update, and world quest banners appear as styled notifications with priority queueing and smooth entrance/exit animations. Enable in Modules → Enable Vista module.
 
 ---
 
@@ -55,6 +56,7 @@ Built for the heat of gameplay.
 | `/horizon reset` | Clear test data and return to live objectives. |
 | `/horizon resetpos` | Snap the tracker back to its default screen position. |
 | `/horizon mplusdebug` | Toggle the Mythic+ block preview with example timer, completion %, and affixes so you can tune its appearance outside a dungeon. |
+| `/horizon vista` | Vista test commands. Use `zone`, `discover`, `level`, `boss`, `ach`, `quest`, `wq`, `accept`, `update`, or `all` for a demo reel. |
 
 ### Settings Panel
 

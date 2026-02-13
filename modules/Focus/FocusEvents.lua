@@ -66,7 +66,7 @@ local function OnAddonLoaded(addonName)
         addon:EnsureModulesDB()
         for key in pairs(addon.modules or {}) do
             local modDb = HorizonDB and HorizonDB.modules and HorizonDB.modules[key]
-            if modDb == nil or modDb.enabled ~= false then
+            if modDb and modDb.enabled ~= false then
                 addon:EnableModule(key)
             end
         end
