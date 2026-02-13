@@ -813,6 +813,7 @@ local function ShowSearchResults(matches)
         if searchDropdownButtons[i] then searchDropdownButtons[i].btn:Hide() end
     end
     searchDropdownContent:SetHeight(num * SEARCH_DROPDOWN_ROW_HEIGHT)
+    searchDropdownContent:SetWidth((searchDropdown:GetWidth() or 1) - 12)
     searchDropdownScroll:SetVerticalScroll(0)
     searchDropdownSelected = 0
     searchDropdown:Show()

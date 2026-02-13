@@ -303,3 +303,7 @@ local function UpdateMplusBlock()
 end
 
 addon.UpdateMplusBlock = UpdateMplusBlock
+
+addon.UpdateMplusBlock = UpdateMplusBlock
+
+
