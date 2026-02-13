@@ -311,16 +311,21 @@ local function BuildCategory(tab, tabIndex, options, refreshers, optionFrames)
             local GROUP_ROWS_PER_KEY = 4  -- title, objective, zone, section
 
             -- Recalculate card height after a group expand / collapse.
+            -- Layout: Colors | Per category (header + groups) | Grouping Overrides (header + 2 toggles + groups) | Other
+            local numPerCategoryGroups = 0  -- set when we have perCategoryOrder
             local function RecalcCardHeight()
                 if not currentCard then return end
-                -- Fixed parts: Colors header + Override header + 2 toggles + Per-category header + Other header + other rows
                 local h = CardPadding + RowHeights.sectionLabel  -- Colors header
-                h = h + SectionGap + RowHeights.sectionLabel     -- Override header
+                h = h + SectionGap + RowHeights.sectionLabel     -- Per category header
+                local n = numPerCategoryGroups
+                for i = 1, n do
+                    h = h + OptionGap + allGroupFrames[i]:GetHeight()
+                end
+                h = h + SectionGap + RowHeights.sectionLabel     -- Grouping Overrides header
                 h = h + OptionGap + 38                           -- toggle 1
                 h = h + OptionGap + 38                           -- toggle 2
-                h = h + SectionGap + RowHeights.sectionLabel     -- Per category header
-                for _, gf in ipairs(allGroupFrames) do
-                    h = h + OptionGap + gf:GetHeight()
+                for i = n + 1, #allGroupFrames do
+                    h = h + OptionGap + allGroupFrames[i]:GetHeight()
                 end
                 h = h + SectionGap + RowHeights.sectionLabel     -- Other colors header
                 h = h + 2 * (GROUP_ROW_GAP + GROUP_ROW_H)       -- 2 other rows
@@ -365,10 +370,32 @@ local function BuildCategory(tab, tabIndex, options, refreshers, optionFrames)
                 hdrLabel:SetJustifyH("LEFT")
 
                 -- Swatch preview: show the title colour as a small swatch on the header.
+                local titleDef = (addon.QUEST_COLORS and addon.QUEST_COLORS[key]) or (addon.QUEST_COLORS and addon.QUEST_COLORS.DEFAULT) or { 0.9, 0.9, 0.9 }
+
+                -- Reset button (child of container so click does not toggle expand)
+                local resetBtn = CreateFrame("Button", nil, container)
+                resetBtn:SetSize(50, 22)
+                resetBtn:SetPoint("RIGHT", container, "RIGHT", -8, 0)
+                local resetLabel = resetBtn:CreateFontString(nil, "OVERLAY")
+                resetLabel:SetFont(Def.FontPath or "Fonts\\FRIZQT__.TTF", Def.LabelSize or 13, "OUTLINE")
+                SetTextColor(resetLabel, Def.TextColorLabel)
+                resetLabel:SetText("Reset")
+                resetLabel:SetPoint("CENTER", resetBtn, "CENTER", 0, 0)
+                resetBtn:SetScript("OnClick", function()
+                    local m = getMatrix()
+                    if m.categories and m.categories[key] then
+                        m.categories[key] = nil
+                        setDB(opt.dbKey, m)
+                        notifyMainAddon()
+                        container:Refresh()
+                    end
+                end)
+                resetBtn:SetScript("OnEnter", function() SetTextColor(resetLabel, Def.TextColorHighlight) end)
+                resetBtn:SetScript("OnLeave", function() SetTextColor(resetLabel, Def.TextColorLabel) end)
+
                 local previewSwatch = hdr:CreateTexture(nil, "ARTWORK")
                 previewSwatch:SetSize(14, 14)
-                previewSwatch:SetPoint("RIGHT", hdr, "RIGHT", -8, 0)
-                local titleDef = (addon.QUEST_COLORS and addon.QUEST_COLORS[key]) or (addon.QUEST_COLORS and addon.QUEST_COLORS.DEFAULT) or { 0.9, 0.9, 0.9 }
+                previewSwatch:SetPoint("RIGHT", resetBtn, "LEFT", -8, 0)
                 previewSwatch:SetColorTexture(titleDef[1], titleDef[2], titleDef[3], 1)
 
                 -- Highlight on hover
@@ -471,10 +498,38 @@ local function BuildCategory(tab, tabIndex, options, refreshers, optionFrames)
             currentCard.contentHeight = CardPadding + RowHeights.sectionLabel
             anchor = currentCard
 
-            -- Override behaviour
-            local ovHdr = OptionsWidgets_CreateSectionHeader(currentCard, "Override behaviour")
-            ovHdr:SetPoint("TOPLEFT", currentCard.contentAnchor, "BOTTOMLEFT", 0, -SectionGap)
-            currentCard.contentAnchor = ovHdr
+            local groupOrder = addon.GetGroupOrder and addon.GetGroupOrder() or {}
+            if type(groupOrder) ~= "table" or #groupOrder == 0 then
+                groupOrder = addon.GROUP_ORDER or {}
+            end
+            local GROUPING_OVERRIDE_KEYS = { NEARBY = true, COMPLETE = true }
+            local perCategoryOrder = {}
+            local groupingOverrideOrder = {}
+            for _, key in ipairs(groupOrder) do
+                if GROUPING_OVERRIDE_KEYS[key] then
+                    table.insert(groupingOverrideOrder, key)
+                else
+                    table.insert(perCategoryOrder, key)
+                end
+            end
+            numPerCategoryGroups = #perCategoryOrder
+
+            -- Per-category collapsible groups (excludes NEARBY and COMPLETE)
+            local catHdr = OptionsWidgets_CreateSectionHeader(currentCard, "Per category (click to expand)")
+            catHdr:SetPoint("TOPLEFT", currentCard.contentAnchor, "BOTTOMLEFT", 0, -SectionGap)
+            currentCard.contentAnchor = catHdr
+            currentCard.contentHeight = currentCard.contentHeight + SectionGap + RowHeights.sectionLabel
+
+            for _, key in ipairs(perCategoryOrder) do
+                local gf = BuildCollapsibleGroup(currentCard, currentCard.contentAnchor, key)
+                currentCard.contentAnchor = gf
+                currentCard.contentHeight = currentCard.contentHeight + OptionGap + GROUP_HEADER_H
+            end
+
+            -- Grouping Overrides: toggles + NEARBY and COMPLETE collapsible groups
+            local goHdr = OptionsWidgets_CreateSectionHeader(currentCard, "Grouping Overrides")
+            goHdr:SetPoint("TOPLEFT", currentCard.contentAnchor, "BOTTOMLEFT", 0, -SectionGap)
+            currentCard.contentAnchor = goHdr
             currentCard.contentHeight = currentCard.contentHeight + SectionGap + RowHeights.sectionLabel
 
             local ovCompleted = OptionsWidgets_CreateToggleSwitch(currentCard, "Completed overrides base colours", "When on, READY TO TURN IN uses its row colours for all quests in that section.", function() return getOverride("useCompletedOverride") end, function(v) setOverride("useCompletedOverride", v) end)
@@ -489,17 +544,7 @@ local function BuildCategory(tab, tabIndex, options, refreshers, optionFrames)
             currentCard.contentAnchor = ovCurrentZone
             currentCard.contentHeight = currentCard.contentHeight + OptionGap + 38
 
-            -- Per-category collapsible groups
-            local catHdr = OptionsWidgets_CreateSectionHeader(currentCard, "Per category (click to expand)")
-            catHdr:SetPoint("TOPLEFT", currentCard.contentAnchor, "BOTTOMLEFT", 0, -SectionGap)
-            currentCard.contentAnchor = catHdr
-            currentCard.contentHeight = currentCard.contentHeight + SectionGap + RowHeights.sectionLabel
-
-            local groupOrder = addon.GetGroupOrder and addon.GetGroupOrder() or {}
-            if type(groupOrder) ~= "table" or #groupOrder == 0 then
-                groupOrder = addon.GROUP_ORDER or {}
-            end
-            for _, key in ipairs(groupOrder) do
+            for _, key in ipairs(groupingOverrideOrder) do
                 local gf = BuildCollapsibleGroup(currentCard, currentCard.contentAnchor, key)
                 currentCard.contentAnchor = gf
                 currentCard.contentHeight = currentCard.contentHeight + OptionGap + GROUP_HEADER_H
