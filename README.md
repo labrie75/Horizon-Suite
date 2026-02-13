@@ -1,6 +1,6 @@
-# 🌌 Horizon Suite - Focus
+# 🌌 Horizon Suite
 
-**Horizon Suite - Focus** is a cinematic overhaul of the World of Warcraft objective tracker. Designed for the Midnight era, it replaces static, cluttered lists with a fluid interface that grants you total agency over your goals.
+**Horizon Suite** is a core addon with pluggable modules. The **Focus** module is a cinematic overhaul of the World of Warcraft objective tracker—the first suite in the collection. Designed for the Midnight era, it replaces static, cluttered lists with a fluid interface that grants you total agency over your goals. Additional suites will appear as modules in the same options panel.
 
 <p align="center">
   <img width="400" alt="Horizon Suite Preview" src="https://github.com/user-attachments/assets/72072df2-7ba3-4205-a984-df561eaf3ed4" />
@@ -48,6 +48,7 @@ Built for the heat of gameplay.
 | Command | Action |
 |:---|:---|
 | `/horizon options` | Launch the customization suite. Use the search bar to find and jump to individual settings. |
+| `/horizon toggle` | Enable or disable the Focus (objective tracker) module. |
 | `/horizon collapse` | Toggle the entire tracker or specific categories. |
 | `/horizon nearby` | Toggle the Nearby (Current Zone) grouping on or off; when off, in-zone quests appear in their normal category (e.g. Dailies, Campaign). |
 | `/horizon test` | Populate sample data to preview your styling. |
@@ -57,9 +58,9 @@ Built for the heat of gameplay.
 
 ### Settings Panel
 
-The options panel uses a cinematic, modern, minimalistic design with soft edges, subtle dividers, and a dark low-contrast palette. The search bar features a spyglass icon, integrated clear button, and focus-state styling. The panel is organized into eight categories: **Layout** (panel behaviour, dimensions), **Visibility** (instance, combat, filtering), **Display** (header, list options), **Features** (achievements, rare bosses, floating quest item, Mythic+, scenario & Delve), **Typography** (font, sizes, outline, text case, shadow), **Appearance** (panel backdrop/border, highlight), **Colors** (per-category colours with collapsible groups and per-group reset buttons; Grouping Overrides for Current Zone and Ready to Turn in; global colours), and **Organization** (focus order, sort mode, behaviour). Use the **search bar** to find any setting—type at least two characters to see matching results, then click a result to jump directly to that option. Press Escape to clear the search.
+The options panel uses a cinematic, modern, minimalistic design with soft edges, subtle dividers, and a dark low-contrast palette. The search bar features a spyglass icon, integrated clear button, and focus-state styling. The panel is organized into nine categories: **Modules** (enable or disable each suite; Focus is the objective tracker), **Layout** (panel behaviour, dimensions), **Visibility** (instance, combat, filtering), **Display** (header, list options), **Features** (achievements, rare bosses, floating quest item, Mythic+, scenario & Delve), **Typography** (font, sizes, outline, text case, shadow), **Appearance** (panel backdrop/border, highlight), **Colors** (per-category colours with collapsible groups and per-group reset buttons; Grouping Overrides for Current Zone and Ready to Turn in; global colours), and **Organization** (focus order, sort mode, behaviour). Use the **search bar** to find any setting—type at least two characters to see matching results, then click a result to jump directly to that option. Press Escape to clear the search.
 
-Key bindings for **Collapse Tracker** and **Toggle Nearby Group** can be set under *Key Bindings → Horizon Suite - Focus*. The option "Show Nearby (Current Zone) group" in Display → List controls the same Nearby grouping. "Show category headers when collapsed" (Display → List) keeps section headers (Campaign, World Quests, etc.) visible when the tracker is collapsed; click a header to expand that category.
+Key bindings for **Collapse Tracker** and **Toggle Nearby Group** can be set under *Key Bindings → Horizon Suite*. The option "Show Nearby (Current Zone) group" in Display → List controls the same Nearby grouping. "Show category headers when collapsed" (Display → List) keeps section headers (Campaign, World Quests, etc.) visible when the tracker is collapsed; click a header to expand that category.
 
 ### Mouse Bindings
 * **Left-Click**: Focus the quest (map pin). If the quest is not yet tracked, it is added to the tracker first. For world quests, left-click focuses without changing the watch list. For achievements, left-click opens the achievement panel.
@@ -81,7 +82,7 @@ When **Require Ctrl for focus & remove** is enabled under **Options → Organiza
 
 1. Download the latest release and extract the `HorizonSuite` folder.
 2. Place it in your `World of Warcraft\_retail_\Interface\AddOns\` directory.
-3. Enable **Horizon Suite - Focus** in your AddOn list.
+3. Enable **Horizon Suite** in your AddOn list.
 4. Type `/horizon options` to begin tailoring your experience.
 
 ---

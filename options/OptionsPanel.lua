@@ -32,7 +32,7 @@ local function notifyMainAddon() return addon.OptionsData_NotifyMainAddon() end
 -- Panel frame
 -- ---------------------------------------------------------------------------
 local panel = CreateFrame("Frame", "HorizonSuiteOptionsPanel", UIParent)
-panel.name = "Horizon Suite - Focus"
+panel.name = "Horizon Suite"
 panel:SetSize(PAGE_WIDTH, PAGE_HEIGHT)
 panel:SetFrameStrata("DIALOG")
 panel:SetClampedToScreen(true)

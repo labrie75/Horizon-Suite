@@ -56,6 +56,7 @@ end
 
 function addon.EnsureDB()
     if not HorizonDB then HorizonDB = {} end
+    if addon.EnsureModulesDB then addon:EnsureModulesDB() end
 end
 
 -- Persisted Focus category order (validated, fallback to addon.GROUP_ORDER).

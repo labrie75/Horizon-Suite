@@ -306,6 +306,7 @@ end
 -- @param _ table Frame (unused)
 -- @param dt number Elapsed time since last frame
 HS:SetScript("OnUpdate", function(_, dt)
+    if not addon.enabled then return end
     local useAnim = addon.GetDB("animations", true)
     UpdateMapCheck(dt)
     UpdatePanelHeight(dt)

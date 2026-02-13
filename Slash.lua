@@ -19,27 +19,20 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
 
     if cmd == "toggle" then
         if InCombatLockdown() then
-            print("|cFFFF0000Horizon Suite - Focus:|r Cannot toggle during combat.")
+            print("|cFFFF0000Horizon Suite:|r Cannot toggle during combat.")
             return
         end
-        addon.enabled = not addon.enabled
-        if addon.enabled then
-            addon.TrySuppressTracker()
-            addon.ScheduleRefresh()
-            HSPrint("|cFF00FF00Enabled|r")
+        local currentlyEnabled = addon:IsModuleEnabled("focus")
+        addon:SetModuleEnabled("focus", not currentlyEnabled)
+        if addon:IsModuleEnabled("focus") then
+            HSPrint("|cFF00FF00Focus enabled|r")
         else
-            addon.RestoreTracker()
-            addon.HS:Hide()
-            for i = 1, addon.POOL_SIZE do addon.ClearEntry(addon.pool[i]) end
-            wipe(addon.activeMap)
-            addon.HideAllSectionHeaders()
-            addon.sectionIdx = 0
-            HSPrint("|cFFFF0000Disabled|r")
+            HSPrint("|cFFFF0000Focus disabled|r")
         end
 
     elseif cmd == "collapse" then
-        A.ToggleCollapse()
-        if A.collapsed then
+        addon.ToggleCollapse()
+        if addon.collapsed then
             print("|cFF00CCFFHorizon Suite - Focus:|r Panel collapsed.")
         else
             print("|cFF00CCFFHorizon Suite - Focus:|r Panel expanded.")

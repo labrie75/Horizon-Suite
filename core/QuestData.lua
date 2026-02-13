@@ -9,7 +9,7 @@ local addon = _G.HorizonSuite
 -- QUEST DATA
 -- ============================================================================
 
-addon.enabled            = true
+addon.enabled            = false  -- Set by Focus module OnEnable
 addon.collapsed          = false
 addon.refreshPending     = false
 addon.prevRareKeys       = {}

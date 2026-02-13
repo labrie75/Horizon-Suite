@@ -1,8 +1,8 @@
 <Bindings>
-  <Binding name="CLICK HSCollapseButton:LeftButton" description="Collapse Tracker" category="Horizon Suite - Focus">
+  <Binding name="CLICK HSCollapseButton:LeftButton" description="Collapse Tracker" category="Horizon Suite">
     if _G.HSCollapseButton and _G.HSCollapseButton:GetScript("OnClick") then _G.HSCollapseButton:GetScript("OnClick")() end
   </Binding>
-  <Binding name="CLICK HSNearbyToggleButton:LeftButton" description="Toggle Nearby Group" category="Horizon Suite - Focus">
+  <Binding name="CLICK HSNearbyToggleButton:LeftButton" description="Toggle Nearby Group" category="Horizon Suite">
     if _G.HSNearbyToggleButton and _G.HSNearbyToggleButton:GetScript("OnClick") then _G.HSNearbyToggleButton:GetScript("OnClick")() end
   </Binding>
 </Bindings>

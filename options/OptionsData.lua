@@ -124,8 +124,18 @@ end
 
 local OptionCategories = {
     {
+        key = "Modules",
+        name = "Modules",
+        moduleKey = nil,
+        options = {
+            { type = "section", name = "Module enablement" },
+            { type = "toggle", name = "Enable Focus module", desc = "Show the objective tracker for quests, world quests, rares, achievements, and scenarios.", dbKey = "_module_focus", get = function() return addon:IsModuleEnabled("focus") end, set = function(v) addon:SetModuleEnabled("focus", v) end },
+        },
+    },
+    {
         key = "Layout",
         name = "Layout",
+        moduleKey = "focus",
         options = {
             { type = "section", name = "Panel behaviour" },
             { type = "toggle", name = "Lock position", desc = "Prevent dragging the tracker.", dbKey = "lockPosition", get = function() return (HorizonDB and HorizonDB.lockPosition) == true end, set = function(v) setDB("lockPosition", v) end },
@@ -139,6 +149,7 @@ local OptionCategories = {
     {
         key = "Visibility",
         name = "Visibility",
+        moduleKey = "focus",
         options = {
             { type = "section", name = "Instance" },
             { type = "toggle", name = "Show in dungeon", desc = "Show tracker in party dungeons.", dbKey = "showInDungeon", get = function() return getDB("showInDungeon", false) end, set = function(v) setDB("showInDungeon", v) end },
@@ -154,6 +165,7 @@ local OptionCategories = {
     {
         key = "Display",
         name = "Display",
+        moduleKey = "focus",
         options = {
             { type = "section", name = "Header" },
             { type = "toggle", name = "Show quest count", desc = "Show quest count in header.", dbKey = "showQuestCount", get = function() return getDB("showQuestCount", true) end, set = function(v) setDB("showQuestCount", v) end },
@@ -177,6 +189,7 @@ local OptionCategories = {
     {
         key = "Features",
         name = "Features",
+        moduleKey = "focus",
         options = {
             { type = "section", name = "Rare bosses" },
             { type = "toggle", name = "Show rare bosses", desc = "Show rare boss vignettes in the list.", dbKey = "showRareBosses", get = function() return getDB("showRareBosses", true) end, set = function(v) setDB("showRareBosses", v) end },
@@ -201,6 +214,7 @@ local OptionCategories = {
     {
         key = "Typography",
         name = "Typography",
+        moduleKey = "focus",
         options = {
             { type = "section", name = "Font" },
             { type = "dropdown", name = "Font", desc = "Font family.", dbKey = "fontPath", options = GetFontDropdownOptions, get = function() return getDB("fontPath", defaultFontPath) end, set = function(v) setDB("fontPath", v) end, displayFn = addon.GetFontNameForPath },
@@ -224,6 +238,7 @@ local OptionCategories = {
     {
         key = "Appearance",
         name = "Appearance",
+        moduleKey = "focus",
         options = {
             { type = "section", name = "Panel" },
             { type = "slider", name = "Backdrop opacity", desc = "Panel background opacity (0–1).", dbKey = "backdropOpacity", min = 0, max = 1, get = function() return tonumber(getDB("backdropOpacity", 0)) or 0 end, set = function(v) setDB("backdropOpacity", v) end },
@@ -236,6 +251,7 @@ local OptionCategories = {
     {
         key = "Colors",
         name = "Colors",
+        moduleKey = "focus",
         options = {
             { type = "section", name = "Color matrix" },
             { type = "colorMatrixFull", name = "Colors", dbKey = "colorMatrix" },
@@ -244,6 +260,7 @@ local OptionCategories = {
     {
         key = "Organization",
         name = "Organization",
+        moduleKey = "focus",
         options = {
             { type = "section", name = "Focus order" },
             { type = "reorderList", name = "Focus category order", labelMap = addon.SECTION_LABELS, get = function() return addon.GetGroupOrder() end, set = function(order) addon.SetGroupOrder(order) end, desc = "Drag to reorder categories. DELVES and SCENARIO EVENTS stay first." },

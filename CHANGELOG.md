@@ -1,10 +1,14 @@
 # Changelog
 
-All notable changes to Horizon Suite - Focus are documented here.
+All notable changes to Horizon Suite are documented here.
 
 ---
 
 ## [Unreleased]
+
+### New Features
+
+- **Modular architecture** — Horizon Suite is now a core addon with pluggable modules. The Focus (objective tracker) is the first module. A new **Modules** category in options lets you enable or disable each suite. Use `/horizon toggle` or Options → Modules → Enable Focus module to turn the tracker on or off. Additional suites will appear as modules in the same options panel. SavedVariables remain compatible; existing installs default to Focus enabled.
 
 ### Improvements
 

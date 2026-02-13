@@ -1,6 +1,6 @@
 ## Interface: 120001, 120000
-## Title: Horizon Suite - Focus
-## Notes: Clean glassmorphism objective tracker for the Midnight era.
+## Title: Horizon Suite
+## Notes: Core addon with pluggable modules. Focus (objective tracker) is the first module.
 ## Author: Crystilac
 ## Version: 0.7.0
 ## SavedVariables: HorizonDB
@@ -15,6 +15,7 @@ core/Rares.lua
 core/Scenario.lua
 core/Achievements.lua
 core/QuestData.lua
+core/FocusModule.lua
 ui/EntryPool.lua
 ui/FloatingQuestItem.lua
 ui/MplusBlock.lua

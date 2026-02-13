@@ -41,75 +41,16 @@ eventFrame:RegisterEvent("CONTENT_TRACKING_UPDATE")
 pcall(function() eventFrame:RegisterEvent("ACTIVE_DELVE_DATA_UPDATE") end)
 
 local function ScheduleRefresh()
+    if not addon.enabled then return end
     if addon.refreshPending then return end
     addon.refreshPending = true
     C_Timer.After(0.05, function()
         addon.refreshPending = false
-        addon.FullLayout()
+        if addon.enabled and addon.FullLayout then addon.FullLayout() end
     end)
 end
 
 addon.ScheduleRefresh = ScheduleRefresh
-
--- On map close: sync world quest watch list so untracked-on-map quests drop from tracker.
-local function OnWorldMapClosed()
-    if not addon.GetCurrentWorldQuestWatchSet then return end
-    local currentSet = addon.GetCurrentWorldQuestWatchSet()
-    local lastSet = addon.lastWorldQuestWatchSet
-    if lastSet and next(lastSet) then
-        if not addon.recentlyUntrackedWorldQuests then addon.recentlyUntrackedWorldQuests = {} end
-        for questID, _ in pairs(lastSet) do
-            if not currentSet[questID] then
-                addon.recentlyUntrackedWorldQuests[questID] = true
-            end
-        end
-    end
-    addon.lastWorldQuestWatchSet = currentSet
-    ScheduleRefresh()
-end
-
-local function HookWorldMapOnHide()
-    if WorldMapFrame and not WorldMapFrame._HSOnHideHooked then
-        WorldMapFrame._HSOnHideHooked = true
-        WorldMapFrame:HookScript("OnHide", OnWorldMapClosed)
-    end
-end
-
--- When the world map is opened, refresh the objective list (live APIs; no cache).
-local function OnWorldMapShown()
-    C_Timer.After(0.5, function()
-        if not addon.enabled or not WorldMapFrame then return end
-        ScheduleRefresh()
-    end)
-end
-
-local function HookWorldMapOnShow()
-    if WorldMapFrame and not WorldMapFrame._HSOnShowHooked then
-        WorldMapFrame._HSOnShowHooked = true
-        WorldMapFrame:HookScript("OnShow", OnWorldMapShown)
-    end
-end
-
-local function StartScenarioTimerHeartbeat()
-    if addon._scenarioTimerHeartbeat then return end
-    local f = CreateFrame("Frame", nil, UIParent)
-    f:SetSize(1, 1)
-    f:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", -1000, -1000)
-    f:Show()
-    f._elapsed = 0
-    f:SetScript("OnUpdate", function(self, elapsed)
-        if not addon.enabled or addon.collapsed then return end
-        if addon.ShouldHideInCombat and addon.ShouldHideInCombat() then return end
-        if not addon.GetDB("showScenarioEvents", true) then return end
-        self._elapsed = (self._elapsed or 0) + elapsed
-        if self._elapsed < 5 then return end
-        self._elapsed = 0
-        if addon.IsScenarioActive and addon.IsScenarioActive() then
-            ScheduleRefresh()
-        end
-    end)
-    addon._scenarioTimerHeartbeat = f
-end
 
 _G.HorizonSuite_ApplyTypography  = addon.ApplyTypography
 _G.HorizonSuite_ApplyDimensions  = addon.ApplyDimensions
@@ -121,39 +62,24 @@ _G.HorizonSuite_FullLayout       = addon.FullLayout
 -- ============================================================================
 
 local function OnAddonLoaded(addonName)
-        if addonName == "HorizonSuite" then
-            addon.RestoreSavedPosition()
-            addon.ApplyTypography()
-            addon.ApplyDimensions()
-            if addon.ApplyBackdropOpacity then addon.ApplyBackdropOpacity() end
-            if addon.ApplyBorderVisibility then addon.ApplyBorderVisibility() end
-            if HorizonDB and HorizonDB.collapsed then
-                addon.collapsed = true
-                addon.chevron:SetText("+")
-                addon.scrollFrame:Hide()
-                addon.targetHeight  = addon.GetCollapsedHeight()
-                addon.currentHeight = addon.GetCollapsedHeight()
+    if addonName == "HorizonSuite" then
+        addon:EnsureModulesDB()
+        for key in pairs(addon.modules or {}) do
+            local modDb = HorizonDB and HorizonDB.modules and HorizonDB.modules[key]
+            if modDb == nil or modDb.enabled ~= false then
+                addon:EnableModule(key)
             end
-            StartScenarioTimerHeartbeat()
-            local function tryHookWorldMap()
-                HookWorldMapOnHide()
-                HookWorldMapOnShow()
-            end
-            C_Timer.After(0.5, tryHookWorldMap)
-            for attempt = 1, 5 do
-                C_Timer.After(1 + attempt, tryHookWorldMap)
-            end
-            C_Timer.After(1, function()
-                HookWorldMapOnHide()
-                HookWorldMapOnShow()
-            end)
-        elseif addonName == "Blizzard_WorldMap" then
-            HookWorldMapOnHide()
-            HookWorldMapOnShow()
-        elseif addonName == "Blizzard_ObjectiveTracker" then
-            if addon.enabled then addon.TrySuppressTracker() end
+        end
+    elseif addonName == "Blizzard_WorldMap" then
+        if addon.FocusModuleHooks and addon.FocusModuleHooks.WorldMap then
+            addon.FocusModuleHooks.WorldMap()
+        end
+    elseif addonName == "Blizzard_ObjectiveTracker" then
+        if addon:IsModuleEnabled("focus") then
+            if addon.TrySuppressTracker then addon.TrySuppressTracker() end
             ScheduleRefresh()
         end
+    end
 end
 
 local function OnPlayerRegenDisabled()
@@ -196,6 +122,7 @@ local function OnPlayerLoginOrEnteringWorld()
 end
 
 local function OnQuestTurnedIn(questID)
+    if not addon.enabled then ScheduleRefresh(); return end
     for i = 1, addon.POOL_SIZE do
         if addon.pool[i].questID == questID and addon.pool[i].animState ~= "fadeout" then
             local e = addon.pool[i]
@@ -209,6 +136,7 @@ local function OnQuestTurnedIn(questID)
 end
 
 local function OnQuestWatchUpdate(questID)
+    if not addon.enabled then ScheduleRefresh(); return end
     if questID and addon.GetDB("objectiveProgressFlash", true) then
         for i = 1, addon.POOL_SIZE do
             if addon.pool[i].questID == questID then
@@ -220,6 +148,7 @@ local function OnQuestWatchUpdate(questID)
 end
 
 local function OnQuestWatchListChanged(questID, added)
+    if not addon.enabled then ScheduleRefresh(); return end
     if questID and addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID) then
         if not addon.recentlyUntrackedWorldQuests then addon.recentlyUntrackedWorldQuests = {} end
         if added then
@@ -278,6 +207,9 @@ local eventHandlers = {
 -- @param event string WoW event name (e.g. QUEST_WATCH_LIST_CHANGED, ADDON_LOADED)
 -- @param ... any Event payload (varargs)
 eventFrame:SetScript("OnEvent", function(self, event, ...)
+    if event ~= "ADDON_LOADED" and not addon.enabled then
+        return
+    end
     local fn = eventHandlers[event]
     if fn then
         fn(event, ...)

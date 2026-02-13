@@ -130,7 +130,7 @@ end
 -- LOGGING
 -- ============================================================================
 
-addon.PRINT_PREFIX = "|cFF00CCFFHorizon Suite - Focus:|r "
+addon.PRINT_PREFIX = "|cFF00CCFFHorizon Suite:|r "
 
 --- Standardized print helper with colored Horizon Suite prefix.
 function addon.HSPrint(msg)
