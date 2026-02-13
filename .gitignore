@@ -9,3 +9,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.sublime-*
+
+# Local dev notes (not for version control)
+upcoming-notes.md
