@@ -72,21 +72,19 @@ local function CreateQuestEntry(parent, index)
     e.itemBtn:SetSize(addon.ITEM_BTN_SIZE, addon.ITEM_BTN_SIZE)
     e.itemBtn:SetPoint("TOPRIGHT", e, "TOPLEFT", -(iconRight + addon.QUEST_TYPE_ICON_SIZE + 4), 2)
     e.itemBtn:SetAttribute("type", "item")
-    e.itemBtn:RegisterForClicks("AnyUp")
+    e.itemBtn:RegisterForClicks("AnyDown")
+
+    addon.StyleQuestItemButton(e.itemBtn)
 
     e.itemBtn.icon = e.itemBtn:CreateTexture(nil, "ARTWORK")
     e.itemBtn.icon:SetAllPoints()
     e.itemBtn.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
-    e.itemBtn.shadow = e.itemBtn:CreateTexture(nil, "BACKGROUND")
-    e.itemBtn.shadow:SetPoint("TOPLEFT", -2, 2)
-    e.itemBtn.shadow:SetPoint("BOTTOMRIGHT", 2, -2)
-    e.itemBtn.shadow:SetColorTexture(0, 0, 0, 0.6)
-
     e.itemBtn.cooldown = CreateFrame("Cooldown", btnName .. "CD", e.itemBtn, "CooldownFrameTemplate")
     e.itemBtn.cooldown:SetAllPoints()
 
     e.itemBtn:SetScript("OnEnter", function(self)
+        self:SetAlpha(1)
         local entry = self:GetParent()
         if entry.itemLink then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -96,10 +94,12 @@ local function CreateQuestEntry(parent, index)
         end
     end)
     e.itemBtn:SetScript("OnLeave", function(self)
+        self:SetAlpha(0.9)
         if GameTooltip:GetOwner() == self then
             GameTooltip:Hide()
         end
     end)
+    e.itemBtn:SetAlpha(0.9)
 
     e.itemBtn:Hide()
 
@@ -400,6 +400,7 @@ local function ClearEntry(entry, full)
     if full ~= false then
         entry:Hide()
         entry:SetAlpha(0)
+        entry:SetHitRectInsets(0, 0, 0, 0)
         if entry.itemBtn then entry.itemBtn:Hide() end
         if entry.trackBar then entry.trackBar:Hide() end
         if entry.wqTimerText then entry.wqTimerText:Hide() end

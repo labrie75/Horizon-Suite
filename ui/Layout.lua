@@ -360,7 +360,7 @@ end
 -- @param questData table Quest or rare data (title, objectives, color, isSuperTracked, etc.)
 -- @return number Total height of the entry in pixels
 local function PopulateEntry(entry, questData)
-    local hasItem = questData.itemTexture and true or false
+    local hasItem = (questData.itemTexture and questData.itemLink) and true or false
     local showItemBtn = hasItem and addon.GetDB("showQuestItemButtons", false)
     local showQuestIcons = addon.GetDB("showQuestTypeIcons", false)
     local hasIcon = questData.questTypeAtlas and showQuestIcons
@@ -406,6 +406,7 @@ local function PopulateEntry(entry, questData)
     if not questData.isAccepted and questData.category ~= "RARE" and questData.category ~= "SCENARIO" and questData.category ~= "DELVES" and questData.category ~= "DUNGEON" then
         displayTitle = displayTitle .. "  — Available"
     end
+    displayTitle = addon.ApplyTextCase(displayTitle, "questTitleCase", "proper")
     entry.titleText:SetText(displayTitle)
     entry.titleShadow:SetText(displayTitle)
     local c = questData.color
@@ -432,12 +433,15 @@ local function PopulateEntry(entry, questData)
         end
         entry.itemBtn:Show()
         addon.ApplyItemCooldown(entry.itemBtn.cooldown, questData.itemLink)
+        local leftExtend = (addon.BAR_LEFT_OFFSET or 12) + 2 + addon.QUEST_TYPE_ICON_SIZE + 10 + addon.ITEM_BTN_SIZE
+        entry:SetHitRectInsets(-leftExtend, 0, 0, 0)
     else
         entry.itemLink = nil
         entry.itemBtn:Hide()
         if not InCombatLockdown() then
             entry.itemBtn:SetAttribute("item", nil)
         end
+        entry:SetHitRectInsets(0, 0, 0, 0)
     end
 
     local titleH = entry.titleText:GetStringHeight()
@@ -544,6 +548,7 @@ local function AcquireSectionHeader(groupKey)
     s.groupKey = groupKey
 
     local label = addon.SECTION_LABELS[groupKey] or groupKey
+    label = addon.ApplyTextCase(label, "sectionHeaderTextCase", "upper")
     local color = addon.GetSectionColor(groupKey)
     s.text:SetText(label)
     s.shadow:SetText(label)
@@ -776,6 +781,9 @@ local function FullLayout()
     else
         addon.headerText:Show()
         addon.headerShadow:Show()
+        local headerStr = addon.ApplyTextCase("OBJECTIVES", "headerTextCase", "upper")
+        addon.headerText:SetText(headerStr)
+        addon.headerShadow:SetText(headerStr)
         if addon.GetDB("showQuestCount", true) then addon.countText:Show(); addon.countShadow:Show() else addon.countText:Hide(); addon.countShadow:Hide() end
         addon.chevron:Show()
         addon.optionsBtn:Show()

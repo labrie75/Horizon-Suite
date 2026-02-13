@@ -15,7 +15,7 @@ The systems driving your efficiency.
 * **Dynamic Scanning** – Surfaces active Scenarios, Delves, and World Events in dedicated, high-priority sections. Includes support for cinematic progress bars, timers, and difficulty tiers.
 * **Rare Boss Tracker** – Scans for nearby vignettes, allowing you to super-track rares with a single click and optional audio alerts.
 * **Live Sync** – World Quests, Dailies, and Weeklies update dynamically. Unaccepted quests are marked as "Available" so you never miss a pickup.
-* **Secure Quest Items** – High-performance quest item buttons built on secure templates, ensuring they work flawlessly mid-fight without UI errors. When enabled, the usable quest item appears anchored outside to the left of the panel, in line with each quest row (to the left of the quest type icon).
+* **Secure Quest Items** – High-performance quest item buttons built on secure templates, ensuring they work flawlessly mid-fight without UI errors.
 * **ATT Integration** – Full native support for **All The Things**, displaying collection data directly within your objectives.
 
 ---
@@ -23,10 +23,10 @@ The systems driving your efficiency.
 ## 🎨 Visuals & UI Design
 An aesthetic that complements the modern game client.
 
-* **Visual Hierarchy** – High-fidelity icons for Campaign, Legendary, and World Quests. 
+* **Visual Hierarchy** – High-fidelity icons for Campaign, Legendary, and World Quests.
 * **Turn-In Guidance** – Quests "Ready for Turn-in" receive a unique, high-contrast visual highlight and priority positioning, giving you a clear signal to head back to the hub.
 * **The Color Matrix** – Define your own aesthetic with full hex-code customization for every category and state via `/horizon options`.
-* **Typography Suite** – Total control over fonts, sizes, outlines, and text shadows for Headers, Titles, and Objectives.
+* **Typography Suite** – Total control over fonts, sizes, outlines, and text shadows for Headers, Titles, and Objectives. Optional text case: set the main OBJECTIVES header, section headers and quest titles to Lower Case, Upper Case, or Proper (title case).
 * **Fluid Motion** – Smooth entry/exit animations, a subtle "pulse" on objective completion, and adaptive layouts that support "Grow Upward" anchoring.
 
 ---

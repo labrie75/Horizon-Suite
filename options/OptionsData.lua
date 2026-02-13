@@ -96,6 +96,11 @@ local MPLUS_POSITION_OPTIONS = {
     { "Top", "top" },
     { "Bottom", "bottom" },
 }
+local TEXT_CASE_OPTIONS = {
+    { "Lower Case", "lower" },
+    { "Upper Case", "upper" },
+    { "Proper", "proper" },
+}
 -- Use addon.QUEST_COLORS from Config as single source for quest type colors.
 local COLOR_KEYS_ORDER = { "DEFAULT", "CAMPAIGN", "LEGENDARY", "WORLD", "DELVES", "SCENARIO", "WEEKLY", "DAILY", "COMPLETE", "RARE" }
 local ZONE_COLOR_DEFAULT = { 0.55, 0.65, 0.75 }
@@ -190,6 +195,9 @@ local OptionCategories = {
             { type = "slider", name = "Zone size", desc = "Font size for zone labels.", dbKey = "zoneFontSize", min = 8, max = 18, get = function() return getDB("zoneFontSize", 10) end, set = function(v) setDB("zoneFontSize", v) end },
             { type = "slider", name = "Section size", desc = "Font size for section headers.", dbKey = "sectionFontSize", min = 8, max = 18, get = function() return getDB("sectionFontSize", 10) end, set = function(v) setDB("sectionFontSize", v) end },
             { type = "dropdown", name = "Outline", desc = "Font outline style.", dbKey = "fontOutline", options = OUTLINE_OPTIONS, get = function() return getDB("fontOutline", "OUTLINE") end, set = function(v) setDB("fontOutline", v) end },
+            { type = "dropdown", name = "Header text case", desc = "Display case for the OBJECTIVES header.", dbKey = "headerTextCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("headerTextCase", "upper"); return (v == "default") and "upper" or v end, set = function(v) setDB("headerTextCase", v) end },
+            { type = "dropdown", name = "Section header case", desc = "Display case for category labels (e.g. QUESTS, DELVES).", dbKey = "sectionHeaderTextCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("sectionHeaderTextCase", "upper"); return (v == "default") and "upper" or v end, set = function(v) setDB("sectionHeaderTextCase", v) end },
+            { type = "dropdown", name = "Quest title case", desc = "Display case for quest titles.", dbKey = "questTitleCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("questTitleCase", "proper"); return (v == "default") and "proper" or v end, set = function(v) setDB("questTitleCase", v) end },
             { type = "section", name = "Shadow" },
             { type = "toggle", name = "Show text shadow", desc = "Enable drop shadow on tracker text.", dbKey = "showTextShadow", get = function() return getDB("showTextShadow", true) end, set = function(v) setDB("showTextShadow", v) end },
             { type = "slider", name = "Shadow X", desc = "Horizontal shadow offset.", dbKey = "shadowOffsetX", min = -10, max = 10, get = function() return getDB("shadowOffsetX", 2) end, set = function(v) setDB("shadowOffsetX", v) end },

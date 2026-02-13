@@ -19,6 +19,24 @@ local Design = addon.Design
 Design.BORDER_COLOR   = Design.BORDER_COLOR   or { 0.35, 0.38, 0.45, 0.45 }
 Design.BACKDROP_COLOR = Design.BACKDROP_COLOR or { 0.08, 0.08, 0.12, 0.90 }
 Design.SHADOW_COLOR   = Design.SHADOW_COLOR   or { 0, 0, 0 }
+Design.QUEST_ITEM_BG     = Design.QUEST_ITEM_BG     or { 0.12, 0.12, 0.15, 0.9 }
+Design.QUEST_ITEM_BORDER = Design.QUEST_ITEM_BORDER or { 0.30, 0.32, 0.38, 0.6 }
+
+-- ============================================================================
+-- QUEST ITEM BUTTON STYLING
+-- ============================================================================
+
+--- Apply unified slot-style visuals to a quest item button (per-entry or floating).
+--- Adds dark backdrop, thin border; caller should add hover alpha in OnEnter/OnLeave.
+--- @param btn Frame Button frame (SecureActionButtonTemplate) to style.
+function addon.StyleQuestItemButton(btn)
+    if not btn then return end
+    local bg = Design.QUEST_ITEM_BG
+    local bgTex = btn:CreateTexture(nil, "BACKGROUND")
+    bgTex:SetAllPoints()
+    bgTex:SetColorTexture(bg[1], bg[2], bg[3], bg[4] or 1)
+    addon.CreateBorder(btn, Design.QUEST_ITEM_BORDER, 1)
+end
 
 -- ============================================================================
 -- BORDERS & TEXT
@@ -64,6 +82,23 @@ end
 function addon.SetTextColor(fontString, color)
     if not fontString or not color then return end
     fontString:SetTextColor(color[1], color[2], color[3], color[4] or 1)
+end
+
+--- Apply text case from DB option. Returns text in upper, lower, or proper (title) case based on dbKey.
+-- @param text string or nil
+-- @param dbKey string DB key (e.g. "headerTextCase"); values "upper", "lower", or "proper"
+-- @param default string optional default when key is not set (e.g. "upper" for header, "proper" for title)
+-- @return string
+function addon.ApplyTextCase(text, dbKey, default)
+    if text == nil or type(text) ~= "string" then return text end
+    local v = addon.GetDB(dbKey, default or "proper")
+    if v == "upper" then return text:upper() end
+    if v == "lower" then return text:lower() end
+    if v == "proper" or v == "default" then
+        -- Title case: first letter of each word upper, rest lower.
+        return text:gsub("(%a)([%w]*)", function(a, rest) return a:upper() .. rest:lower() end)
+    end
+    return text
 end
 
 --- Create a text + shadow pair using the addon font objects and shadow offsets.

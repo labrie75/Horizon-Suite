@@ -246,7 +246,7 @@ local function ReadTrackedQuests()
         local isAccepted = (logIndex ~= nil)
         if logIndex and GetQuestLogSpecialItemInfo then
             local link, tex = GetQuestLogSpecialItemInfo(logIndex)
-            if tex then
+            if link and tex then
                 itemLink    = link
                 itemTexture = tex
             end

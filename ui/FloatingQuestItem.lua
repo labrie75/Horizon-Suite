@@ -13,7 +13,7 @@ local floatingQuestItemBtn = CreateFrame("Button", "HSFloatingQuestItem", UIPare
 floatingQuestItemBtn:SetSize(addon.GetDB("floatingQuestItemSize", 36) or 36, addon.GetDB("floatingQuestItemSize", 36) or 36)
 floatingQuestItemBtn:SetPoint("RIGHT", addon.HS, "LEFT", -12, 0)
 floatingQuestItemBtn:SetAttribute("type", "item")
-floatingQuestItemBtn:RegisterForClicks("AnyUp")
+floatingQuestItemBtn:RegisterForClicks("AnyDown")
 floatingQuestItemBtn:SetMovable(true)
 floatingQuestItemBtn:RegisterForDrag("LeftButton")
 floatingQuestItemBtn:SetScript("OnDragStart", function(self)
@@ -37,6 +37,7 @@ floatingQuestItemBtn:SetScript("OnDragStop", function(self)
     end
 end)
 floatingQuestItemBtn:Hide()
+addon.StyleQuestItemButton(floatingQuestItemBtn)
 local floatingQuestItemIcon = floatingQuestItemBtn:CreateTexture(nil, "ARTWORK")
 floatingQuestItemIcon:SetAllPoints()
 floatingQuestItemIcon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
@@ -44,6 +45,7 @@ floatingQuestItemBtn.icon = floatingQuestItemIcon
 floatingQuestItemBtn.cooldown = CreateFrame("Cooldown", nil, floatingQuestItemBtn, "CooldownFrameTemplate")
 floatingQuestItemBtn.cooldown:SetAllPoints()
 floatingQuestItemBtn:SetScript("OnEnter", function(self)
+    self:SetAlpha(1)
     if self._itemLink and GameTooltip then
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         local ok, err = pcall(GameTooltip.SetHyperlink, GameTooltip, self._itemLink)
@@ -52,8 +54,10 @@ floatingQuestItemBtn:SetScript("OnEnter", function(self)
     end
 end)
 floatingQuestItemBtn:SetScript("OnLeave", function(self)
+    self:SetAlpha(0.9)
     if GameTooltip and GameTooltip:GetOwner() == self then GameTooltip:Hide() end
 end)
+floatingQuestItemBtn:SetAlpha(0.9)
 
 local function UpdateFloatingQuestItem(questsFlat)
     if addon.ShouldHideInCombat() or not addon.GetDB("showFloatingQuestItem", false) then
