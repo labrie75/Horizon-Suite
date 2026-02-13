@@ -33,6 +33,9 @@ local Def = {
 }
 Def.BorderColor = Def.SectionCardBorder
 
+local _activeColorPickerCallbacks = nil  -- { setKeyVal, notify, tex } when our picker is open
+local _hexBoxHooked = false
+
 function _G.OptionsWidgets_SetDef(overrides)
     if not overrides then return end
     for k, v in pairs(overrides) do Def[k] = v end
@@ -398,6 +401,93 @@ function OptionsWidgets_CreateCustomDropdown(parent, labelText, description, opt
     return row
 end
 
+-- Helper: get effective color from ColorPickerFrame, preferring HexBox if user typed hex (10.2.5+).
+-- Returns r, g, b in 0-1 range. HexBox may contain "ff0000", "#ff0000", or "f00" (3-char shorthand).
+local function GetColorPickerEffectiveRGB()
+    local content = ColorPickerFrame and ColorPickerFrame.Content
+    local hexBox = content and content.HexBox
+    if hexBox and hexBox.GetText then
+        local raw = hexBox:GetText()
+        if type(raw) == "string" and #raw > 0 then
+            local hex = raw:gsub("^#", ""):gsub("%s+", "")
+            if #hex >= 3 then
+                if #hex == 3 then
+                    hex = hex:gsub("(%x)(%x)(%x)", "%1%1%2%2%3%3")
+                end
+                hex = hex:sub(1, 6)
+                while #hex < 6 do hex = hex .. "0" end
+                local r = tonumber(hex:sub(1, 2), 16)
+                local g = tonumber(hex:sub(3, 4), 16)
+                local b = tonumber(hex:sub(5, 6), 16)
+                if r and g and b then
+                    return r / 255, g / 255, b / 255
+                end
+            end
+        end
+    end
+    return ColorPickerFrame:GetColorRGB()
+end
+
+-- Sync hex box to picker visual and apply color (live update when user types). Only runs when our picker is open.
+local function SyncHexBoxToPicker()
+    if not ColorPickerFrame:IsVisible() or not _activeColorPickerCallbacks then return end
+    local content = ColorPickerFrame.Content
+    local hexBox = content and content.HexBox
+    if not hexBox or not hexBox.GetText then return end
+    local raw = hexBox:GetText()
+    if type(raw) ~= "string" or #raw < 3 then return end
+    local hex = raw:gsub("^#", ""):gsub("%s+", "")
+    if #hex < 3 then return end
+    if #hex == 3 then hex = hex:gsub("(%x)(%x)(%x)", "%1%1%2%2%3%3") end
+    hex = hex:sub(1, 6)
+    while #hex < 6 do hex = hex .. "0" end
+    local r = tonumber(hex:sub(1, 2), 16)
+    local g = tonumber(hex:sub(3, 4), 16)
+    local b = tonumber(hex:sub(5, 6), 16)
+    if not r or not g or not b then return end
+    r, g, b = r / 255, g / 255, b / 255
+    local cp = content.ColorPicker
+    local swatchCurrent = content.ColorSwatchCurrent
+    if cp and cp.SetColorRGB then cp:SetColorRGB(r, g, b) end
+    if swatchCurrent and swatchCurrent.SetColorTexture then swatchCurrent:SetColorTexture(r, g, b) end
+    local cb = _activeColorPickerCallbacks
+    if cb then
+        cb.setKeyVal({ r, g, b })
+        if cb.tex then cb.tex:SetColorTexture(r, g, b, 1) end
+        if cb.notify then cb.notify() end
+    end
+end
+
+local function EnsureHexBoxHooked()
+    if _hexBoxHooked then return end
+    local content = ColorPickerFrame and ColorPickerFrame.Content
+    local hexBox = content and content.HexBox
+    if not hexBox or not hexBox.SetScript then return end
+    hexBox:SetScript("OnTextChanged", function()
+        SyncHexBoxToPicker()
+    end)
+    -- Hide the "hex" label inside the box (it obstructs the UI)
+    local function hideHexLabel()
+        for i = 1, select("#", hexBox:GetRegions()) do
+            local r = select(i, hexBox:GetRegions())
+            if r and r.GetText and r.Hide then
+                local t = r:GetText()
+                if t and t:lower():find("hex") then
+                    r:Hide()
+                    return
+                end
+            end
+        end
+        local hash = hexBox.Hash
+        if hash and hash.GetText and hash.Hide then
+            local ok, t = pcall(function() return hash:GetText() end)
+            if ok and t and t:lower():find("hex") then hash:Hide() end
+        end
+    end
+    hideHexLabel()
+    _hexBoxHooked = true
+end
+
 -- Color swatch row: label + clickable swatch (for colorMatrix/colorGroup in options panel).
 -- defaultTbl: {r,g,b} or nil (nil => {0.5,0.5,0.5}). getTbl() returns current color or nil. setKeyVal({r,g,b}), notify() on change.
 function OptionsWidgets_CreateColorSwatchRow(parent, anchor, labelText, defaultTbl, getTbl, setKeyVal, notify)
@@ -428,15 +518,17 @@ function OptionsWidgets_CreateColorSwatchRow(parent, anchor, labelText, defaultT
         local r, g, b = def[1], def[2], def[3]
         local tbl = getTbl and getTbl()
         if tbl and tbl[1] then r, g, b = tbl[1], tbl[2], tbl[3] end
+        _activeColorPickerCallbacks = { setKeyVal = setKeyVal, notify = notify, tex = tex }
         ColorPickerFrame:SetupColorPickerAndShow({
             r = r, g = g, b = b, hasOpacity = false,
             swatchFunc = function()
-                local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+                local nr, ng, nb = GetColorPickerEffectiveRGB()
                 setKeyVal({ nr, ng, nb })
                 tex:SetColorTexture(nr, ng, nb, 1)
                 if notify then notify() end
             end,
             cancelFunc = function()
+                _activeColorPickerCallbacks = nil
                 local p = ColorPickerFrame.previousValues
                 if p then
                     setKeyVal({ p.r, p.g, p.b })
@@ -444,11 +536,14 @@ function OptionsWidgets_CreateColorSwatchRow(parent, anchor, labelText, defaultT
                 end
             end,
             finishedFunc = function()
-                local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+                _activeColorPickerCallbacks = nil
+                local nr, ng, nb = GetColorPickerEffectiveRGB()
                 setKeyVal({ nr, ng, nb })
+                tex:SetColorTexture(nr, ng, nb, 1)
                 if notify then notify() end
             end,
         })
+        EnsureHexBoxHooked()
     end)
     row.Refresh = function() swatch:Refresh() end
     row:Refresh()

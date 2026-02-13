@@ -185,8 +185,7 @@ local function GetObjectiveColor(category)
     if cm and cm.categories and key and cm.categories[key] and cm.categories[key].objective then
         return cm.categories[key].objective
     end
-    -- By default, use the same colour family as the quest title for this category
-    return GetTitleColor(category)
+    return addon.QUEST_COLORS[category] or addon.QUEST_COLORS.DEFAULT
 end
 
 local function GetZoneColor(category)
