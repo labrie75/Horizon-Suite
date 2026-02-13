@@ -10,6 +10,26 @@ All notable changes to Horizon Suite - Focus are documented here.
 
 ---
 
+## [0.6.9] – 2026-02-13
+
+### New Features
+
+- **Nearby group toggle** — Toggle to show or hide the nearby group section, with key binding support. Key bindings can be set in the game’s Key Bindings → AddOns → Horizon Suite. Animation and behaviour for the nearby group section have been enhanced.
+
+- **Dungeon support** — Quest tracking now supports Dungeon quests so dungeon objectives appear correctly in the tracker.
+
+- **Delve support** — Delve quests are supported with updated event handling so Delve objectives are tracked and displayed.
+
+### Improvements
+
+- **Floating quest item button** — Styling, text case options, and UI layout improved. Button behaviour and layout (e.g. icon, label, progress) are more consistent and configurable.
+
+- **Quest caching** — Quest ID retrieval and caching logic refactored for better reliability. Event handling and debugging around quest updates have been improved.
+
+- **README** — Documentation revised for clarity and formatting.
+
+---
+
 ## [0.6.6] – 2026-02-11
 
 ### New Features
