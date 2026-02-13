@@ -1,0 +1,21 @@
+---
+description: Format reference when editing pipeline.md
+globs: pipeline.md
+alwaysApply: false
+---
+
+# Pipeline Format
+
+When editing `pipeline.md`, use this format for each item:
+
+```
+`tag` `status` `YYYY-MM-DD` [priority] Title. Optional detail or → plan link.
+```
+
+**Tags:** `BUG` | `FEAT` | `MOD` | `IMPR` | `IDEA` | `DOC`
+
+**Status:** `OPEN` | `FIXED` | `CLOSED`
+
+**Priority** (optional): `P0` (major) | `P1` (minor) | `P2` (patch)
+
+**Example:** `BUG` OPEN 2026-02-13 [P2] Pop-up quests not appearing in log.

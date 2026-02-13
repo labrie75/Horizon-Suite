@@ -735,6 +735,9 @@ function addon.StartGroupCollapse(groupKey)
 
     -- Mark this group as collapsing so Animation.lua can detect completion.
     addon.groupCollapses[groupKey] = GetTime()
+    if addon.EnsureFocusUpdateRunning then
+        addon.EnsureFocusUpdateRunning()
+    end
 
     -- Immediately mark the category as logically collapsed so layout
     -- treats it as hidden; animation is just the visual transition.
@@ -1079,6 +1082,13 @@ local function FullLayout()
     end
     addon.UpdateFloatingQuestItem(quests)
     local grouped = addon.SortAndGroupQuests(quests)
+
+    -- When a category is collapsing, skip full layout to avoid section header flicker.
+    if addon.groupCollapses and next(addon.groupCollapses) then
+        addon.UpdateHeaderQuestCount(#quests)
+        if addon.EnsureFocusUpdateRunning then addon.EnsureFocusUpdateRunning() end
+        return
+    end
 
     local currentIDs = {}
     for _, q in ipairs(quests) do

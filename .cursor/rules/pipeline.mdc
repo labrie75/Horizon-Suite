@@ -1,0 +1,27 @@
+---
+description: Update the pipeline when asked or when completing bug fixes/plans
+alwaysApply: true
+---
+
+# Pipeline Updates
+
+The project has a local pipeline at `pipeline.md` (root). Update it when:
+
+- The user says "add to the log", "log this", "add to pipeline", "add to upcoming notes", or similar
+- We fix a bug — add a Changelog entry and move the bug to Closed/Fixed with `BUG` FIXED
+- We complete a planned change — add a Changelog entry and move to Closed/Fixed with `FEAT`/`MOD`/`IMPR` CLOSED
+- The user reports a new bug — add under Open Items with `BUG` OPEN, date, optional [P2], and brief description
+- The user shares a plan or idea — add under Open Items with appropriate tag (`FEAT`, `MOD`, `IMPR`, `IDEA`)
+
+**Entry format:** `tag` `status` `YYYY-MM-DD` [priority] Title. Optional detail or → plan link.
+
+**Tags:** `BUG` (defects), `FEAT` (new features), `MOD` (module-specific), `IMPR` (improvements/refactors), `IDEA` (backlog/speculative), `DOC` (documentation)
+
+**Status:** `OPEN` (active), `FIXED` (resolved bugs), `CLOSED` (done or dropped)
+
+**Priority** (optional, for OPEN items): `P0` (major), `P1` (minor), `P2` (patch)
+
+**Format conventions:**
+- **Changelog:** `YYYY-MM-DD — One-line summary.` (newest first)
+- **Open Items / Closed/Fixed:** Use tag + status + date + optional [priority] + title
+- Use `YYYY-MM-DD` for dates. Keep entries one line when possible.

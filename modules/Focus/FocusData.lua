@@ -411,11 +411,10 @@ local function ReadTrackedQuests()
     end
 
     -- Active zone world quests and callings are automatically included from GetNearbyQuestIDs/GetWorldAndCallingQuestIDsToShow.
-    if addon.GetDB("showWorldQuests", true) then
-        for _, entry in ipairs(addon.GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)) do
-            if not seen[entry.questID] then
-                addQuest(entry.questID, { isTracked = entry.isTracked, forceCategory = entry.forceCategory })
-            end
+    -- When showWorldQuests is off, still show WQs explicitly on the watch list (Shift+Click tracked).
+    for _, entry in ipairs(addon.GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)) do
+        if not seen[entry.questID] and (addon.GetDB("showWorldQuests", true) or entry.isTracked) then
+            addQuest(entry.questID, { isTracked = entry.isTracked, forceCategory = entry.forceCategory })
         end
     end
 
@@ -449,11 +448,9 @@ local function ReadTrackedQuests()
         end
     end
 
-    -- Always show super-tracked quest in the list even if not on current map or watch list (e.g. super-tracked from map).
+    -- Always show super-tracked quest (user has explicitly focused it, including WQs).
     if superTracked and superTracked > 0 and not seen[superTracked] and not scenarioRewardQuestIDs[superTracked] then
-        if addon.GetDB("showWorldQuests", true) or not IsQuestWorldQuest(superTracked) then
-            addQuest(superTracked, { isTracked = true })
-        end
+        addQuest(superTracked, { isTracked = true })
     end
 
     -- Append scenario entries (main + bonus steps); prefer scenario over duplicate quest rows.

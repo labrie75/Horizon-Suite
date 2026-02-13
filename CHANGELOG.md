@@ -4,6 +4,24 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [1.0.2] – 2026-02-13
+
+### New Features
+
+- **Track specific world quests when WQs are off** — Watch-list and super-tracked world quests now appear in the tracker even when the general world quests option is disabled. You can turn off auto-added zone WQs while still seeing the ones you explicitly track.
+
+### Improvements
+
+- **Mythic+ design** — Improved M+ block layout and styling in the Focus tracker.
+
+### Fixes
+
+- **Focus Tracker — per-category collapse** — Section header collapse (clicking category headers like Campaign, World Quests) no longer delays or flickers. The collapse animation starts immediately and section headers stay visible during the animation.
+
+- **Focus Tracker — main collapse** — Main tracker collapse behaviour refined: ensures the update loop runs when toggling collapse, and section headers display correctly when a single category is collapsed.
+
+---
+
 ## [1.0.1] – 2026-02-13
 
 ### Fixes
