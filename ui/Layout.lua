@@ -98,10 +98,18 @@ local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, 
     -- Completed objectives use effective category colour (respects override toggle)
     local doneColor = (addon.GetObjectiveColor and addon.GetObjectiveColor(cat)) or addon.OBJ_DONE_COLOR
 
+    local showEllipsis = questData.isAchievement and questData.objectives and #questData.objectives > 4
     local shownObjs = 0
     for j = 1, addon.MAX_OBJECTIVES do
         local obj = entry.objectives[j]
         local oData = questData.objectives[j]
+        if showEllipsis then
+            if j == 5 then
+                oData = { text = "...", finished = false }
+            elseif j > 4 then
+                oData = nil
+            end
+        end
 
         obj.text:SetWidth(objTextWidth)
         obj.shadow:SetWidth(objTextWidth)
@@ -364,7 +372,8 @@ local function PopulateEntry(entry, questData, groupKey)
     local hasItem = (questData.itemTexture and questData.itemLink) and true or false
     local showItemBtn = hasItem and addon.GetDB("showQuestItemButtons", false)
     local showQuestIcons = addon.GetDB("showQuestTypeIcons", false)
-    local hasIcon = questData.questTypeAtlas and showQuestIcons
+    local showAchievementIcons = addon.GetDB("showAchievementIcons", true)
+    local hasIcon = (questData.questTypeAtlas and showQuestIcons) or (questData.isAchievement and questData.achievementIcon and showQuestIcons and showAchievementIcons)
     -- Off-map WORLD quest that is tracked (only world quests, not normal quests).
     local isOffMapWorld = (questData.category == "WORLD") and questData.isTracked and not questData.isNearby
 
@@ -376,6 +385,9 @@ local function PopulateEntry(entry, questData, groupKey)
 
     if questData.category == "DELVES" then
         entry.questTypeIcon:SetAtlas(addon.DELVE_TIER_ATLAS)
+        entry.questTypeIcon:Show()
+    elseif questData.isAchievement and questData.achievementIcon and showQuestIcons and showAchievementIcons then
+        entry.questTypeIcon:SetTexture(questData.achievementIcon)
         entry.questTypeIcon:Show()
     elseif hasIcon then
         entry.questTypeIcon:SetAtlas(questData.questTypeAtlas)
@@ -392,7 +404,7 @@ local function PopulateEntry(entry, questData, groupKey)
     entry.titleShadow:SetWidth(textWidth)
 
     local displayTitle = questData.title
-    if addon.GetDB("showCompletedCount", false) and questData.objectives and #questData.objectives > 0 then
+    if (addon.GetDB("showCompletedCount", false) or questData.isAchievement) and questData.objectives and #questData.objectives > 0 then
         local done, total = 0, #questData.objectives
         for _, o in ipairs(questData.objectives) do if o.finished then done = done + 1 end end
         displayTitle = ("%s (%d/%d)"):format(questData.title, done, total)

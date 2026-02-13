@@ -6,23 +6,6 @@
 local addon = _G.HorizonSuite
 
 -- ============================================================================
--- SUPER-TRACKED ACHIEVEMENT (addon-only; no WoW API)
--- ============================================================================
-
-function addon.GetSuperTrackedAchievementID()
-    if not HorizonDB then return nil end
-    local id = HorizonDB.superTrackedAchievementID
-    if type(id) == "number" and id > 0 then return id end
-    return nil
-end
-
-function addon.SetSuperTrackedAchievementID(achievementID)
-    addon.EnsureDB()
-    HorizonDB.superTrackedAchievementID = (type(achievementID) == "number" and achievementID > 0) and achievementID or nil
-    if addon.ScheduleRefresh then addon.ScheduleRefresh() end
-end
-
--- ============================================================================
 -- ACHIEVEMENT DATA PROVIDER
 -- ============================================================================
 
@@ -54,8 +37,7 @@ local function ReadTrackedAchievements()
         end
     end
 
-    local achievementColor = (addon.GetQuestColor and addon.GetQuestColor("ACHIEVEMENT")) or (addon.QUEST_COLORS and addon.QUEST_COLORS.ACHIEVEMENT) or { 1.0, 0.84, 0.0 }
-    local superTrackedID = addon.GetSuperTrackedAchievementID and addon.GetSuperTrackedAchievementID() or nil
+    local achievementColor = (addon.GetQuestColor and addon.GetQuestColor("ACHIEVEMENT")) or (addon.QUEST_COLORS and addon.QUEST_COLORS.ACHIEVEMENT) or { 0.78, 0.48, 0.22 }
 
     for _, achievementID in ipairs(idList) do
         if type(achievementID) == "number" and achievementID > 0 then
@@ -63,6 +45,7 @@ local function ReadTrackedAchievements()
             if not aOk or not name or name == "" then
                 name = "Achievement " .. tostring(achievementID)
             end
+            local achievementIcon = (icon and (type(icon) == "number" or (type(icon) == "string" and icon ~= ""))) and icon or nil
 
             local objectives = {}
             if GetAchievementCriteriaInfo then
@@ -96,14 +79,14 @@ local function ReadTrackedAchievements()
                 color         = achievementColor,
                 category      = "ACHIEVEMENT",
                 isComplete    = (completed == true) or (completed == 1),
-                isSuperTracked = (achievementID == superTrackedID),
+                isSuperTracked = false,
                 isNearby      = false,
                 zoneName      = nil,
                 itemLink      = nil,
                 itemTexture   = nil,
                 isAchievement = true,
                 isTracked     = true,
-                questTypeAtlas = "Achievement-Icon",
+                achievementIcon = achievementIcon,
             }
         end
     end

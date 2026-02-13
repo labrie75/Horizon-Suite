@@ -377,3 +377,13 @@ function addon.OpenQuestDetails(questID)
     end
 end
 
+--- Open the achievement frame to a specific achievement.
+-- Used by click handlers for tracked achievements.
+function addon.OpenAchievementToAchievement(achievementID)
+    if not achievementID or type(achievementID) ~= "number" or achievementID <= 0 then return end
+    if AchievementFrame_LoadUI then AchievementFrame_LoadUI() end
+    if OpenAchievementFrameToAchievement then
+        OpenAchievementFrameToAchievement(achievementID)
+    end
+end
+

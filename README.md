@@ -14,7 +14,7 @@ The systems driving your efficiency.
 * **Spatial Awareness** – Automatically filters quests by zone and floats nearby objectives to the top. Tracks sub-zones and micro-dungeons instantly without requiring a map refresh. The "Current Zone" (Nearby) grouping can be toggled on or off via keybind, `/horizon nearby`, or Content options.
 * **Dynamic Scanning** – Surfaces active Scenarios, Delves, and World Events in dedicated, high-priority sections. Includes support for cinematic progress bars, timers, and difficulty tiers.
 * **Rare Boss Tracker** – Scans for nearby vignettes, allowing you to super-track rares with a single click and optional audio alerts.
-* **Achievement Tracking** – Tracked achievements from the default UI appear in a dedicated Achievements section. Left-click to focus (highlight) an achievement; right-click to remove it from tracking. Toggle visibility in Features → Achievements.
+* **Achievement Tracking** – Tracked achievements appear in a dedicated Achievements section. Left-click opens the achievement panel; right-click removes it from tracking. Toggle visibility in Features → Achievements. Use "Show achievement icons" to toggle achievement icons independently of quest type icons.
 * **Live Sync** – World Quests, Dailies, and Weeklies update dynamically so you never miss a pickup. The world quest list is re-evaluated when you move between zones.
 * **Secure Quest Items** – High-performance quest item buttons built on secure templates, ensuring they work flawlessly mid-fight without UI errors.
 * **ATT Integration** – Full native support for **All The Things**, displaying collection data directly within your objectives.
@@ -62,7 +62,7 @@ The options panel uses a cinematic, modern, minimalistic design with soft edges,
 Key bindings for **Collapse Tracker** and **Toggle Nearby Group** can be set under *Key Bindings → Horizon Suite - Focus*. The option "Show Nearby (Current Zone) group" in Display → List controls the same Nearby grouping. "Show category headers when collapsed" (Display → List) keeps section headers (Campaign, World Quests, etc.) visible when the tracker is collapsed; click a header to expand that category.
 
 ### Mouse Bindings
-* **Left-Click**: Focus the quest (map pin). If the quest is not yet tracked, it is added to the tracker first. For world quests, left-click focuses without changing the watch list. For achievements, left-click focuses (highlights) the achievement.
+* **Left-Click**: Focus the quest (map pin). If the quest is not yet tracked, it is added to the tracker first. For world quests, left-click focuses without changing the watch list. For achievements, left-click opens the achievement panel.
 * **Shift+Left-Click**: Open Quest Log and map details for the quest. For world quests, this also adds the world quest to the watch list so it remains visible across zones.
 * **Right-Click**: If the quest is currently focused, clear the focus (remove the map pin) but keep it tracked; otherwise untrack/remove the quest from the tracker. For achievements, right-click removes the achievement from tracking.
 * **Shift+Right-Click**: Abandon the quest (with confirmation).

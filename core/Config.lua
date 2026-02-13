@@ -89,7 +89,7 @@ addon.QUEST_COLORS = {
     CALLING   = { 0.20, 0.60, 1.00 },
     COMPLETE  = { 0.20, 1.00, 0.40 },
     RARE      = { 1.00, 0.55, 0.25 },
-    ACHIEVEMENT = { 1.00, 0.84, 0.00 },
+    ACHIEVEMENT = { 0.78, 0.48, 0.22 },  -- bronze, trophy feel
 }
 
 addon.SECTION_SIZE      = 10
@@ -146,7 +146,7 @@ addon.SECTION_COLORS = {
     WEEKLY    = { 0.25, 0.88, 0.92 },  -- match quest-recurring-available icon (cyan)
     DAILY     = { 0.25, 0.88, 0.92 },  -- match quest-recurring-available icon (cyan)
     RARES     = { 1.00, 0.55, 0.25 },
-    ACHIEVEMENTS = { 1.00, 0.84, 0.00 },
+    ACHIEVEMENTS = { 0.78, 0.48, 0.22 },  -- bronze
     DEFAULT   = { 0.70, 0.70, 0.70 },
     COMPLETE  = { 0.20, 1.00, 0.40 },
 }

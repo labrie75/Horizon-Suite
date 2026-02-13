@@ -36,10 +36,9 @@ for i = 1, addon.POOL_SIZE do
                 if achID and self.achievementID then
                     local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
                     if requireCtrl and not IsControlKeyDown() then return end
-                    if addon.SetSuperTrackedAchievementID then
-                        addon.SetSuperTrackedAchievementID(self.achievementID)
+                    if addon.OpenAchievementToAchievement then
+                        addon.OpenAchievementToAchievement(self.achievementID)
                     end
-                    if addon.FullLayout and not InCombatLockdown() then addon.FullLayout() end
                     return
                 end
                 local vignetteGUID = self.entryKey:match("^vignette:(.+)$")
@@ -101,9 +100,6 @@ for i = 1, addon.POOL_SIZE do
                 if achID and self.achievementID then
                     local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
                     if requireCtrl and not IsControlKeyDown() then return end
-                    if addon.GetSuperTrackedAchievementID and addon.GetSuperTrackedAchievementID() == self.achievementID then
-                        if addon.SetSuperTrackedAchievementID then addon.SetSuperTrackedAchievementID(nil) end
-                    end
                     local trackType = (Enum and Enum.ContentTrackingType and Enum.ContentTrackingType.Achievement) or 2
                     local stopType = (Enum and Enum.ContentTrackingStopType and Enum.ContentTrackingStopType.Manual) or 0
                     if C_ContentTracking and C_ContentTracking.StopTracking then
