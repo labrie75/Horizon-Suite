@@ -250,8 +250,9 @@ local function GetQuestTypeAtlas(questID, category)
 end
 
 local function GetQuestZoneName(questID)
-    -- For world quests / task quests, prefer the task-quest APIs which usually carry a uiMapID.
-    if C_TaskQuest and C_TaskQuest.GetQuestInfoByQuestID then
+    -- For world quests only: use task-quest APIs which carry uiMapID. All other quests prefer quest log
+    -- header over waypoint to avoid wrong zone (waypoint often returns player's current map).
+    if IsQuestWorldQuest(questID) and C_TaskQuest and C_TaskQuest.GetQuestInfoByQuestID then
         local info = C_TaskQuest.GetQuestInfoByQuestID(questID)
         local mapID = info and (info.mapID or info.uiMapID)
         if mapID and C_Map and C_Map.GetMapInfo then
@@ -261,15 +262,7 @@ local function GetQuestZoneName(questID)
             end
         end
     end
-    if C_QuestLog.GetNextWaypoint then
-        local mapID = C_QuestLog.GetNextWaypoint(questID)
-        if mapID and C_Map and C_Map.GetMapInfo then
-            local mapInfo = C_Map.GetMapInfo(mapID)
-            if mapInfo and mapInfo.name then
-                return mapInfo.name
-            end
-        end
-    end
+    -- For all non-world quests, prefer quest log header over waypoint (waypoint often = current zone).
     if C_QuestLog.GetLogIndexForQuestID then
         local logIndex = C_QuestLog.GetLogIndexForQuestID(questID)
         if logIndex then
@@ -278,6 +271,15 @@ local function GetQuestZoneName(questID)
                 if info and info.isHeader then
                     return info.title
                 end
+            end
+        end
+    end
+    if C_QuestLog.GetNextWaypoint then
+        local mapID = C_QuestLog.GetNextWaypoint(questID)
+        if mapID and C_Map and C_Map.GetMapInfo then
+            local mapInfo = C_Map.GetMapInfo(mapID)
+            if mapInfo and mapInfo.name then
+                return mapInfo.name
             end
         end
     end
