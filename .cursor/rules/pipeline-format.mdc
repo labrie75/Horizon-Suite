@@ -9,7 +9,7 @@ alwaysApply: false
 When editing `pipeline.md`, use this format for each item:
 
 ```
-`tag` `status` `YYYY-MM-DD` [priority] Title. Optional detail or → plan link.
+`tag` `status` `YYYY-MM-DD` [priority] (module) Title. Optional detail or → plan link.
 ```
 
 **Tags:** `BUG` | `FEAT` | `MOD` | `IMPR` | `IDEA` | `DOC`
@@ -18,4 +18,6 @@ When editing `pipeline.md`, use this format for each item:
 
 **Priority** (optional): `P0` (major) | `P1` (minor) | `P2` (patch)
 
-**Example:** `BUG` OPEN 2026-02-13 [P2] Pop-up quests not appearing in log.
+**Module** (optional): `(Focus)` | `(Presence)` | omit for core/general
+
+**Example:** `BUG` OPEN 2026-02-13 [P2] (Focus) Pop-up quests not appearing in log.

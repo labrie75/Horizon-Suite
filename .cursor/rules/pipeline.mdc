@@ -13,7 +13,7 @@ The project has a local pipeline at `pipeline.md` (root). Update it when:
 - The user reports a new bug — add under Open Items with `BUG` OPEN, date, optional [P2], and brief description
 - The user shares a plan or idea — add under Open Items with appropriate tag (`FEAT`, `MOD`, `IMPR`, `IDEA`)
 
-**Entry format:** `tag` `status` `YYYY-MM-DD` [priority] Title. Optional detail or → plan link.
+**Entry format:** `tag` `status` `YYYY-MM-DD` [priority] (module) Title. Optional detail or → plan link.
 
 **Tags:** `BUG` (defects), `FEAT` (new features), `MOD` (module-specific), `IMPR` (improvements/refactors), `IDEA` (backlog/speculative), `DOC` (documentation)
 
@@ -21,7 +21,11 @@ The project has a local pipeline at `pipeline.md` (root). Update it when:
 
 **Priority** (optional, for OPEN items): `P0` (major), `P1` (minor), `P2` (patch)
 
+**Module** (optional): `Focus`, `Presence`, or omit for core/general. Use parentheses, e.g. `(Focus)`.
+
 **Format conventions:**
-- **Changelog:** `YYYY-MM-DD — One-line summary.` (newest first)
-- **Open Items / Closed/Fixed:** Use tag + status + date + optional [priority] + title
+- **Changelog:** `YYYY-MM-DD — (module) One-line summary.` or `YYYY-MM-DD — One-line summary.` (newest first); include module when the change is module-specific.
+- **Open Items / Closed/Fixed:** Use tag + status + date + optional [priority] + optional (module) + title
 - Use `YYYY-MM-DD` for dates. Keep entries one line when possible.
+
+**Pipeline unique code (for chat names):** When working on a pipeline item, use a unique code so the chat is easy to find. Format: `TAG-YYYYMMDD-slug` where slug is a short lowercase hyphenated form of the title (e.g. `FEAT-20260213-quest-header-count`). When starting a chat for a pipeline item, name the chat with this code or include it in the first message.
