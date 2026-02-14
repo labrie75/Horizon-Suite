@@ -114,6 +114,8 @@ Horizon is built for players who value an intentional, clean UI. If the suite ha
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T6T71TX1Y1)
 
+**[Support me on Patreon](https://patreon.com/HorizonSuite?utm_medium=unknown&utm_source=join_link&utm_campaign=creatorshare_creator&utm_content=copyLink)**
+
 **[Join the Discord](https://discord.gg/RkkYJgB3PA)** — Bug reports, feature requests, and community discussion.
 
 ---
