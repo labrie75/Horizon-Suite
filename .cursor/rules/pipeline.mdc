@@ -8,7 +8,7 @@ alwaysApply: true
 The project has a local pipeline at `pipeline.md` (root). Update it when:
 
 - The user says "add to the log", "log this", "add to pipeline", "add to upcoming notes", or similar
-- The user reports a new bug — add under Open Items with `BUG` OPEN, date, optional [P2], and brief description
+- The user reports a new bug — add under Open Items with `BUG` OPEN, date, optional [P2], and user-facing description
 - The user shares a plan or idea — add under Open Items with appropriate tag (`FEAT`, `MOD`, `IMPR`, `IDEA`)
 - **Only when the user agrees work is complete:** add a Changelog entry and move the item to Closed/Fixed with `BUG` FIXED or `FEAT`/`MOD`/`IMPR` CLOSED — do not auto-close or auto-add to changelog; when you believe work is complete, request confirmation (e.g. "Should I close this and add it to the changelog?") before updating
 
@@ -23,8 +23,8 @@ The project has a local pipeline at `pipeline.md` (root). Update it when:
 **Module** (optional): `Focus`, `Presence`, or omit for core/general. Use parentheses, e.g. `(Focus)`.
 
 **Format conventions:**
-- **Changelog:** `YYYY-MM-DD — (module) One-line summary.` or `YYYY-MM-DD — One-line summary.` (newest first); include module when the change is module-specific.
-- **Open Items / Closed/Fixed:** Use tag + status + date + optional [priority] + optional (module) + title
+- **Changelog:** `YYYY-MM-DD — (module) One-line summary.` or `YYYY-MM-DD — One-line summary.` (newest first); include module when the change is module-specific. User-facing, non-technical summary; no code or API names.
+- **Open Items / Closed/Fixed:** Use tag + status + date + optional [priority] + optional (module) + user-facing title
 - Use `YYYY-MM-DD` for dates. Keep entries one line when possible.
 
 **Pipeline unique code (for chat names):** When working on a pipeline item, use a unique code so the chat is easy to find. Format: `TAG-YYYYMMDD-slug` where slug is a short lowercase hyphenated form of the title (e.g. `FEAT-20260213-quest-header-count`). When starting a chat for a pipeline item, name the chat with this code or include it in the first message.

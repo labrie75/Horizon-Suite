@@ -15,30 +15,16 @@ local addon = _G.HorizonSuite
 local function GetNearbyQuestIDs()
     local nearbySet = {}
     local taskQuestOnlySet = {}
-    -- Primary in-area source when available: Blizzard's GetTasksTable (works without map open; no heartbeat needed).
-    if _G.GetTasksTable and type(_G.GetTasksTable) == "function" then
-        local ok, tasks = pcall(_G.GetTasksTable)
-        if ok and tasks and type(tasks) == "table" then
-            for _, entry in pairs(tasks) do
-                local questID = (type(entry) == "number" and entry) or (type(entry) == "table" and entry and entry.questID)
-                if questID and type(questID) == "number" and questID > 0 then
-                    nearbySet[questID] = true
-                    taskQuestOnlySet[questID] = true
-                end
-            end
-        end
-    end
 
-    if not C_Map or not C_Map.GetBestMapForUnit or not C_QuestLog.GetQuestsOnMap then return nearbySet, taskQuestOnlySet end
-
-    local mapID = C_Map.GetBestMapForUnit("player")
-    if not mapID then return nearbySet, taskQuestOnlySet end
-
-    -- In a city (Zone type): only that map. In a subzone (Micro/Dungeon): that map + one parent so we see the city's quests (e.g. Foundation Hall + Dornogal).
-    local mapIDsToCheck = { mapID }
-    local seen = { [mapID] = true }
-    local myMapInfo = C_Map.GetMapInfo and C_Map.GetMapInfo(mapID) or nil
-    local myMapType = myMapInfo and myMapInfo.mapType
+    -- Build mapIDsToCheck first so we can filter GetTasksTable by current map.
+    -- This prevents stale WQs from the previous zone (e.g. after hearth) from staying in the tracker.
+    local mapID = (C_Map and C_Map.GetBestMapForUnit) and C_Map.GetBestMapForUnit("player") or nil
+    local mapIDsToCheck = nil
+    if mapID and C_Map and C_Map.GetMapInfo then
+        mapIDsToCheck = { mapID }
+        local seen = { [mapID] = true }
+        local myMapInfo = C_Map.GetMapInfo(mapID) or nil
+        local myMapType = myMapInfo and myMapInfo.mapType
     if C_Map.GetMapInfo and myMapType ~= nil and myMapType >= 4 then
         local parentInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)) or nil
         local parentMapID = parentInfo and parentInfo.parentMapID and parentInfo.parentMapID ~= 0 and parentInfo.parentMapID or nil
@@ -66,6 +52,42 @@ local function GetNearbyQuestIDs()
             end
         end
     end
+    end
+
+    -- GetTasksTable: filter by current map when mapIDsToCheck is available to prevent stale cross-zone WQs.
+    if _G.GetTasksTable and type(_G.GetTasksTable) == "function" then
+        local ok, tasks = pcall(_G.GetTasksTable)
+        if ok and tasks and type(tasks) == "table" then
+            for _, entry in pairs(tasks) do
+                local questID = (type(entry) == "number" and entry) or (type(entry) == "table" and entry and entry.questID)
+                if questID and type(questID) == "number" and questID > 0 then
+                    local addIt = true
+                    if mapIDsToCheck and C_TaskQuest and C_TaskQuest.GetQuestInfoByQuestID then
+                        local info = C_TaskQuest.GetQuestInfoByQuestID(questID)
+                        local questMapID = info and (info.mapID or info.uiMapID)
+                        if not questMapID then
+                            addIt = false
+                        else
+                            addIt = false
+                            for _, checkID in ipairs(mapIDsToCheck) do
+                                if questMapID == checkID then
+                                    addIt = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    if addIt then
+                        nearbySet[questID] = true
+                        taskQuestOnlySet[questID] = true
+                    end
+                end
+            end
+        end
+    end
+
+    if not C_Map or not C_Map.GetBestMapForUnit or not C_QuestLog.GetQuestsOnMap then return nearbySet, taskQuestOnlySet end
+    if not mapIDsToCheck then return nearbySet, taskQuestOnlySet end
 
     for _, checkMapID in ipairs(mapIDsToCheck) do
         local onMap = C_QuestLog.GetQuestsOnMap(checkMapID)

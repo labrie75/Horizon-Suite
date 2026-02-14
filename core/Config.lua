@@ -91,6 +91,9 @@ addon.QUEST_COLORS = {
     COMPLETE  = { 0.20, 1.00, 0.40 },
     RARE      = { 1.00, 0.55, 0.25 },
     ACHIEVEMENT = { 0.78, 0.48, 0.22 },  -- bronze, trophy feel
+    ENDEAVOR   = { 0.45, 0.95, 0.75 },  -- mint green (housing/endeavor)
+    ENDEAVORS  = { 0.45, 0.95, 0.75 },  -- mint green (color matrix group default)
+    DECOR      = { 0.65, 0.55, 0.45 },  -- warm brown (housing decor)
 }
 
 -- Presence-only (no Focus category): boss emote alert, discovery line
@@ -134,6 +137,8 @@ addon.SECTION_LABELS = {
     DAILY     = "DAILY QUESTS",
     RARES     = "RARE BOSSES",
     ACHIEVEMENTS = "ACHIEVEMENTS",
+    ENDEAVORS  = "ENDEAVORS",
+    DECOR      = "DECOR",
     DEFAULT   = "QUESTS",
     COMPLETE  = "READY TO TURN IN",
 }
@@ -152,17 +157,21 @@ addon.SECTION_COLORS = {
     DAILY     = { 0.25, 0.88, 0.92 },  -- match quest-recurring-available icon (cyan)
     RARES     = { 1.00, 0.55, 0.25 },
     ACHIEVEMENTS = { 0.78, 0.48, 0.22 },  -- bronze
+    ENDEAVORS  = { 0.45, 0.95, 0.75 },  -- mint green (housing/endeavor)
+    DECOR      = { 0.65, 0.55, 0.45 },  -- warm brown (housing decor)
     DEFAULT   = { 0.70, 0.70, 0.70 },
     COMPLETE  = { 0.20, 1.00, 0.40 },
 }
 
-addon.GROUP_ORDER = { "DELVES", "SCENARIO", "ACHIEVEMENTS", "DUNGEON", "NEARBY", "COMPLETE", "WORLD", "WEEKLY", "DAILY", "RARES", "AVAILABLE", "CAMPAIGN", "IMPORTANT", "LEGENDARY", "DEFAULT" }
+addon.GROUP_ORDER = { "DELVES", "SCENARIO", "ACHIEVEMENTS", "ENDEAVORS", "DECOR", "DUNGEON", "NEARBY", "COMPLETE", "WORLD", "WEEKLY", "DAILY", "RARES", "AVAILABLE", "CAMPAIGN", "IMPORTANT", "LEGENDARY", "DEFAULT" }
 
 -- Category keys (enum-style) for consistent string usage across modules.
 addon.CATEGORY_KEYS = {
     DUNGEON = "DUNGEON", DELVES = "DELVES", SCENARIO = "SCENARIO", AVAILABLE = "AVAILABLE", NEARBY = "NEARBY", CAMPAIGN = "CAMPAIGN",
     IMPORTANT = "IMPORTANT", LEGENDARY = "LEGENDARY", WORLD = "WORLD", WEEKLY = "WEEKLY",
-    DAILY = "DAILY", RARES = "RARES", RARE = "RARE", ACHIEVEMENT = "ACHIEVEMENT", ACHIEVEMENTS = "ACHIEVEMENTS",
+    DAILY = "DAILY", RARES = "RARES", RARE = "RARE",     ACHIEVEMENT = "ACHIEVEMENT", ACHIEVEMENTS = "ACHIEVEMENTS",
+    ENDEAVOR = "ENDEAVOR", ENDEAVORS = "ENDEAVORS",
+    DECOR = "DECOR",
     DEFAULT = "DEFAULT", COMPLETE = "COMPLETE", CALLING = "CALLING",
 }
 
@@ -187,6 +196,8 @@ addon.CATEGORY_TO_GROUP = {
     DAILY     = "DAILY",
     CALLING   = "WORLD",
     ACHIEVEMENT = "ACHIEVEMENTS",
+    ENDEAVOR   = "ENDEAVORS",
+    DECOR      = "DECOR",
     DEFAULT   = "DEFAULT",
 }
 

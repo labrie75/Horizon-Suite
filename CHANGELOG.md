@@ -8,6 +8,30 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [1.1.0] – 2026-02-14
+
+### New Features
+
+- **(Focus) Decor tracking** — Track Decor items in the Focus list. Shows item names; left-click opens the catalog; Shift+Left-click opens the map to the drop location.
+
+- **(Focus) Endeavor tracking** — Track Endeavors in the Focus list. Names load on reload without opening the panel; left-click opens the housing dashboard.
+
+- **(Focus) Achievement requirements display** — Option to only show missing requirements for tracked achievements; completed criteria are shown in green.
+
+### Improvements
+
+- **(Focus) Spacing slider** — Slider in Display → Spacing to adjust the gap below the objectives bar (0–24 px), preventing the first line from being cut off.
+
+- **(Focus) Dim non-focused quests** — Display option to dim full quest details and section headers for non-focused quests.
+
+### Fixes
+
+- **(Focus)** World quests no longer remain in the tracker after changing zones (e.g. hearthing to another zone).
+
+- **(Focus)** Confirm abandon quest now works when using Shift+Right-click.
+
+---
+
 ## [1.0.6] – 2026-02-14
 
 ### Fixes

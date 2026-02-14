@@ -156,6 +156,8 @@ end
 local function MatrixKey(category)
     if category == "RARE" then return "RARES" end
     if category == "ACHIEVEMENT" then return "ACHIEVEMENTS" end
+    if category == "ENDEAVOR" then return "ENDEAVORS" end
+    if category == "DECOR" then return "DECOR" end
     return category
 end
 
@@ -539,6 +541,10 @@ local function SortAndGroupQuests(quests)
             groups["SCENARIO"][#groups["SCENARIO"] + 1] = q
         elseif q.category == "ACHIEVEMENT" or q.isAchievement then
             groups["ACHIEVEMENTS"][#groups["ACHIEVEMENTS"] + 1] = q
+        elseif q.category == "ENDEAVOR" or q.isEndeavor then
+            groups["ENDEAVORS"][#groups["ENDEAVORS"] + 1] = q
+        elseif q.category == "DECOR" or q.isDecor then
+            groups["DECOR"][#groups["DECOR"] + 1] = q
         elseif q.category == "WORLD" or q.category == "CALLING" then
             groups["WORLD"][#groups["WORLD"] + 1] = q
         elseif q.isNearby and not q.isAccepted then

@@ -2,7 +2,7 @@
 ## Title: Horizon Suite
 ## Notes: Core addon with pluggable modules. Focus (objective tracker) is the first module.
 ## Author: Crystilac
-## Version: 1.0.6
+## Version: 1.1.0
 ## SavedVariables: HorizonDB
 ## IconTexture: Interface\AddOns\HorizonSuite\icon
 ## X-Wago-ID: jK8gY56y
@@ -17,6 +17,8 @@ modules/Focus/FocusWorldQuests.lua
 modules/Focus/FocusRares.lua
 modules/Focus/FocusScenario.lua
 modules/Focus/FocusAchievements.lua
+modules/Focus/FocusEndeavors.lua
+modules/Focus/FocusDecor.lua
 modules/Focus/FocusEntryPool.lua
 modules/Focus/FocusLayout.lua
 modules/Focus/FocusAnimation.lua

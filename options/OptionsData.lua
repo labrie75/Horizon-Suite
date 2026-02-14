@@ -189,15 +189,17 @@ local OptionCategories = {
             { type = "slider", name = "Spacing before category header (px)", desc = "Gap between last entry of a group and the next category label.", dbKey = "sectionSpacing", min = 0, max = 24, get = function() return math.max(0, math.min(24, tonumber(getDB("sectionSpacing", 10)) or 10)) end, set = function(v) setDB("sectionSpacing", math.max(0, math.min(24, v))) end },
             { type = "slider", name = "Spacing after category header (px)", desc = "Gap between category label and first quest entry below it.", dbKey = "sectionToEntryGap", min = 0, max = 16, get = function() return math.max(0, math.min(16, tonumber(getDB("sectionToEntryGap", 6)) or 6)) end, set = function(v) setDB("sectionToEntryGap", math.max(0, math.min(16, v))) end },
             { type = "slider", name = "Spacing between objectives (px)", desc = "Vertical gap between objective lines within a quest.", dbKey = "objSpacing", min = 0, max = 8, get = function() return math.max(0, math.min(8, tonumber(getDB("objSpacing", 2)) or 2)) end, set = function(v) setDB("objSpacing", math.max(0, math.min(8, v))) end },
+            { type = "slider", name = "Spacing below header (px)", desc = "Vertical gap between the objectives bar and the quest list.", dbKey = "headerToContentGap", min = 0, max = 24, get = function() return math.max(0, math.min(24, tonumber(getDB("headerToContentGap", 6)) or 6)) end, set = function(v) setDB("headerToContentGap", math.max(0, math.min(24, v))) end },
             { type = "button", name = "Reset spacing", onClick = function()
                 setDB("compactMode", false)
                 setDB("titleSpacing", 8)
                 setDB("sectionSpacing", 10)
                 setDB("sectionToEntryGap", 6)
                 setDB("objSpacing", 2)
-            end, refreshIds = { "compactMode", "titleSpacing", "sectionSpacing", "sectionToEntryGap", "objSpacing" } },
+                setDB("headerToContentGap", 6)
+            end, refreshIds = { "compactMode", "titleSpacing", "sectionSpacing", "sectionToEntryGap", "objSpacing", "headerToContentGap" } },
             { type = "toggle", name = "Show quest level", desc = "Show quest level next to title.", dbKey = "showQuestLevel", get = function() return getDB("showQuestLevel", false) end, set = function(v) setDB("showQuestLevel", v) end },
-            { type = "toggle", name = "Dim non-focused quests", desc = "Slightly dim quests that are not focused.", dbKey = "dimNonSuperTracked", get = function() return getDB("dimNonSuperTracked", false) end, set = function(v) setDB("dimNonSuperTracked", v) end },
+            { type = "toggle", name = "Dim non-focused quests", desc = "Slightly dim title, zone, objectives, and section headers that are not focused.", dbKey = "dimNonSuperTracked", get = function() return getDB("dimNonSuperTracked", false) end, set = function(v) setDB("dimNonSuperTracked", v) end },
         },
     },
     {
@@ -220,6 +222,13 @@ local OptionCategories = {
             { type = "toggle", name = "Show achievements", desc = "Show tracked achievements in the list.", dbKey = "showAchievements", get = function() return getDB("showAchievements", true) end, set = function(v) setDB("showAchievements", v) end },
             { type = "toggle", name = "Show completed achievements", desc = "Include completed achievements in the tracker. When off, only in-progress tracked achievements are shown.", dbKey = "showCompletedAchievements", get = function() return getDB("showCompletedAchievements", false) end, set = function(v) setDB("showCompletedAchievements", v) end },
             { type = "toggle", name = "Show achievement icons", desc = "Show each achievement's icon next to the title. Requires 'Show quest type icons' in Display.", dbKey = "showAchievementIcons", get = function() return getDB("showAchievementIcons", true) end, set = function(v) setDB("showAchievementIcons", v) end },
+            { type = "toggle", name = "Only show missing requirements", desc = "Show only criteria you haven't completed for each tracked achievement. When off, all criteria are shown.", dbKey = "achievementOnlyMissingRequirements", get = function() return getDB("achievementOnlyMissingRequirements", false) end, set = function(v) setDB("achievementOnlyMissingRequirements", v) end },
+            { type = "section", name = "Endeavors" },
+            { type = "toggle", name = "Show endeavors", desc = "Show tracked Endeavors (Player Housing) in the list.", dbKey = "showEndeavors", get = function() return getDB("showEndeavors", true) end, set = function(v) setDB("showEndeavors", v) end },
+            { type = "toggle", name = "Show completed endeavors", desc = "Include completed Endeavors in the tracker. When off, only in-progress tracked Endeavors are shown.", dbKey = "showCompletedEndeavors", get = function() return getDB("showCompletedEndeavors", false) end, set = function(v) setDB("showCompletedEndeavors", v) end },
+            { type = "section", name = "Decor" },
+            { type = "toggle", name = "Show decor", desc = "Show tracked housing decor in the list.", dbKey = "showDecor", get = function() return getDB("showDecor", true) end, set = function(v) setDB("showDecor", v) end },
+            { type = "toggle", name = "Show decor icons", desc = "Show each decor item's icon next to the title. Requires 'Show quest type icons' in Display.", dbKey = "showDecorIcons", get = function() return getDB("showDecorIcons", true) end, set = function(v) setDB("showDecorIcons", v) end },
             { type = "section", name = "Scenario & Delve" },
             { type = "toggle", name = "Show scenario events", desc = "Show active scenario and Delve activities. Delves appear in DELVES; other scenarios in SCENARIO EVENTS.", dbKey = "showScenarioEvents", get = function() return getDB("showScenarioEvents", true) end, set = function(v) setDB("showScenarioEvents", v) end },
             { type = "toggle", name = "Hide other categories in Delve or Dungeon", desc = "In Delves or party dungeons, show only the Delve/Dungeon section.", dbKey = "hideOtherCategoriesInDelve", get = function() return getDB("hideOtherCategoriesInDelve", false) end, set = function(v) setDB("hideOtherCategoriesInDelve", v) end },

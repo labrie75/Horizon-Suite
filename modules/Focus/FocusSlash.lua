@@ -258,6 +258,49 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
             HSPrint("DebugHeaderCount not available.")
         end
 
+    elseif cmd == "endeavordebug" then
+        HSPrint("|cFF00CCFF--- Endeavor API debug ---|r")
+        HSPrint("C_ContentTracking: " .. (C_ContentTracking and "yes" or "no"))
+        if Enum and Enum.ContentTrackingType then
+            local t = {}
+            for k, v in pairs(Enum.ContentTrackingType) do
+                if type(v) == "number" then t[#t + 1] = k .. "=" .. tostring(v) end
+            end
+            HSPrint("ContentTrackingType: " .. table.concat(t, ", "))
+        end
+        for _, typ in ipairs({ 0, 1, 2, 3, 4, 5 }) do
+            if C_ContentTracking and C_ContentTracking.GetTrackedIDs then
+                local ok, ids = pcall(C_ContentTracking.GetTrackedIDs, typ)
+                if ok and ids and type(ids) == "table" and #ids > 0 then
+                    HSPrint("  GetTrackedIDs(" .. typ .. "): " .. #ids .. " ids: " .. table.concat(ids, ", "))
+                end
+            end
+        end
+        HSPrint("C_Endeavors: " .. (C_Endeavors and "yes" or "no"))
+        if C_Endeavors then
+            for _, fn in ipairs({ "GetTrackedIDs", "GetEndeavorInfo", "GetInfo", "GetActiveEndeavorID" }) do
+                if C_Endeavors[fn] then HSPrint("  C_Endeavors." .. fn .. ": yes") end
+            end
+        end
+        HSPrint("C_PlayerHousing: " .. (C_PlayerHousing and "yes" or "no"))
+        if C_PlayerHousing then
+            for _, fn in ipairs({ "GetActiveEndeavorID", "GetActiveEndeavorInfo", "GetEndeavorInfo" }) do
+                if C_PlayerHousing[fn] then HSPrint("  C_PlayerHousing." .. fn .. ": yes") end
+            end
+        end
+        HSPrint("C_NeighborhoodInitiative: " .. (C_NeighborhoodInitiative and "yes" or "no"))
+        if C_NeighborhoodInitiative then
+            for _, fn in ipairs({ "GetTrackedInitiativeTasks", "GetInitiativeTaskInfo", "RemoveTrackedInitiativeTask", "GetInitiativeTaskChatLink" }) do
+                if C_NeighborhoodInitiative[fn] then HSPrint("  C_NeighborhoodInitiative." .. fn .. ": yes") end
+            end
+        end
+        HSPrint("HousingFramesUtil: " .. (HousingFramesUtil and "yes" or "no"))
+        if HousingFramesUtil and HousingFramesUtil.OpenFrameToTaskID then
+            HSPrint("  HousingFramesUtil.OpenFrameToTaskID: yes")
+        end
+        HSPrint("ReadTrackedEndeavors count: " .. (addon.ReadTrackedEndeavors and #addon.ReadTrackedEndeavors() or 0))
+        HSPrint("ReadTrackedDecor count: " .. (addon.ReadTrackedDecor and #addon.ReadTrackedDecor() or 0))
+
     elseif cmd == "delvedebug" then
         HSPrint("|cFF00CCFF--- Delve / Tier debug (run inside a Delve) ---|r")
         if C_PartyInfo and C_PartyInfo.IsDelveInProgress then
@@ -294,6 +337,7 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
         HSPrint("  /horizon nearbydebug     - Print Current Zone / Nearby map and quest debug info")
         HSPrint("  /horizon headercountdebug - Print header count (in-log) breakdown for debugging")
         HSPrint("  /horizon delvedebug      - Dump Delve/tier APIs (run inside a Delve to find tier number)")
+        HSPrint("  /horizon endeavordebug   - Dump Endeavor APIs (discover tracking / active endeavor)")
         HSPrint("")
         HSPrint("  Click the header row to collapse / expand.")
         HSPrint("  Scroll with mouse wheel when content overflows.")

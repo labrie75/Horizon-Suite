@@ -9,7 +9,7 @@ alwaysApply: false
 When editing `pipeline.md`, use this format for each item:
 
 ```
-`tag` `status` `YYYY-MM-DD` [priority] (module) Title. Optional detail or → plan link.
+`tag` `status` `YYYY-MM-DD` [priority] module-tag Title. Optional detail or → plan link.
 ```
 
 **Tags:** `BUG` | `FEAT` | `MOD` | `IMPR` | `IDEA` | `DOC`
@@ -18,6 +18,15 @@ When editing `pipeline.md`, use this format for each item:
 
 **Priority** (optional): `P0` (major) | `P1` (minor) | `P2` (patch)
 
-**Module** (optional): `(Focus)` | `(Presence)` | omit for core/general
+**Module** (optional): `[Focus]` or `[Presence]` (in backticks), or omit for core/general.
 
-**Example:** `BUG` OPEN 2026-02-13 [P2] (Focus) Pop-up quests not appearing in log.
+### Design language
+
+- **Open Items / Closed-Fixed title:** User-facing only. Describe observable behaviour (bug) or capability (feature) in plain language. One sentence. No implementation detail, function names, or API names; put those in optional detail or a linked plan.
+- **Changelog:** User-facing, non-technical. One sentence stating what was fixed or added for the user (no code, no API names). When closing an item, the changelog line echoes the Open Item title in user language.
+
+**Examples (good):** `[Focus]` Confirm abandon quest did nothing when using Shift+Right-click. → Changelog: (Focus) Confirm abandon quest now works when using Shift+Right-click.
+
+**Avoid:** OnAccept uses self.data; RefreshContentInCombat; C_TaskQuest.GetQuestLocation — keep technical notes in plans or commits.
+
+**Example:** `BUG` OPEN 2026-02-13 [P2] `[Focus]` Pop-up quests not appearing in the log.

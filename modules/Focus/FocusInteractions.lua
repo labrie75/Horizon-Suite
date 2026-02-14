@@ -14,9 +14,13 @@ StaticPopupDialogs["HORIZONSUITE_ABANDON_QUEST"] = StaticPopupDialogs["HORIZONSU
     text = "Abandon %s?",
     button1 = YES,
     button2 = NO,
-    OnAccept = function(self, data)
+    OnAccept = function(self)
+        local data = self.data
         if data and data.questID and C_QuestLog and C_QuestLog.AbandonQuest then
-            C_QuestLog.AbandonQuest(data.questID)
+            if C_QuestLog.SetSelectedQuest then
+                C_QuestLog.SetSelectedQuest(data.questID)
+            end
+            C_QuestLog.AbandonQuest()
             addon.ScheduleRefresh()
         end
     end,
@@ -38,6 +42,68 @@ for i = 1, addon.POOL_SIZE do
                     if requireCtrl and not IsControlKeyDown() then return end
                     if addon.OpenAchievementToAchievement then
                         addon.OpenAchievementToAchievement(self.achievementID)
+                    end
+                    return
+                end
+                local endID = self.entryKey:match("^endeavor:(%d+)$")
+                if endID and self.endeavorID then
+                    local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
+                    if requireCtrl and not IsControlKeyDown() then return end
+                    if HousingFramesUtil and HousingFramesUtil.OpenFrameToTaskID then
+                        pcall(HousingFramesUtil.OpenFrameToTaskID, self.endeavorID)
+                    elseif ToggleHousingDashboard then
+                        ToggleHousingDashboard()
+                    elseif HousingFrame and HousingFrame.Show then
+                        if HousingFrame:IsShown() then HousingFrame:Hide() else HousingFrame:Show() end
+                    end
+                    return
+                end
+                local decorID = self.entryKey:match("^decor:(%d+)$")
+                if decorID and self.decorID then
+                    local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
+                    if requireCtrl and not IsControlKeyDown() then return end
+                    if IsShiftKeyDown() then
+                        local trackTypeDecor = (Enum and Enum.ContentTrackingType and Enum.ContentTrackingType.Decor) or 3
+                        if ContentTrackingUtil and ContentTrackingUtil.OpenMapToTrackable then
+                            pcall(ContentTrackingUtil.OpenMapToTrackable, trackTypeDecor, self.decorID)
+                        end
+                    elseif IsAltKeyDown() then
+                        if HousingFramesUtil and HousingFramesUtil.PreviewHousingDecorID then
+                            pcall(HousingFramesUtil.PreviewHousingDecorID, self.decorID)
+                        elseif ToggleHousingDashboard then
+                            ToggleHousingDashboard()
+                        elseif HousingFrame and HousingFrame.Show then
+                            if HousingFrame:IsShown() then HousingFrame:Hide() else HousingFrame:Show() end
+                        end
+                    else
+                        if not HousingDashboardFrame and C_AddOns and C_AddOns.LoadAddOn then
+                            pcall(C_AddOns.LoadAddOn, "Blizzard_HousingDashboard")
+                        end
+                        local entryType = (Enum and Enum.HousingCatalogEntryType and Enum.HousingCatalogEntryType.Decor) or 1
+                        local ok, info = pcall(function()
+                            if C_HousingCatalog and C_HousingCatalog.GetCatalogEntryInfoByRecordID then
+                                return C_HousingCatalog.GetCatalogEntryInfoByRecordID(entryType, self.decorID, true)
+                            end
+                        end)
+                        if ok and info and HousingDashboardFrame and HousingDashboardFrame.SetTab and HousingDashboardFrame.catalogTab then
+                            ShowUIPanel(HousingDashboardFrame)
+                            HousingDashboardFrame:SetTab(HousingDashboardFrame.catalogTab)
+                            if C_Timer and C_Timer.After then
+                                C_Timer.After(0.5, function()
+                                    if HousingDashboardFrame and HousingDashboardFrame.CatalogContent and HousingDashboardFrame.CatalogContent.PreviewFrame then
+                                        local pf = HousingDashboardFrame.CatalogContent.PreviewFrame
+                                        if pf.PreviewCatalogEntryInfo then
+                                            pcall(pf.PreviewCatalogEntryInfo, pf, info)
+                                        end
+                                        if pf.Show then pf:Show() end
+                                    end
+                                end)
+                            end
+                        elseif ToggleHousingDashboard then
+                            ToggleHousingDashboard()
+                        elseif HousingFrame and HousingFrame.Show then
+                            if HousingFrame:IsShown() then HousingFrame:Hide() else HousingFrame:Show() end
+                        end
                     end
                     return
                 end
@@ -110,6 +176,30 @@ for i = 1, addon.POOL_SIZE do
                     addon.ScheduleRefresh()
                     return
                 end
+                local endID = self.entryKey:match("^endeavor:(%d+)$")
+                if endID and self.endeavorID then
+                    local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
+                    if requireCtrl and not IsControlKeyDown() then return end
+                    if C_NeighborhoodInitiative and C_NeighborhoodInitiative.RemoveTrackedInitiativeTask then
+                        pcall(C_NeighborhoodInitiative.RemoveTrackedInitiativeTask, self.endeavorID)
+                    elseif C_Endeavors and C_Endeavors.StopTracking then
+                        pcall(C_Endeavors.StopTracking, self.endeavorID)
+                    end
+                    addon.ScheduleRefresh()
+                    return
+                end
+                local decorID = self.entryKey:match("^decor:(%d+)$")
+                if decorID and self.decorID then
+                    local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
+                    if requireCtrl and not IsControlKeyDown() then return end
+                    local trackTypeDecor = (Enum and Enum.ContentTrackingType and Enum.ContentTrackingType.Decor) or 3
+                    local stopType = (Enum and Enum.ContentTrackingStopType and Enum.ContentTrackingStopType.Manual) or 0
+                    if C_ContentTracking and C_ContentTracking.StopTracking then
+                        pcall(C_ContentTracking.StopTracking, trackTypeDecor, self.decorID, stopType)
+                    end
+                    addon.ScheduleRefresh()
+                    return
+                end
                 local vignetteGUID = self.entryKey:match("^vignette:(.+)$")
                 if vignetteGUID and C_SuperTrack and C_SuperTrack.GetSuperTrackedVignette then
                     if C_SuperTrack.GetSuperTrackedVignette() == vignetteGUID then
@@ -176,6 +266,27 @@ for i = 1, addon.POOL_SIZE do
                     if not ok and addon.HSPrint then addon.HSPrint("ATT tooltip attach failed: " .. tostring(err)) end
                 end
             end
+            GameTooltip:Show()
+        elseif self.endeavorID then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            if C_NeighborhoodInitiative and C_NeighborhoodInitiative.GetInitiativeTaskChatLink then
+                local ok, link = pcall(C_NeighborhoodInitiative.GetInitiativeTaskChatLink, self.endeavorID)
+                if ok and link and link ~= "" then
+                    local setOk, setErr = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
+                    if not setOk and addon.HSPrint then addon.HSPrint("Tooltip SetHyperlink (endeavor) failed: " .. tostring(setErr)) end
+                else
+                    GameTooltip:SetText(self.titleText:GetText() or "")
+                    GameTooltip:AddLine(("Endeavor #%d"):format(self.endeavorID), 0.7, 0.7, 0.7)
+                end
+            else
+                GameTooltip:SetText(self.titleText:GetText() or "")
+                GameTooltip:AddLine(("Endeavor #%d"):format(self.endeavorID), 0.7, 0.7, 0.7)
+            end
+            GameTooltip:Show()
+        elseif self.decorID then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(self.titleText:GetText() or "")
+            GameTooltip:AddLine(("Decor #%d"):format(self.decorID), 0.7, 0.7, 0.7)
             GameTooltip:Show()
         elseif self.achievementID and GetAchievementLink then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")

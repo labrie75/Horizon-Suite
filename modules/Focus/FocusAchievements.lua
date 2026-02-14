@@ -52,6 +52,8 @@ local function ReadTrackedAchievements()
             local achievementIcon = (icon and (type(icon) == "number" or (type(icon) == "string" and icon ~= ""))) and icon or nil
 
             local objectives = {}
+            local criteriaDone, criteriaTotal = 0, 0
+            local onlyMissing = addon.GetDB and addon.GetDB("achievementOnlyMissingRequirements", false)
             if GetAchievementCriteriaInfo then
                 local numCriteria = 0
                 if GetAchievementNumCriteria then
@@ -61,15 +63,21 @@ local function ReadTrackedAchievements()
                 for criteriaIndex = 1, math.max(numCriteria, 1) do
                     local cOk, criteriaString, criteriaType, completedCrit, quantity, reqQuantity, charName, critFlags, assetID, quantityString, criteriaID, eligible = pcall(GetAchievementCriteriaInfo, achievementID, criteriaIndex)
                     if cOk and criteriaString and criteriaString ~= "" then
-                        local percent = nil
-                        if quantity and reqQuantity and reqQuantity > 0 then
-                            percent = math.floor(100 * math.min(quantity, reqQuantity) / reqQuantity)
+                        local finished = (completedCrit == true) or (completedCrit == 1)
+                        criteriaTotal = criteriaTotal + 1
+                        if finished then criteriaDone = criteriaDone + 1 end
+                        local include = not onlyMissing or not finished
+                        if include then
+                            local percent = nil
+                            if quantity and reqQuantity and reqQuantity > 0 then
+                                percent = math.floor(100 * math.min(quantity, reqQuantity) / reqQuantity)
+                            end
+                            objectives[#objectives + 1] = {
+                                text = criteriaString,
+                                finished = finished,
+                                percent = percent,
+                            }
                         end
-                        objectives[#objectives + 1] = {
-                            text = criteriaString,
-                            finished = (completedCrit == true) or (completedCrit == 1),
-                            percent = percent,
-                        }
                     end
                 end
             end
@@ -80,6 +88,8 @@ local function ReadTrackedAchievements()
                 questID        = nil,
                 title         = name or ("Achievement " .. tostring(achievementID)),
                 objectives    = objectives,
+                criteriaDone  = criteriaTotal > 0 and criteriaDone or nil,
+                criteriaTotal = criteriaTotal > 0 and criteriaTotal or nil,
                 color         = achievementColor,
                 category      = "ACHIEVEMENT",
                 isComplete    = isComplete,

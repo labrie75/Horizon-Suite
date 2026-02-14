@@ -39,6 +39,19 @@ eventFrame:RegisterEvent("CRITERIA_UPDATE")
 eventFrame:RegisterEvent("ACHIEVEMENT_EARNED")
 eventFrame:RegisterEvent("CONTENT_TRACKING_UPDATE")
 pcall(function() eventFrame:RegisterEvent("ACTIVE_DELVE_DATA_UPDATE") end)
+pcall(function() eventFrame:RegisterEvent("INITIATIVE_TASKS_TRACKED_UPDATED") end)
+pcall(function() eventFrame:RegisterEvent("INITIATIVE_TASKS_TRACKED_LIST_CHANGED") end)
+pcall(function() eventFrame:RegisterEvent("TRACKING_TARGET_INFO_UPDATE") end)
+pcall(function() eventFrame:RegisterEvent("TRACKABLE_INFO_UPDATE") end)
+
+-- Suppress PlaySound during programmatic Housing Dashboard open/close (endeavor cache prime)
+local origPlaySound = PlaySound
+local suppressUISound = false
+local function PlaySoundWrapper(...)
+    if suppressUISound then return end
+    return origPlaySound(...)
+end
+PlaySound = PlaySoundWrapper
 
 local function ScheduleRefresh()
     if not addon.enabled then return end
@@ -130,6 +143,21 @@ local function OnPlayerLoginOrEnteringWorld()
         ScheduleRefresh()
         C_Timer.After(0.4, function() if addon.enabled then addon.FullLayout() end end)
         C_Timer.After(1.5, function() if addon.enabled then ScheduleRefresh() end end)
+        -- Prime endeavor cache so GetInitiativeTaskInfo returns objectives without user opening the panel (Blizz bug workaround)
+        C_Timer.After(0.2, function()
+            if addon.enabled and addon.GetTrackedEndeavorIDs and addon.RequestEndeavorTaskInfo then
+                local idList = addon.GetTrackedEndeavorIDs()
+                if #idList > 0 and HousingFramesUtil and HousingFramesUtil.ToggleHousingDashboard then
+                    suppressUISound = true
+                    pcall(HousingFramesUtil.ToggleHousingDashboard)
+                    pcall(HousingFramesUtil.ToggleHousingDashboard)
+                    C_Timer.After(0.05, function() suppressUISound = false end)
+                end
+                for _, id in ipairs(idList) do
+                    addon.RequestEndeavorTaskInfo(id)
+                end
+            end
+        end)
     end
 end
 
@@ -209,9 +237,16 @@ local eventHandlers = {
     ACHIEVEMENT_EARNED       = function() ScheduleRefresh() end,
     CONTENT_TRACKING_UPDATE  = function(_, trackableType)
         local achType = (Enum and Enum.ContentTrackingType and Enum.ContentTrackingType.Achievement) or 2
-        if trackableType == achType then ScheduleRefresh() end
+        local decorType = (Enum and Enum.ContentTrackingType and Enum.ContentTrackingType.Decor) or 3
+        if trackableType == achType or trackableType == decorType then
+            ScheduleRefresh()
+        end
     end,
     ACTIVE_DELVE_DATA_UPDATE = function() ScheduleRefresh() end,
+    INITIATIVE_TASKS_TRACKED_UPDATED = function() ScheduleRefresh() end,
+    INITIATIVE_TASKS_TRACKED_LIST_CHANGED = function() ScheduleRefresh() end,
+    TRACKING_TARGET_INFO_UPDATE = function() ScheduleRefresh() end,
+    TRACKABLE_INFO_UPDATE = function() ScheduleRefresh() end,
 }
 
 --- OnEvent: table-dispatch to eventHandlers[event]; falls back to ScheduleRefresh for unhandled events.

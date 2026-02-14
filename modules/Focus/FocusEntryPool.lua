@@ -410,6 +410,8 @@ local function ClearEntry(entry, full)
     entry.entryKey   = nil
     entry.creatureID = nil
     entry.achievementID = nil
+    entry.endeavorID = nil
+    entry.decorID    = nil
     entry.itemLink   = nil
     entry.animState  = "idle"
     entry.groupKey   = nil

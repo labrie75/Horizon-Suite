@@ -311,9 +311,13 @@ divider:SetSize(addon.GetPanelWidth() - addon.PADDING * 2, addon.DIVIDER_HEIGHT)
 divider:SetPoint("TOP", HS, "TOPLEFT", addon.GetPanelWidth() / 2, -(addon.PADDING + addon.HEADER_HEIGHT))
 divider:SetColorTexture(addon.DIVIDER_COLOR[1], addon.DIVIDER_COLOR[2], addon.DIVIDER_COLOR[3], addon.DIVIDER_COLOR[4])
 
+function addon.GetHeaderToContentGap()
+    return math.max(0, math.min(24, tonumber(addon.GetDB("headerToContentGap", 6)) or 6))
+end
+
 function addon.GetContentTop()
     -- Super-minimal uses same offset as full header so categories/quests do not move up (no overlap with chevron/options)
-    return -(addon.PADDING + addon.HEADER_HEIGHT + addon.DIVIDER_HEIGHT + 6)
+    return -(addon.PADDING + addon.HEADER_HEIGHT + addon.DIVIDER_HEIGHT + addon.GetHeaderToContentGap())
 end
 function addon.GetCollapsedHeight()
     if addon.GetDB("hideObjectivesHeader", false) then
@@ -398,8 +402,7 @@ end)
 -- Resize handle: drag bottom-right corner to change panel width and height
 local RESIZE_MIN, RESIZE_MAX = 180, 800
 local RESIZE_HEIGHT_MIN = addon.MIN_HEIGHT
-local headerAreaResize = addon.PADDING + addon.HEADER_HEIGHT + addon.DIVIDER_HEIGHT + 6
-local RESIZE_HEIGHT_MAX = headerAreaResize + 1000 + addon.PADDING
+local RESIZE_HEIGHT_MAX = addon.PADDING + addon.HEADER_HEIGHT + addon.DIVIDER_HEIGHT + 24 + 1000 + addon.PADDING
 local RESIZE_CONTENT_HEIGHT_MIN, RESIZE_CONTENT_HEIGHT_MAX = 200, 1000
 
 local resizeHandle = CreateFrame("Frame", nil, HS)
@@ -457,7 +460,8 @@ resizeHandle:SetScript("OnDragStop", function(self)
     addon.EnsureDB()
     HorizonDB.panelWidth = HS:GetWidth()
     local h = HS:GetHeight()
-    local contentH = math.max(RESIZE_CONTENT_HEIGHT_MIN, math.min(RESIZE_CONTENT_HEIGHT_MAX, h - headerAreaResize - addon.PADDING))
+    local headerArea = addon.PADDING + addon.HEADER_HEIGHT + addon.DIVIDER_HEIGHT + addon.GetHeaderToContentGap()
+    local contentH = math.max(RESIZE_CONTENT_HEIGHT_MIN, math.min(RESIZE_CONTENT_HEIGHT_MAX, h - headerArea - addon.PADDING))
     HorizonDB.maxContentHeight = contentH
     if addon.ApplyDimensions then addon.ApplyDimensions() end
     if addon.FullLayout and not InCombatLockdown() then addon.FullLayout() end

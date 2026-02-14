@@ -19,6 +19,25 @@ local scrollChild = addon.scrollChild
 local scrollFrame = addon.scrollFrame
 
 --- Player's current zone name from map API. Used to suppress redundant zone labels for in-zone quests.
+--- Schedule deferred refreshes when Endeavors or Decor have placeholder names (API data not yet loaded).
+local function SchedulePlaceholderRefreshes(quests)
+    if addon.placeholderRefreshScheduled then return end
+    for _, q in ipairs(quests) do
+        local isEndeavorPlaceholder = q.isEndeavor and q.endeavorID and q.title == ("Endeavor " .. tostring(q.endeavorID))
+        local isDecorPlaceholder = q.isDecor and q.decorID and q.title == ("Decor " .. tostring(q.decorID))
+        if isEndeavorPlaceholder or isDecorPlaceholder then
+            addon.placeholderRefreshScheduled = true
+            C_Timer.After(2, function()
+                if addon.enabled and addon.ScheduleRefresh then addon.ScheduleRefresh() end
+            end)
+            C_Timer.After(4, function()
+                if addon.enabled and addon.ScheduleRefresh then addon.ScheduleRefresh() end
+            end)
+            break
+        end
+    end
+end
+
 local function GetPlayerCurrentZoneName()
     if not C_Map or not C_Map.GetBestMapForUnit then return nil end
     local mapID = C_Map.GetBestMapForUnit("player")
@@ -106,8 +125,17 @@ local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, 
     local objColor = (addon.GetObjectiveColor and addon.GetObjectiveColor(cat)) or addon.OBJ_COLOR or c
     -- Completed objectives use effective category colour (respects override toggle)
     local doneColor = (addon.GetObjectiveColor and addon.GetObjectiveColor(cat)) or addon.OBJ_DONE_COLOR
+    if addon.GetDB("dimNonSuperTracked", false) and not questData.isSuperTracked then
+        objColor = { objColor[1] * 0.60, objColor[2] * 0.60, objColor[3] * 0.60 }
+        doneColor = { doneColor[1] * 0.60, doneColor[2] * 0.60, doneColor[3] * 0.60 }
+    end
+    -- Achievements: completed criteria use quest-log green instead of category bronze
+    local effectiveDoneColor = (questData.isAchievement and addon.OBJ_DONE_COLOR) or doneColor
+    if questData.isAchievement and addon.GetDB("dimNonSuperTracked", false) and not questData.isSuperTracked then
+        effectiveDoneColor = { effectiveDoneColor[1] * 0.60, effectiveDoneColor[2] * 0.60, effectiveDoneColor[3] * 0.60 }
+    end
 
-    local showEllipsis = questData.isAchievement and questData.objectives and #questData.objectives > 4
+    local showEllipsis = (questData.isAchievement or questData.isEndeavor) and questData.objectives and #questData.objectives > 4
     local shownObjs = 0
     for j = 1, addon.MAX_OBJECTIVES do
         local obj = entry.objectives[j]
@@ -132,7 +160,7 @@ local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, 
             obj.shadow:SetText(objText)
 
             if oData.finished then
-                obj.text:SetTextColor(doneColor[1], doneColor[2], doneColor[3], 1)
+                obj.text:SetTextColor(effectiveDoneColor[1], effectiveDoneColor[2], effectiveDoneColor[3], 1)
             else
                 obj.text:SetTextColor(objColor[1], objColor[2], objColor[3], 1)
             end
@@ -390,7 +418,8 @@ local function PopulateEntry(entry, questData, groupKey)
     local showItemBtn = hasItem and addon.GetDB("showQuestItemButtons", false)
     local showQuestIcons = addon.GetDB("showQuestTypeIcons", false)
     local showAchievementIcons = addon.GetDB("showAchievementIcons", true)
-    local hasIcon = (questData.questTypeAtlas and showQuestIcons) or (questData.isAchievement and questData.achievementIcon and showQuestIcons and showAchievementIcons)
+    local showDecorIcons = addon.GetDB("showDecorIcons", true)
+    local hasIcon = (questData.questTypeAtlas and showQuestIcons) or (questData.isAchievement and questData.achievementIcon and showQuestIcons and showAchievementIcons) or (questData.isDecor and questData.decorIcon and showQuestIcons and showDecorIcons)
     -- Off-map WORLD quest that is tracked (only world quests, not normal quests).
     local isOffMapWorld = (questData.category == "WORLD") and questData.isTracked and not questData.isNearby
 
@@ -405,6 +434,9 @@ local function PopulateEntry(entry, questData, groupKey)
         entry.questTypeIcon:Show()
     elseif questData.isAchievement and questData.achievementIcon and showQuestIcons and showAchievementIcons then
         entry.questTypeIcon:SetTexture(questData.achievementIcon)
+        entry.questTypeIcon:Show()
+    elseif questData.isDecor and questData.decorIcon and showQuestIcons and showDecorIcons then
+        entry.questTypeIcon:SetTexture(questData.decorIcon)
         entry.questTypeIcon:Show()
     elseif hasIcon then
         entry.questTypeIcon:SetAtlas(questData.questTypeAtlas)
@@ -421,10 +453,17 @@ local function PopulateEntry(entry, questData, groupKey)
     entry.titleShadow:SetWidth(textWidth)
 
     local displayTitle = questData.title
-    if (addon.GetDB("showCompletedCount", false) or questData.isAchievement) and questData.objectives and #questData.objectives > 0 then
-        local done, total = 0, #questData.objectives
-        for _, o in ipairs(questData.objectives) do if o.finished then done = done + 1 end end
-        displayTitle = ("%s (%d/%d)"):format(questData.title, done, total)
+    if (addon.GetDB("showCompletedCount", false) or questData.isAchievement or questData.isEndeavor) then
+        local done, total
+        if questData.criteriaDone and questData.criteriaTotal and type(questData.criteriaDone) == "number" and type(questData.criteriaTotal) == "number" and questData.criteriaTotal > 0 then
+            done, total = questData.criteriaDone, questData.criteriaTotal
+        elseif questData.objectives and #questData.objectives > 0 then
+            done, total = 0, #questData.objectives
+            for _, o in ipairs(questData.objectives) do if o.finished then done = done + 1 end end
+        end
+        if done and total then
+            displayTitle = ("%s (%d/%d)"):format(questData.title, done, total)
+        end
     end
     if addon.GetDB("showQuestLevel", false) and questData.level then
         displayTitle = ("%s [L%d]"):format(displayTitle, questData.level)
@@ -490,6 +529,9 @@ local function PopulateEntry(entry, questData, groupKey)
         entry.zoneText:SetText(zoneLabel)
         entry.zoneShadow:SetText(zoneLabel)
         local zoneColor = (addon.GetZoneColor and addon.GetZoneColor(effectiveCat)) or addon.ZONE_COLOR
+        if addon.GetDB("dimNonSuperTracked", false) and not questData.isSuperTracked then
+            zoneColor = { zoneColor[1] * 0.60, zoneColor[2] * 0.60, zoneColor[3] * 0.60 }
+        end
         entry.zoneText:SetTextColor(zoneColor[1], zoneColor[2], zoneColor[3], 1)
         entry.zoneText:ClearAllPoints()
         entry.zoneText:SetPoint("TOPLEFT", entry.titleText, "BOTTOMLEFT", addon.GetObjIndent(), -titleToContentSpacing)
@@ -532,6 +574,8 @@ local function PopulateEntry(entry, questData, groupKey)
         entry.entryKey   = questData.entryKey
         entry.creatureID = questData.creatureID
         entry.achievementID = nil
+        entry.endeavorID = nil
+        entry.decorID    = nil
         entry.itemLink   = nil
         entry.isTracked  = nil
     elseif questData.isAchievement or questData.category == "ACHIEVEMENT" then
@@ -539,18 +583,39 @@ local function PopulateEntry(entry, questData, groupKey)
         entry.entryKey   = questData.entryKey
         entry.creatureID = nil
         entry.achievementID = questData.achievementID
+        entry.endeavorID = nil
+        entry.isTracked  = true
+    elseif questData.isEndeavor or questData.category == "ENDEAVOR" then
+        entry.questID    = nil
+        entry.entryKey   = questData.entryKey
+        entry.creatureID = nil
+        entry.achievementID = nil
+        entry.endeavorID = questData.endeavorID
+        entry.decorID    = nil
+        entry.isTracked  = true
+    elseif questData.isDecor or questData.category == "DECOR" then
+        entry.questID    = nil
+        entry.entryKey   = questData.entryKey
+        entry.creatureID = nil
+        entry.achievementID = nil
+        entry.endeavorID = nil
+        entry.decorID    = questData.decorID
         entry.isTracked  = true
     elseif questData.isScenarioMain or questData.isScenarioBonus then
         entry.questID    = questData.questID
         entry.entryKey   = questData.entryKey
         entry.creatureID = nil
         entry.achievementID = nil
+        entry.endeavorID = nil
+        entry.decorID    = nil
         entry.isTracked  = questData.isTracked
     else
         entry.questID    = questData.questID
         entry.entryKey   = nil
         entry.creatureID = nil
         entry.achievementID = nil
+        entry.endeavorID = nil
+        entry.decorID    = nil
         entry.isTracked  = questData.isTracked
     end
     return totalH
@@ -579,8 +644,20 @@ local function HideAllSectionHeaders()
     end
 end
 
+local function GetFocusedGroupKey(grouped)
+    if not grouped then return nil end
+    for _, grp in ipairs(grouped) do
+        for _, qData in ipairs(grp.quests) do
+            if qData.isSuperTracked then
+                return grp.key
+            end
+        end
+    end
+    return nil
+end
+
 addon.sectionIdx = 0
-local function AcquireSectionHeader(groupKey)
+local function AcquireSectionHeader(groupKey, focusedGroupKey)
     addon.sectionIdx = addon.sectionIdx + 1
     if addon.sectionIdx > addon.SECTION_POOL_SIZE then return nil end
     local s = sectionPool[addon.sectionIdx]
@@ -589,6 +666,9 @@ local function AcquireSectionHeader(groupKey)
     local label = addon.SECTION_LABELS[groupKey] or groupKey
     label = addon.ApplyTextCase(label, "sectionHeaderTextCase", "upper")
     local color = addon.GetSectionColor(groupKey)
+    if addon.GetDB("dimNonSuperTracked", false) and focusedGroupKey and groupKey ~= focusedGroupKey then
+        color = { color[1] * 0.60, color[2] * 0.60, color[3] * 0.60 }
+    end
     s.text:SetText(label)
     s.shadow:SetText(label)
     s.text:SetTextColor(color[1], color[2], color[3], addon.SECTION_COLOR_A)
@@ -937,7 +1017,7 @@ local function CountTrackedInLog(quests)
     local getLogIdx = C_QuestLog and C_QuestLog.GetLogIndexForQuestID
     local isWQ = addon.IsQuestWorldQuest
     for _, entry in ipairs(quests) do
-        if not (entry.isRare or entry.category == "RARE" or entry.isAchievement or entry.category == "ACHIEVEMENT") then
+        if not (entry.isRare or entry.category == "RARE" or entry.isAchievement or entry.category == "ACHIEVEMENT" or entry.isEndeavor or entry.category == "ENDEAVOR" or entry.isDecor or entry.category == "DECOR") then
             local qid = entry.questID
             if qid and getLogIdx and getLogIdx(qid) and (not isWQ or not isWQ(qid)) then
                 n = n + 1
@@ -980,15 +1060,32 @@ local function RefreshContentInCombat()
                 local questData = rec.questData
         local groupKey = rec.groupKey
         local effectiveCat = (addon.GetEffectiveColorCategory and addon.GetEffectiveColorCategory(questData.category, groupKey, questData.baseCategory)) or questData.category
+        local shouldDim = addon.GetDB("dimNonSuperTracked", false) and not questData.isSuperTracked
         local objColor = (addon.GetObjectiveColor and addon.GetObjectiveColor(effectiveCat)) or addon.OBJ_COLOR or { 0.9, 0.9, 0.9 }
         local doneColor = (addon.GetObjectiveColor and addon.GetObjectiveColor(effectiveCat)) or addon.OBJ_DONE_COLOR or { 0.5, 0.8, 0.5 }
+        if shouldDim then
+            objColor = { objColor[1] * 0.60, objColor[2] * 0.60, objColor[3] * 0.60 }
+            doneColor = { doneColor[1] * 0.60, doneColor[2] * 0.60, doneColor[3] * 0.60 }
+        end
+        -- Achievements: completed criteria use quest-log green instead of category bronze
+        local effectiveDoneColor = (questData.isAchievement and addon.OBJ_DONE_COLOR) or doneColor
+        if questData.isAchievement and shouldDim then
+            effectiveDoneColor = { effectiveDoneColor[1] * 0.60, effectiveDoneColor[2] * 0.60, effectiveDoneColor[3] * 0.60 }
+        end
 
         -- Title
         local displayTitle = questData.title or ""
-        if (addon.GetDB("showCompletedCount", false) or questData.isAchievement) and questData.objectives and #questData.objectives > 0 then
-            local done, total = 0, #questData.objectives
-            for _, o in ipairs(questData.objectives) do if o.finished then done = done + 1 end end
-            displayTitle = ("%s (%d/%d)"):format(questData.title or "", done, total)
+        if (addon.GetDB("showCompletedCount", false) or questData.isAchievement or questData.isEndeavor) then
+            local done, total
+            if questData.criteriaDone and questData.criteriaTotal and type(questData.criteriaDone) == "number" and type(questData.criteriaTotal) == "number" and questData.criteriaTotal > 0 then
+                done, total = questData.criteriaDone, questData.criteriaTotal
+            elseif questData.objectives and #questData.objectives > 0 then
+                done, total = 0, #questData.objectives
+                for _, o in ipairs(questData.objectives) do if o.finished then done = done + 1 end end
+            end
+            if done and total then
+                displayTitle = ("%s (%d/%d)"):format(questData.title or "", done, total)
+            end
         end
         if addon.GetDB("showQuestLevel", false) and questData.level then
             displayTitle = ("%s [L%d]"):format(displayTitle, questData.level)
@@ -999,6 +1096,13 @@ local function RefreshContentInCombat()
         displayTitle = addon.ApplyTextCase and addon.ApplyTextCase(displayTitle, "questTitleCase", "proper") or displayTitle
         entry.titleText:SetText(displayTitle)
         entry.titleShadow:SetText(displayTitle)
+        local titleColor = (addon.GetTitleColor and addon.GetTitleColor(effectiveCat)) or questData.color
+        if questData.isDungeonQuest and not questData.isTracked then
+            titleColor = { titleColor[1] * 0.65, titleColor[2] * 0.65, titleColor[3] * 0.65 }
+        elseif shouldDim then
+            titleColor = { titleColor[1] * 0.60, titleColor[2] * 0.60, titleColor[3] * 0.60 }
+        end
+        entry.titleText:SetTextColor(titleColor[1], titleColor[2], titleColor[3], 1)
 
         -- Zone label
         local showZoneLabels = addon.GetDB("showZoneLabels", true)
@@ -1012,12 +1116,15 @@ local function RefreshContentInCombat()
             entry.zoneText:SetText(zoneLabel)
             entry.zoneShadow:SetText(zoneLabel)
             local zoneColor = (addon.GetZoneColor and addon.GetZoneColor(effectiveCat)) or addon.ZONE_COLOR or { 0.8, 0.8, 0.8 }
+            if shouldDim then
+                zoneColor = { zoneColor[1] * 0.60, zoneColor[2] * 0.60, zoneColor[3] * 0.60 }
+            end
             entry.zoneText:SetTextColor(zoneColor[1], zoneColor[2], zoneColor[3], 1)
         end
 
         -- Objectives (SetText, SetTextColor only)
         local objectives = questData.objectives or {}
-        local showEllipsis = questData.isAchievement and #objectives > 4
+        local showEllipsis = (questData.isAchievement or questData.isEndeavor) and #objectives > 4
         for j = 1, addon.MAX_OBJECTIVES do
             local obj = entry.objectives[j]
             if not obj then break end
@@ -1035,7 +1142,7 @@ local function RefreshContentInCombat()
                 obj.text:SetText(objText)
                 obj.shadow:SetText(objText)
                 if oData.finished then
-                    obj.text:SetTextColor(doneColor[1], doneColor[2], doneColor[3], 1)
+                    obj.text:SetTextColor(effectiveDoneColor[1], effectiveDoneColor[2], effectiveDoneColor[3], 1)
                 else
                     obj.text:SetTextColor(objColor[1], objColor[2], objColor[3], 1)
                 end
@@ -1212,6 +1319,13 @@ local function FullLayout()
         if addon.GetDB("showAchievements", true) and addon.ReadTrackedAchievements then
             for _, a in ipairs(addon.ReadTrackedAchievements()) do quests[#quests + 1] = a end
         end
+        if addon.ReadTrackedEndeavors then
+            for _, e in ipairs(addon.ReadTrackedEndeavors()) do quests[#quests + 1] = e end
+        end
+        if addon.ReadTrackedDecor then
+            for _, d in ipairs(addon.ReadTrackedDecor()) do quests[#quests + 1] = d end
+        end
+        SchedulePlaceholderRefreshes(quests)
         addon.UpdateFloatingQuestItem(quests)
         addon.UpdateHeaderQuestCount(#quests, CountTrackedInLog(quests))
 
@@ -1234,12 +1348,13 @@ local function FullLayout()
                 scrollFrame:Show()
                 HideAllSectionHeaders()
                 addon.sectionIdx = 0
+                local focusedGroupKey = GetFocusedGroupKey(grouped)
                 local yOff = 0
                 for gi, grp in ipairs(grouped) do
                     if gi > 1 then
                         yOff = yOff - addon.GetSectionSpacing()
                     end
-                    local sec = AcquireSectionHeader(grp.key)
+                    local sec = AcquireSectionHeader(grp.key, focusedGroupKey)
                     if sec then
                         sec:ClearAllPoints()
                         sec:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", addon.GetContentLeftOffset(), yOff)
@@ -1250,7 +1365,7 @@ local function FullLayout()
                 scrollChild:SetHeight(totalContentH)
                 scrollFrame:SetVerticalScroll(0)
                 addon.scrollOffset = 0
-                local headerArea = addon.PADDING + addon.HEADER_HEIGHT + addon.DIVIDER_HEIGHT + 6
+                local headerArea = addon.PADDING + addon.HEADER_HEIGHT + addon.DIVIDER_HEIGHT + addon.GetHeaderToContentGap()
                 local visibleH = math.min(totalContentH, addon.GetMaxContentHeight())
                 addon.targetHeight = math.max(addon.MIN_HEIGHT, headerArea + visibleH + addon.PADDING)
             else
@@ -1276,6 +1391,13 @@ local function FullLayout()
     if addon.GetDB("showAchievements", true) and addon.ReadTrackedAchievements then
         for _, a in ipairs(addon.ReadTrackedAchievements()) do quests[#quests + 1] = a end
     end
+    if addon.ReadTrackedEndeavors then
+        for _, e in ipairs(addon.ReadTrackedEndeavors()) do quests[#quests + 1] = e end
+    end
+    if addon.ReadTrackedDecor then
+        for _, d in ipairs(addon.ReadTrackedDecor()) do quests[#quests + 1] = d end
+    end
+    SchedulePlaceholderRefreshes(quests)
     addon.UpdateFloatingQuestItem(quests)
     local grouped = addon.SortAndGroupQuests(quests)
 
@@ -1331,6 +1453,7 @@ local function FullLayout()
     local entryIndex = 0
 
     local showSections = #grouped > 1 and addon.GetDB("showSectionHeaders", true)
+    local focusedGroupKey = GetFocusedGroupKey(grouped)
 
     for gi, grp in ipairs(grouped) do
         local isCollapsed = showSections and addon.IsCategoryCollapsed(grp.key)
@@ -1339,7 +1462,7 @@ local function FullLayout()
             if gi > 1 then
                 yOff = yOff - addon.GetSectionSpacing()
             end
-            local sec = AcquireSectionHeader(grp.key)
+            local sec = AcquireSectionHeader(grp.key, focusedGroupKey)
             if sec then
                 sec:ClearAllPoints()
                 sec:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", addon.GetContentLeftOffset(), yOff)
@@ -1389,7 +1512,7 @@ local function FullLayout()
     addon.scrollOffset = math.min(prevScroll, maxScr)
     scrollFrame:SetVerticalScroll(addon.scrollOffset)
 
-    local headerArea    = addon.PADDING + addon.HEADER_HEIGHT + addon.DIVIDER_HEIGHT + 6
+    local headerArea    = addon.PADDING + addon.HEADER_HEIGHT + addon.DIVIDER_HEIGHT + addon.GetHeaderToContentGap()
     local visibleH      = math.min(totalContentH, addon.GetMaxContentHeight())
     addon.targetHeight  = math.max(addon.MIN_HEIGHT, headerArea + visibleH + addon.PADDING)
 
