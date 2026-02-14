@@ -8,6 +8,24 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [1.1.1] – 2026-02-14
+
+### New Features
+
+- **(Focus) Auto-track accepted quests** — Accepted quests are now automatically added to the Focus tracker. You can enable or disable this in Organization -> Behaviour.
+
+### Improvements
+
+- **(Focus) Endeavor tooltip rewards** — Endeavor hover tooltips now use the panel-style layout and include House XP with the chevron icon in the rewards section.
+
+### Fixes
+
+- **UI taint errors** — Fixed taint errors that could appear when opening Blizzard panels such as Character Frame and Game Menu.
+
+- **(Focus) Shift+Right-click abandon** — Confirm abandon now works correctly when using Shift+Right-click on quests.
+
+---
+
 ## [1.1.0] – 2026-02-14
 
 ### New Features

@@ -1,4 +1,0 @@
-# BigWigs packager config. See https://github.com/BigWigsMods/packager/wiki/Preparing-the-PackageMeta-File
-manual-changelog:
-  filename: CHANGELOG.md
-  markup-type: markdown

@@ -16,12 +16,24 @@ StaticPopupDialogs["HORIZONSUITE_ABANDON_QUEST"] = StaticPopupDialogs["HORIZONSU
     button2 = NO,
     OnAccept = function(self)
         local data = self.data
+        if addon.HSPrint then addon.HSPrint("Abandon OnAccept ran, data=" .. tostring(data) .. " questID=" .. tostring(data and data.questID)) end
         if data and data.questID and C_QuestLog and C_QuestLog.AbandonQuest then
             if C_QuestLog.SetSelectedQuest then
                 C_QuestLog.SetSelectedQuest(data.questID)
+                if addon.HSPrint then addon.HSPrint("SetSelectedQuest(" .. tostring(data.questID) .. ") done") end
+            end
+            if C_QuestLog.SetAbandonQuest then
+                C_QuestLog.SetAbandonQuest()
+                if addon.HSPrint then addon.HSPrint("SetAbandonQuest() done") end
+            elseif SetAbandonQuest then
+                SetAbandonQuest()
+                if addon.HSPrint then addon.HSPrint("SetAbandonQuest (global) done") end
             end
             C_QuestLog.AbandonQuest()
+            if addon.HSPrint then addon.HSPrint("AbandonQuest() called") end
             addon.ScheduleRefresh()
+        else
+            if addon.HSPrint then addon.HSPrint("Abandon skipped: guard failed") end
         end
     end,
     timeout = 0,
@@ -269,18 +281,101 @@ for i = 1, addon.POOL_SIZE do
             GameTooltip:Show()
         elseif self.endeavorID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            if C_NeighborhoodInitiative and C_NeighborhoodInitiative.GetInitiativeTaskChatLink then
-                local ok, link = pcall(C_NeighborhoodInitiative.GetInitiativeTaskChatLink, self.endeavorID)
-                if ok and link and link ~= "" then
-                    local setOk, setErr = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
-                    if not setOk and addon.HSPrint then addon.HSPrint("Tooltip SetHyperlink (endeavor) failed: " .. tostring(setErr)) end
-                else
-                    GameTooltip:SetText(self.titleText:GetText() or "")
-                    GameTooltip:AddLine(("Endeavor #%d"):format(self.endeavorID), 0.7, 0.7, 0.7)
+            GameTooltip:ClearLines()
+            local endeavorColor = (addon.GetQuestColor and addon.GetQuestColor("ENDEAVOR")) or (addon.QUEST_COLORS and addon.QUEST_COLORS.ENDEAVOR) or { 0.45, 0.95, 0.75 }
+            local ecR, ecG, ecB = endeavorColor[1], endeavorColor[2], endeavorColor[3]
+            local greyR, greyG, greyB = 0.7, 0.7, 0.7
+            local whiteR, whiteG, whiteB = 0.9, 0.9, 0.9
+            local doneR, doneG, doneB = 0.5, 0.8, 0.5
+
+            local ok, info = pcall(function()
+                return C_NeighborhoodInitiative and C_NeighborhoodInitiative.GetInitiativeTaskInfo and C_NeighborhoodInitiative.GetInitiativeTaskInfo(self.endeavorID)
+            end)
+            if ok and info and type(info) == "table" then
+                local title = info.taskName or self.titleText:GetText() or ("Endeavor #" .. tostring(self.endeavorID))
+                local isRepeatable = (Enum and Enum.NeighborhoodInitiativeTaskType and info.taskType == Enum.NeighborhoodInitiativeTaskType.RepeatableInfinite)
+                if isRepeatable and info.timesCompleted and info.timesCompleted > 0 and _G.HOUSING_DASHBOARD_REPEATABLE_TASK_TITLE_TOOLTIP_FORMAT then
+                    title = _G.HOUSING_DASHBOARD_REPEATABLE_TASK_TITLE_TOOLTIP_FORMAT:format(info.taskName or title, info.timesCompleted)
                 end
+                GameTooltip:AddLine(title, ecR, ecG, ecB)
+                if isRepeatable and _G.HOUSING_ENDEAVOR_REPEATABLE_TASK then
+                    GameTooltip:AddLine(_G.HOUSING_ENDEAVOR_REPEATABLE_TASK, greyR, greyG, greyB)
+                end
+                GameTooltip:AddLine(" ")
+                if info.description and type(info.description) == "string" and info.description ~= "" then
+                    GameTooltip:AddLine(info.description, 1, 1, 1, true)
+                    GameTooltip:AddLine(" ")
+                end
+                local reqHeader = _G.REQUIREMENTS or "Requirements:"
+                GameTooltip:AddLine(reqHeader, greyR, greyG, greyB)
+                if info.requirementsList and type(info.requirementsList) == "table" then
+                    for _, req in ipairs(info.requirementsList) do
+                        local text = (type(req) == "table" and req.requirementText) or tostring(req)
+                        if text and text ~= "" then
+                            text = text:gsub(" / ", "/")
+                            local r, g, b = whiteR, whiteG, whiteB
+                            if type(req) == "table" and req.completed then r, g, b = doneR, doneG, doneB end
+                            GameTooltip:AddLine("  " .. text, r, g, b)
+                        end
+                    end
+                end
+                -- Resolve contribution/XP amount (GetInitiativeTaskInfo uses progressContributionAmount for housing/neighborhood favor).
+                local contributionAmount = (info.progressContributionAmount and type(info.progressContributionAmount) == "number") and info.progressContributionAmount
+                    or (info.thresholdContributionAmount and type(info.thresholdContributionAmount) == "number") and info.thresholdContributionAmount
+                    or (info.contributionAmount and type(info.contributionAmount) == "number") and info.contributionAmount
+                    or nil
+                if not (contributionAmount and contributionAmount > 0) then
+                    for k, v in pairs(info) do
+                        if type(k) == "string" and type(v) == "number" and v > 0 then
+                            local lower = k:lower()
+                            if lower:find("contribution") or lower:find("favor") or lower:find("reward") and lower:find("amount") or lower:find("threshold") or lower:find("xp") or (lower:find("amount") and not lower:find("completed")) then
+                                contributionAmount = v
+                                break
+                            end
+                        end
+                    end
+                end
+                local hasContribution = contributionAmount and contributionAmount > 0
+                local hasQuestReward = info.rewardQuestID and addon.AddQuestRewardsToTooltip
+                if hasContribution or hasQuestReward then
+                    GameTooltip:AddLine(" ")
+                    local rewardsHeader = _G.REWARDS or "Rewards:"
+                    GameTooltip:AddLine(rewardsHeader, greyR, greyG, greyB)
+                    if hasContribution then
+                        local amountStr = (type(FormatLargeNumber) == "function" and FormatLargeNumber(contributionAmount)) or tostring(contributionAmount)
+                        local favorLabel = _G.HOUSING_ENDEAVOR_REWARD_HOUSING_XP or _G.NEIGHBORHOOD_FAVOR_PROGRESS or "Housing XP"
+                        -- Use the chevron XP icon and identical line format to currency rewards.
+                        local xpTex = _G.HOUSING_XP_CURRENCY_ICON or _G.HOUSING_XP_ICON_FILE_ID or 894556
+                        local iconStr = "|T" .. tostring(xpTex) .. ":0|t "
+                        GameTooltip:AddLine(iconStr .. amountStr .. " " .. favorLabel, 1, 1, 1)
+                    end
+                    if hasQuestReward then
+                        addon.AddQuestRewardsToTooltip(GameTooltip, info.rewardQuestID)
+                    end
+                end
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddLine(("Endeavor #%s"):format(tostring(self.endeavorID)), greyR, greyG, greyB)
             else
-                GameTooltip:SetText(self.titleText:GetText() or "")
-                GameTooltip:AddLine(("Endeavor #%d"):format(self.endeavorID), 0.7, 0.7, 0.7)
+                local title = self.titleText:GetText() or ("Endeavor #" .. tostring(self.endeavorID))
+                GameTooltip:AddLine(title, ecR, ecG, ecB)
+                GameTooltip:AddLine(("Endeavor #%s"):format(tostring(self.endeavorID)), greyR, greyG, greyB)
+                if addon.GetEndeavorDisplayInfo then
+                    local getOk, name, _, objectives = pcall(addon.GetEndeavorDisplayInfo, self.endeavorID)
+                    if getOk and objectives and type(objectives) == "table" and #objectives > 0 then
+                        GameTooltip:AddLine(" ")
+                        for _, obj in ipairs(objectives) do
+                            local text = (type(obj) == "table" and obj.text) or tostring(obj)
+                            if text and text ~= "" then
+                                local r, g, b = whiteR, whiteG, whiteB
+                                if type(obj) == "table" and obj.finished then r, g, b = doneR, doneG, doneB end
+                                GameTooltip:AddLine("  " .. text, r, g, b)
+                            end
+                        end
+                    end
+                end
+            end
+            if not GameTooltip:NumLines() or GameTooltip:NumLines() == 0 then
+                GameTooltip:SetText(self.titleText:GetText() or ("Endeavor #" .. tostring(self.endeavorID)))
             end
             GameTooltip:Show()
         elseif self.decorID then

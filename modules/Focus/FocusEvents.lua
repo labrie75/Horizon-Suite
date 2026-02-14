@@ -44,14 +44,18 @@ pcall(function() eventFrame:RegisterEvent("INITIATIVE_TASKS_TRACKED_LIST_CHANGED
 pcall(function() eventFrame:RegisterEvent("TRACKING_TARGET_INFO_UPDATE") end)
 pcall(function() eventFrame:RegisterEvent("TRACKABLE_INFO_UPDATE") end)
 
--- Suppress PlaySound during programmatic Housing Dashboard open/close (endeavor cache prime)
-local origPlaySound = PlaySound
+-- Helpers used during programmatic Housing Dashboard open/close (endeavor cache prime)
 local suppressUISound = false
-local function PlaySoundWrapper(...)
-    if suppressUISound then return end
-    return origPlaySound(...)
+local function MuteUISound()
+    suppressUISound = true
+    local vol = tonumber(GetCVar("Sound_EnableSFX"))
+    SetCVar("Sound_EnableSFX", 0)
+    return vol
 end
-PlaySound = PlaySoundWrapper
+local function UnmuteUISound(prevVol)
+    suppressUISound = false
+    SetCVar("Sound_EnableSFX", prevVol or 1)
+end
 
 local function ScheduleRefresh()
     if not addon.enabled then return end
@@ -148,10 +152,10 @@ local function OnPlayerLoginOrEnteringWorld()
             if addon.enabled and addon.GetTrackedEndeavorIDs and addon.RequestEndeavorTaskInfo then
                 local idList = addon.GetTrackedEndeavorIDs()
                 if #idList > 0 and HousingFramesUtil and HousingFramesUtil.ToggleHousingDashboard then
-                    suppressUISound = true
+                    local prevVol = MuteUISound()
                     pcall(HousingFramesUtil.ToggleHousingDashboard)
                     pcall(HousingFramesUtil.ToggleHousingDashboard)
-                    C_Timer.After(0.05, function() suppressUISound = false end)
+                    C_Timer.After(0.05, function() UnmuteUISound(prevVol) end)
                 end
                 for _, id in ipairs(idList) do
                     addon.RequestEndeavorTaskInfo(id)
@@ -182,6 +186,19 @@ local function OnQuestWatchUpdate(questID)
             if addon.pool[i].questID == questID then
                 addon.pool[i].flashTime = addon.FLASH_DUR
             end
+        end
+    end
+    ScheduleRefresh()
+end
+
+local function OnQuestAccepted(questID)
+    if not addon.enabled then ScheduleRefresh(); return end
+    if not questID or questID <= 0 then ScheduleRefresh(); return end
+    if addon.GetDB("autoTrackOnAccept", true) then
+        local isWQ = (addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID))
+            or (C_QuestLog and C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID))
+        if not isWQ and C_QuestLog and C_QuestLog.AddQuestWatch then
+            C_QuestLog.AddQuestWatch(questID)
         end
     end
     ScheduleRefresh()
@@ -220,6 +237,7 @@ local eventHandlers = {
     PLAYER_LOGIN             = function() OnPlayerLoginOrEnteringWorld() end,
     PLAYER_ENTERING_WORLD    = function() OnPlayerLoginOrEnteringWorld() end,
     QUEST_TURNED_IN          = function(_, questID) OnQuestTurnedIn(questID) end,
+    QUEST_ACCEPTED           = function(_, questID) OnQuestAccepted(questID) end,
     QUEST_WATCH_UPDATE       = function(_, questID) OnQuestWatchUpdate(questID) end,
     QUEST_WATCH_LIST_CHANGED = function(_, questID, added) OnQuestWatchListChanged(questID, added) end,
     VIGNETTE_MINIMAP_UPDATED = function() ScheduleRefresh() end,

@@ -300,6 +300,41 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
         end
         HSPrint("ReadTrackedEndeavors count: " .. (addon.ReadTrackedEndeavors and #addon.ReadTrackedEndeavors() or 0))
         HSPrint("ReadTrackedDecor count: " .. (addon.ReadTrackedDecor and #addon.ReadTrackedDecor() or 0))
+        -- Dump GetInitiativeTaskInfo for each tracked endeavor (find housing XP / reward field names)
+        if C_NeighborhoodInitiative and C_NeighborhoodInitiative.GetTrackedInitiativeTasks and C_NeighborhoodInitiative.GetInitiativeTaskInfo then
+            local ok, result = pcall(C_NeighborhoodInitiative.GetTrackedInitiativeTasks)
+            local ids = {}
+            if ok and result then
+                if result.trackedIDs and type(result.trackedIDs) == "table" then
+                    ids = result.trackedIDs
+                elseif type(result) == "table" and #result > 0 then
+                    ids = result
+                end
+            end
+            if #ids == 0 and addon.GetTrackedEndeavorIDs then
+                ids = addon.GetTrackedEndeavorIDs() or {}
+            end
+            HSPrint("|cFF00CCFF--- GetInitiativeTaskInfo dump (" .. #ids .. " tracked) ---|r")
+            for _, taskID in ipairs(ids) do
+                local getOk, info = pcall(C_NeighborhoodInitiative.GetInitiativeTaskInfo, taskID)
+                if getOk and info and type(info) == "table" then
+                    HSPrint("  Endeavor " .. tostring(taskID) .. " (" .. tostring(info.taskName or "?") .. "):")
+                    local keys = {}
+                    for k in pairs(info) do keys[#keys + 1] = k end
+                    table.sort(keys)
+                    for _, k in ipairs(keys) do
+                        local v = info[k]
+                        if type(v) == "table" then
+                            HSPrint("    " .. tostring(k) .. " = (table, #=" .. tostring(#v) .. ")")
+                        else
+                            HSPrint("    " .. tostring(k) .. " = " .. tostring(v))
+                        end
+                    end
+                else
+                    HSPrint("  Endeavor " .. tostring(taskID) .. ": GetInitiativeTaskInfo returned " .. (getOk and "nil" or ("error: " .. tostring(info))))
+                end
+            end
+        end
 
     elseif cmd == "delvedebug" then
         HSPrint("|cFF00CCFF--- Delve / Tier debug (run inside a Delve) ---|r")
@@ -337,7 +372,7 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
         HSPrint("  /horizon nearbydebug     - Print Current Zone / Nearby map and quest debug info")
         HSPrint("  /horizon headercountdebug - Print header count (in-log) breakdown for debugging")
         HSPrint("  /horizon delvedebug      - Dump Delve/tier APIs (run inside a Delve to find tier number)")
-        HSPrint("  /horizon endeavordebug   - Dump Endeavor APIs (discover tracking / active endeavor)")
+        HSPrint("  /horizon endeavordebug   - Dump Endeavor APIs + GetInitiativeTaskInfo fields (for tooltip/rewards)")
         HSPrint("")
         HSPrint("  Click the header row to collapse / expand.")
         HSPrint("  Scroll with mouse wheel when content overflows.")
