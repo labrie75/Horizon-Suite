@@ -92,6 +92,10 @@ addon.QUEST_COLORS = {
     ACHIEVEMENT = { 0.78, 0.48, 0.22 },  -- bronze, trophy feel
 }
 
+-- Presence-only (no Focus category): boss emote alert, discovery line
+addon.PRESENCE_BOSS_EMOTE_COLOR = { 1, 0.2, 0.2 }
+addon.PRESENCE_DISCOVERY_COLOR  = { 0.4, 1, 0.5 }
+
 addon.SECTION_SIZE      = 10
 addon.SECTION_SPACING   = 10
 addon.SECTION_COLOR_A   = 1

@@ -126,6 +126,33 @@ local function GetNearbyQuestIDs()
     return nearbySet, taskQuestOnlySet
 end
 
+--- True if player is within threshold of the quest's map position (Blizzard-style quest area proximity).
+-- Uses C_TaskQuest.GetQuestLocation and C_Map.GetPlayerMapPosition. Restricted in instances.
+local QUEST_AREA_THRESHOLD = 0.12  -- normalized 0-1; ~12% of map = quest area size
+local function IsPlayerNearQuestArea(questID, mapID)
+    if not questID or not mapID or not C_TaskQuest or not C_TaskQuest.GetQuestLocation then return false end
+    if not C_Map or not C_Map.GetPlayerMapPosition then return false end
+    local qx, qy = C_TaskQuest.GetQuestLocation(questID, mapID)
+    if not qx or not qy then
+        -- Quest may be on parent map (e.g. micro zone); try parent
+        local info = C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)
+        if info and info.parentMapID and info.parentMapID ~= 0 then
+            qx, qy = C_TaskQuest.GetQuestLocation(questID, info.parentMapID)
+            mapID = info.parentMapID
+        end
+    end
+    if not qx or not qy then return false end
+    local pos = C_Map.GetPlayerMapPosition(mapID, "player")
+    if not pos then return false end
+    local px, py = pos.x, pos.y
+    if type(px) ~= "number" or type(py) ~= "number" then
+        if pos.GetXY and type(pos.GetXY) == "function" then px, py = pos:GetXY() end
+    end
+    if not px or not py then return false end
+    local dist = math.sqrt((qx - px) * (qx - px) + (qy - py) * (qy - py))
+    return dist <= QUEST_AREA_THRESHOLD
+end
+
 -- World quest watch set for map-close diff.
 local function GetCurrentWorldQuestWatchSet()
     local set = {}
@@ -141,6 +168,7 @@ end
 -- Returns watch-list WQs plus in-zone *active* world quests/callings so they appear in the objective list.
 -- Filter out deprecated/expired WQs: only show if on watch list, or calling, or (world/task and currently active or in quest log).
 local function GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)
+    local playerMapID = (C_Map and C_Map.GetBestMapForUnit) and C_Map.GetBestMapForUnit("player") or nil
     local out = {}
     local seen = {}
     if C_QuestLog.GetNumWorldQuestWatches and C_QuestLog.GetQuestIDForWorldQuestWatchIndex then
@@ -193,7 +221,9 @@ local function GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)
             local isRecurring = (qc == Enum.QuestClassification.Recurring)
             -- Only force WORLD for task-map quests that are not already world/calling/campaign/recurring (should not happen now we only add WQ/Calling).
             local forceCategory = (fromTaskQuestMap and not isWorld and not isCalling and not isCampaign and not isRecurring) and "WORLD" or nil
-            out[#out + 1] = { questID = questID, isTracked = false, forceCategory = forceCategory }
+            -- isInQuestArea: player within distance of quest (Blizzard-style). Zone-only WQs stay hidden when WQ off.
+            local isInQuestArea = playerMapID and IsPlayerNearQuestArea(questID, playerMapID)
+            out[#out + 1] = { questID = questID, isTracked = false, isInQuestArea = isInQuestArea, forceCategory = forceCategory }
         end
     end
     return out

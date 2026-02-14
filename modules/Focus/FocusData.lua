@@ -423,9 +423,9 @@ local function ReadTrackedQuests()
     end
 
     -- Active zone world quests and callings are automatically included from GetNearbyQuestIDs/GetWorldAndCallingQuestIDsToShow.
-    -- When showWorldQuests is off, still show WQs explicitly on the watch list (Shift+Click tracked).
+    -- When showWorldQuests is off, still show WQs on the watch list or when you enter the quest area (GetTasksTable/task map).
     for _, entry in ipairs(addon.GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)) do
-        if not seen[entry.questID] and (addon.GetDB("showWorldQuests", true) or entry.isTracked) then
+        if not seen[entry.questID] and (addon.GetDB("showWorldQuests", true) or entry.isTracked or entry.isInQuestArea) then
             addQuest(entry.questID, { isTracked = entry.isTracked, forceCategory = entry.forceCategory })
         end
     end
@@ -590,6 +590,7 @@ end
 addon.IsQuestWorldQuest    = IsQuestWorldQuest
 addon.GetQuestFrequency    = GetQuestFrequency
 addon.GetQuestCategory     = GetQuestCategory
+addon.GetQuestBaseCategory = GetQuestBaseCategory
 addon.GetEffectiveColorCategory = GetEffectiveColorCategory
 addon.GetTitleColor        = GetTitleColor
 addon.GetObjectiveColor    = GetObjectiveColor

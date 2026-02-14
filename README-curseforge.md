@@ -54,7 +54,7 @@ Built for the heat of gameplay.
 | `/horizon reset` | Clear test data and return to live objectives. |
 | `/horizon resetpos` | Snap the tracker back to its default screen position. |
 | `/horizon mplusdebug` | Toggle the Mythic+ block preview with example timer, completion %, and affixes so you can tune its appearance outside a dungeon. |
-| `/horizon presence` | Presence test commands. Use `zone`, `discover`, `level`, `boss`, `ach`, `quest`, `wq`, `accept`, `update`, or `all` for a demo reel. |
+| `/horizon presence` | Presence test commands. Use `zone`, `subzone`, `discover`, `level`, `boss`, `ach`, `quest`, `wq`, `wqaccept`, `accept`, `update`, or `all` for a demo reel. |
 
 ### 🎛️ Settings Panel
 

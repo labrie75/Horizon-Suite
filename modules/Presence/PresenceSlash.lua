@@ -1,6 +1,6 @@
 --[[
     Horizon Suite - Presence - Slash Commands
-    /horizon presence [zone|discover|level|boss|ach|quest|wq|wqaccept|accept|update|all]
+    /horizon presence [zone|subzone|discover|level|boss|ach|quest|wq|wqaccept|accept|update|all]
 ]]
 
 local addon = _G.HorizonSuite
@@ -34,23 +34,25 @@ local function HandlePresenceSlash(msg)
         addon.Presence.QueueOrPlay("QUEST_UPDATE", "QUEST UPDATE", "Boar Pelts: 7/10")
     elseif cmd == "zone" then
         addon.Presence.QueueOrPlay("ZONE_CHANGE", GetZoneText() or "Unknown Zone", GetSubZoneText() or "")
+    elseif cmd == "subzone" then
+        addon.Presence.QueueOrPlay("SUBZONE_CHANGE", GetZoneText() or "Unknown Zone", GetSubZoneText() or "Subzone")
     elseif cmd == "discover" then
         addon.Presence.SetPendingDiscovery()
         addon.Presence.QueueOrPlay("ZONE_CHANGE", "The Waking Shores", "Obsidian Citadel")
     elseif cmd == "all" then
-        HSPrint("Presence: Playing demo reel (11 notifications)...")
+        HSPrint("Presence: Playing demo reel (all notification types)...")
         local demos = {
-            { "SUBZONE_CHANGE",      "The Seat of Aspects",  ""                          },
+            { "ZONE_CHANGE",         "Valdrakken",           "Thaldraszus"               },
+            { "SUBZONE_CHANGE",      "Valdrakken",           "The Seat of Aspects"       },
+            { "ZONE_CHANGE",         "The Waking Shores",    "Obsidian Citadel",  true   },
             { "QUEST_ACCEPT",        "QUEST ACCEPTED",       "The Fate of the Horde"     },
             { "WORLD_QUEST_ACCEPT",  "WORLD QUEST ACCEPTED", "Azerite Mining"            },
             { "QUEST_UPDATE",        "QUEST UPDATE",         "Dragon Glyphs: 3/5"        },
-            { "ZONE_CHANGE",    "Valdrakken",           "Thaldraszus"               },
-            { "ZONE_CHANGE",    "The Waking Shores",    "Obsidian Citadel",  true  },
-            { "QUEST_COMPLETE", "QUEST COMPLETE",       "Aiding the Accord"         },
-            { "WORLD_QUEST",    "WORLD QUEST",          "Azerite Mining"            },
-            { "ACHIEVEMENT",    "ACHIEVEMENT EARNED",   "Exploring Khaz Algar"     },
-            { "BOSS_EMOTE",     "Ragnaros",             "BY FIRE BE PURGED!"       },
-            { "LEVEL_UP",       "LEVEL UP",             "You have reached level 80" },
+            { "QUEST_COMPLETE",      "QUEST COMPLETE",       "Aiding the Accord"         },
+            { "WORLD_QUEST",         "WORLD QUEST",          "Azerite Mining"            },
+            { "ACHIEVEMENT",         "ACHIEVEMENT EARNED",   "Exploring Khaz Algar"      },
+            { "BOSS_EMOTE",          "Ragnaros",             "BY FIRE BE PURGED!"        },
+            { "LEVEL_UP",            "LEVEL UP",             "You have reached level 80" },
         }
         for i, d in ipairs(demos) do
             C_Timer.After((i - 1) * 3, function()
@@ -62,6 +64,7 @@ local function HandlePresenceSlash(msg)
         HSPrint("Presence test commands:")
         HSPrint("  /horizon presence         - Show help + test current zone")
         HSPrint("  /horizon presence zone     - Test Zone Change")
+        HSPrint("  /horizon presence subzone  - Test Subzone Change")
         HSPrint("  /horizon presence discover - Test Zone Discovery")
         HSPrint("  /horizon presence level    - Test Level Up")
         HSPrint("  /horizon presence boss     - Test Boss Emote")

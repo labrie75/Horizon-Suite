@@ -39,6 +39,8 @@ local PRESENCE_EVENTS = {
     "ACHIEVEMENT_EARNED",
     "QUEST_ACCEPTED",
     "QUEST_TURNED_IN",
+    "QUEST_WATCH_UPDATE",
+    "QUEST_LOG_UPDATE",
     "UI_INFO_MESSAGE",
 }
 
@@ -76,35 +78,89 @@ local function OnAchievementEarned(_, achID)
 end
 
 local function OnQuestAccepted(_, questID)
+    local opts = (questID and { questID = questID }) or {}
     if C_QuestLog and C_QuestLog.GetTitleForQuestID then
         local title = C_QuestLog.GetTitleForQuestID(questID) or "New Quest"
-        if C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID) then
-            addon.Presence.QueueOrPlay("WORLD_QUEST_ACCEPT", "WORLD QUEST ACCEPTED", title)
+        if addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID) then
+            addon.Presence.QueueOrPlay("WORLD_QUEST_ACCEPT", "WORLD QUEST ACCEPTED", title, opts)
         else
-            addon.Presence.QueueOrPlay("QUEST_ACCEPT", "QUEST ACCEPTED", title)
+            addon.Presence.QueueOrPlay("QUEST_ACCEPT", "QUEST ACCEPTED", title, opts)
         end
     else
-        addon.Presence.QueueOrPlay("QUEST_ACCEPT", "QUEST ACCEPTED", "New Quest")
+        addon.Presence.QueueOrPlay("QUEST_ACCEPT", "QUEST ACCEPTED", "New Quest", opts)
     end
 end
 
 local function OnQuestTurnedIn(_, questID)
+    local opts = (questID and { questID = questID }) or {}
     local title = "Objective"
     if C_QuestLog then
         if C_QuestLog.GetTitleForQuestID then
             title = C_QuestLog.GetTitleForQuestID(questID) or title
         end
-        if C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID) then
-            addon.Presence.QueueOrPlay("WORLD_QUEST", "WORLD QUEST", title)
+        -- Use addon.IsQuestWorldQuest (QuestUtils + C_QuestLog) so world quests are detected even at turn-in when quest may be removed from log
+        if addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID) then
+            addon.Presence.QueueOrPlay("WORLD_QUEST", "WORLD QUEST", title, opts)
             return
         end
     end
-    addon.Presence.QueueOrPlay("QUEST_COMPLETE", "QUEST COMPLETE", title)
+    addon.Presence.QueueOrPlay("QUEST_COMPLETE", "QUEST COMPLETE", title, opts)
+end
+
+local lastQuestUpdateQuestID, lastQuestUpdateTime = nil, 0
+local QUEST_UPDATE_THROTTLE = 1.5  -- seconds between toasts per quest
+local questLogUpdateTimer = nil
+
+local function TryShowQuestUpdate(questID)
+    if not questID or questID <= 0 then return end
+    if C_QuestLog and C_QuestLog.IsComplete and C_QuestLog.IsComplete(questID) then return end
+    local now = GetTime()
+    if lastQuestUpdateQuestID == questID and (now - lastQuestUpdateTime) < QUEST_UPDATE_THROTTLE then return end
+    lastQuestUpdateQuestID, lastQuestUpdateTime = questID, now
+
+    local msg = nil
+    if C_QuestLog and C_QuestLog.GetQuestObjectives then
+        local objectives = C_QuestLog.GetQuestObjectives(questID) or {}
+        for i = 1, #objectives do
+            local o = objectives[i]
+            if o and o.text and o.text ~= "" and not o.finished then
+                msg = o.text
+                break
+            end
+        end
+        if not msg and #objectives > 0 then
+            local o = objectives[1]
+            if o and o.text and o.text ~= "" then msg = o.text end
+        end
+    end
+    if not msg or msg == "" then msg = "Objective updated" end
+
+    addon.Presence.QueueOrPlay("QUEST_UPDATE", "QUEST UPDATE", msg, { questID = questID })
+end
+
+local function OnQuestWatchUpdate(_, questID)
+    TryShowQuestUpdate(questID)
+end
+
+-- QUEST_WATCH_UPDATE does not fire for world/task quests; QUEST_LOG_UPDATE does. Debounce and use super-tracked.
+local function OnQuestLogUpdate()
+    if questLogUpdateTimer then return end  -- already pending
+    questLogUpdateTimer = C_Timer.After(0.2, function()
+        questLogUpdateTimer = nil
+        local questID = (C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID) and C_SuperTrack.GetSuperTrackedQuestID() or nil
+        if not questID or questID <= 0 then return end
+        if not (addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID)) then return end  -- only for world quests (fallback)
+        TryShowQuestUpdate(questID)
+    end)
 end
 
 local function OnUIInfoMessage(_, msgType, msg)
     if IsQuestText(msg) and not (msg and (msg:find("Quest Accepted") or msg:find("Accepted"))) then
-        addon.Presence.QueueOrPlay("QUEST_UPDATE", "QUEST UPDATE", msg or "")
+        -- Use super-tracked (focused) quest for icon when available; update is often for that quest
+        local questID = (C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID) and C_SuperTrack.GetSuperTrackedQuestID() or nil
+        if questID and questID <= 0 then questID = nil end
+        local opts = questID and { questID = questID } or {}
+        addon.Presence.QueueOrPlay("QUEST_UPDATE", "QUEST UPDATE", msg or "", opts)
     end
 end
 
@@ -159,6 +215,8 @@ local eventHandlers = {
     ACHIEVEMENT_EARNED       = function(_, achID) OnAchievementEarned(_, achID) end,
     QUEST_ACCEPTED           = function(_, questID) OnQuestAccepted(_, questID) end,
     QUEST_TURNED_IN          = function(_, questID) OnQuestTurnedIn(_, questID) end,
+    QUEST_WATCH_UPDATE       = function(_, questID) OnQuestWatchUpdate(_, questID) end,
+    QUEST_LOG_UPDATE         = function() OnQuestLogUpdate() end,
     UI_INFO_MESSAGE          = function(_, msgType, msg) OnUIInfoMessage(_, msgType, msg) end,
     ZONE_CHANGED_NEW_AREA    = function() OnZoneChangedNewArea() end,
     ZONE_CHANGED             = function() OnZoneChanged() end,

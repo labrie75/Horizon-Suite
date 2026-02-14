@@ -29,24 +29,47 @@ local CROSSFADE_DUR = 0.4
 local ELEMENT_DUR   = 0.4
 
 local DISCOVERY_SIZE  = 16
-local DISCOVERY_COLOR = {0.4, 1, 0.5}
+local QUEST_ICON_SIZE = 24  -- quest-type icon in toasts; larger than Focus (16) to match heading scale
 local DELAY_TITLE     = 0.0
 local DELAY_DIVIDER   = 0.15
 local DELAY_SUBTITLE  = 0.30
 local DELAY_DISCOVERY = 0.45
 
+-- Category/subCategory align with Focus; colours resolved at play via addon.GetQuestColor (respects options).
+-- BOSS_EMOTE uses addon.PRESENCE_BOSS_EMOTE_COLOR. QUEST_COMPLETE/QUEST_ACCEPT use opts.questID → base/category when present.
 local TYPES = {
-    LEVEL_UP       = { pri = 4, color = {0.1, 1, 0.2},   sub = {1, 1, 1},    sz = 48, dur = 5.0 },
-    BOSS_EMOTE     = { pri = 4, color = {1, 0.2, 0.2},   sub = {1, 1, 1},    sz = 48, dur = 5.0 },
-    ACHIEVEMENT    = { pri = 3, color = {1, 0.6, 0},     sub = {1, 1, 1},    sz = 48, dur = 4.5 },
-    QUEST_COMPLETE = { pri = 2, color = {0, 0.8, 1},     sub = {1, 1, 1},    sz = 48, dur = 4.0 },
-    WORLD_QUEST    = { pri = 2, color = {0.6, 0.2, 1},   sub = {1, 1, 1},    sz = 48, dur = 4.0 },
-    ZONE_CHANGE    = { pri = 2, color = {1, 1, 1},       sub = {1, 0.82, 0}, sz = 48, dur = 4.0 },
-    QUEST_ACCEPT       = { pri = 1, color = {1, 0.85, 0.3},   sub = {1, 1, 1},    sz = 36, dur = 3.0 },
-    WORLD_QUEST_ACCEPT = { pri = 1, color = {0.6, 0.2, 1},   sub = {1, 1, 1},    sz = 36, dur = 3.0 },
-    QUEST_UPDATE       = { pri = 1, color = {0.4, 0.8, 1},   sub = {1, 1, 1},    sz = 20, dur = 2.5 },
-    SUBZONE_CHANGE = { pri = 1, color = {0.9, 0.9, 0.9}, sub = {1, 0.82, 0}, sz = 36, dur = 3.0 },
+    LEVEL_UP       = { pri = 4, category = "COMPLETE",   subCategory = "DEFAULT", sz = 48, dur = 5.0 },
+    BOSS_EMOTE     = { pri = 4, specialColor = true,     subCategory = "DEFAULT", sz = 48, dur = 5.0 },
+    ACHIEVEMENT    = { pri = 3, category = "ACHIEVEMENT", subCategory = "DEFAULT", sz = 48, dur = 4.5 },
+    QUEST_COMPLETE = { pri = 2, category = "DEFAULT",   subCategory = "DEFAULT", sz = 48, dur = 4.0 },  -- overridden by opts.questID → base
+    WORLD_QUEST    = { pri = 2, category = "WORLD",     subCategory = "DEFAULT", sz = 48, dur = 4.0 },
+    ZONE_CHANGE    = { pri = 2, category = "DEFAULT",   subCategory = "CAMPAIGN", sz = 48, dur = 4.0 },
+    QUEST_ACCEPT       = { pri = 1, category = "DEFAULT",   subCategory = "DEFAULT", sz = 36, dur = 3.0 },  -- overridden by opts.questID
+    WORLD_QUEST_ACCEPT = { pri = 1, category = "WORLD",     subCategory = "DEFAULT", sz = 36, dur = 3.0 },
+    QUEST_UPDATE       = { pri = 1, category = "NEARBY",   subCategory = "DEFAULT", sz = 20, dur = 2.5 },
+    SUBZONE_CHANGE = { pri = 1, category = "DEFAULT",   subCategory = "CAMPAIGN", sz = 36, dur = 3.0 },
 }
+
+local function resolveColors(typeName, cfg, opts)
+    opts = opts or {}
+    if cfg.specialColor and typeName == "BOSS_EMOTE" then
+        local c = addon.PRESENCE_BOSS_EMOTE_COLOR or { 1, 0.2, 0.2 }
+        local sc = (addon.QUEST_COLORS and addon.QUEST_COLORS.DEFAULT) or { 1, 1, 1 }
+        return c, sc
+    end
+    local cat = cfg.category
+    if opts.questID then
+        if typeName == "QUEST_COMPLETE" and addon.GetQuestBaseCategory then
+            cat = addon.GetQuestBaseCategory(opts.questID) or cat
+        elseif typeName == "QUEST_ACCEPT" and addon.GetQuestCategory then
+            cat = addon.GetQuestCategory(opts.questID) or cat
+        end
+    end
+    local c = (addon.GetQuestColor and addon.GetQuestColor(cat)) or (addon.QUEST_COLORS and addon.QUEST_COLORS[cat]) or (addon.QUEST_COLORS and addon.QUEST_COLORS.DEFAULT) or { 0.9, 0.9, 0.9 }
+    local subCat = cfg.subCategory or "DEFAULT"
+    local sc = (addon.GetQuestColor and addon.GetQuestColor(subCat)) or (addon.QUEST_COLORS and addon.QUEST_COLORS[subCat]) or { 1, 1, 1 }
+    return c, sc
+end
 
 -- ============================================================================
 -- FRAME & LAYER CREATION
@@ -54,10 +77,13 @@ local TYPES = {
 
 local function CreateLayer(parent)
     local L = {}
+    local shadowA = (addon.SHADOW_A ~= nil) and addon.SHADOW_A or 0.8
+    local campaignColor = (addon.QUEST_COLORS and addon.QUEST_COLORS.CAMPAIGN) or { 1, 0.82, 0 }
+    local discoveryColor = addon.PRESENCE_DISCOVERY_COLOR or (addon.QUEST_COLORS and addon.QUEST_COLORS.COMPLETE) or { 0.4, 1, 0.5 }
 
     L.titleShadow = parent:CreateFontString(nil, "BORDER")
     L.titleShadow:SetFont(FONT_PATH, MAIN_SIZE, "OUTLINE")
-    L.titleShadow:SetTextColor(0, 0, 0, 0.8)
+    L.titleShadow:SetTextColor(0, 0, 0, shadowA)
     L.titleShadow:SetJustifyH("CENTER")
 
     L.titleText = parent:CreateFontString(nil, "OVERLAY")
@@ -67,6 +93,12 @@ local function CreateLayer(parent)
     L.titleText:SetPoint("TOP", 0, 0)
     L.titleShadow:SetPoint("CENTER", L.titleText, "CENTER", 2, -2)
 
+    -- Quest-type icon (same atlas as Focus); larger size to match heading scale
+    L.questTypeIcon = parent:CreateTexture(nil, "ARTWORK")
+    L.questTypeIcon:SetSize(QUEST_ICON_SIZE, QUEST_ICON_SIZE)
+    L.questTypeIcon:SetPoint("TOPRIGHT", L.titleText, "TOPLEFT", -6, 0)
+    L.questTypeIcon:Hide()
+
     L.divider = parent:CreateTexture(nil, "ARTWORK")
     L.divider:SetSize(DIVIDER_W, DIVIDER_H)
     L.divider:SetPoint("TOP", 0, -65)
@@ -75,24 +107,24 @@ local function CreateLayer(parent)
 
     L.subShadow = parent:CreateFontString(nil, "BORDER")
     L.subShadow:SetFont(FONT_PATH, SUB_SIZE, "OUTLINE")
-    L.subShadow:SetTextColor(0, 0, 0, 0.8)
+    L.subShadow:SetTextColor(0, 0, 0, shadowA)
     L.subShadow:SetJustifyH("CENTER")
 
     L.subText = parent:CreateFontString(nil, "OVERLAY")
     L.subText:SetFont(FONT_PATH, SUB_SIZE, "OUTLINE")
-    L.subText:SetTextColor(1, 0.82, 0, 1)
+    L.subText:SetTextColor(campaignColor[1], campaignColor[2], campaignColor[3], 1)
     L.subText:SetJustifyH("CENTER")
     L.subText:SetPoint("TOP", L.divider, "BOTTOM", 0, -10)
     L.subShadow:SetPoint("CENTER", L.subText, "CENTER", 1, -1)
 
     L.discoveryShadow = parent:CreateFontString(nil, "BORDER")
     L.discoveryShadow:SetFont(FONT_PATH, DISCOVERY_SIZE, "OUTLINE")
-    L.discoveryShadow:SetTextColor(0, 0, 0, 0.8)
+    L.discoveryShadow:SetTextColor(0, 0, 0, shadowA)
     L.discoveryShadow:SetJustifyH("CENTER")
 
     L.discoveryText = parent:CreateFontString(nil, "OVERLAY")
     L.discoveryText:SetFont(FONT_PATH, DISCOVERY_SIZE, "OUTLINE")
-    L.discoveryText:SetTextColor(DISCOVERY_COLOR[1], DISCOVERY_COLOR[2], DISCOVERY_COLOR[3], 1)
+    L.discoveryText:SetTextColor(discoveryColor[1], discoveryColor[2], discoveryColor[3], 1)
     L.discoveryText:SetJustifyH("CENTER")
     L.discoveryText:SetPoint("TOP", L.subText, "BOTTOM", 0, -5)
     L.discoveryShadow:SetPoint("CENTER", L.discoveryText, "CENTER", 1, -1)
@@ -130,6 +162,7 @@ local function resetLayer(L)
     L.discoveryShadow:SetAlpha(0)
     L.discoveryText:SetText("")
     L.discoveryShadow:SetText("")
+    if L.questTypeIcon then L.questTypeIcon:Hide() end
 end
 
 local function updateEntrance()
@@ -266,7 +299,7 @@ onComplete = function()
             end
         end
         local nxt = table.remove(queue, best)
-        PlayCinematic(nxt[1], nxt[2], nxt[3])
+        PlayCinematic(nxt[1], nxt[2], nxt[3], nxt[4])
     end
 end
 
@@ -301,12 +334,13 @@ function addon.Presence.Init()
     addon.Presence.animPhase = function() return anim.phase end
 end
 
-PlayCinematic = function(typeName, title, subtitle)
+PlayCinematic = function(typeName, title, subtitle, opts)
     local cfg = TYPES[typeName]
     if not cfg then return end
 
+    opts = opts or {}
     local L = curLayer
-    local c, sc = cfg.color, cfg.sub
+    local c, sc = resolveColors(typeName, cfg, opts)
     local mainSz = cfg.sz
     local subSz  = (cfg.sz >= SUB_SIZE) and SUB_SIZE or cfg.sz
 
@@ -326,6 +360,36 @@ PlayCinematic = function(typeName, title, subtitle)
 
     resetLayer(L)
     L.divider:SetSize(0.01, DIVIDER_H)
+
+    -- Quest-type icon (same as Focus): show when quest-related, opts.questID set, and user has icons enabled (set after resetLayer)
+    if L.questTypeIcon then
+        local showIcon = false
+        local atlas
+        local questRelated = (typeName == "QUEST_ACCEPT" or typeName == "QUEST_COMPLETE" or typeName == "QUEST_UPDATE" or typeName == "WORLD_QUEST" or typeName == "WORLD_QUEST_ACCEPT")
+        if questRelated and opts.questID and addon.GetQuestTypeAtlas and addon.GetDB and addon.GetDB("showQuestTypeIcons", false) then
+            local catForAtlas = "DEFAULT"
+            if typeName == "QUEST_COMPLETE" then
+                catForAtlas = "COMPLETE"  -- turn-in icon
+            elseif (typeName == "QUEST_ACCEPT" or typeName == "QUEST_UPDATE") and addon.GetQuestCategory then
+                catForAtlas = addon.GetQuestCategory(opts.questID) or catForAtlas
+            elseif typeName == "WORLD_QUEST" or typeName == "WORLD_QUEST_ACCEPT" then
+                catForAtlas = "WORLD"
+            end
+            atlas = addon.GetQuestTypeAtlas(opts.questID, catForAtlas)
+            if atlas then showIcon = true end
+        end
+        if showIcon and atlas then
+            L.questTypeIcon:SetAtlas(atlas)
+            -- Scale icon to match title size so it aligns visually (QUEST_UPDATE uses sz=20)
+            local iconSz = (mainSz < QUEST_ICON_SIZE) and mainSz or QUEST_ICON_SIZE
+            L.questTypeIcon:SetSize(iconSz, iconSz)
+            L.questTypeIcon:ClearAllPoints()
+            L.questTypeIcon:SetPoint("TOPRIGHT", L.titleText, "TOPLEFT", -6, 0)
+            L.questTypeIcon:Show()
+        else
+            L.questTypeIcon:Hide()
+        end
+    end
 
     L.titleText:ClearAllPoints()
     L.titleText:SetPoint("TOP", 0, 20)
@@ -384,24 +448,26 @@ local function interruptCurrent()
     activeTitle = nil
 end
 
-function addon.Presence.QueueOrPlay(typeName, title, subtitle)
+function addon.Presence.QueueOrPlay(typeName, title, subtitle, opts)
     if not F then addon.Presence.Init() end
     local cfg = TYPES[typeName]
     if not cfg then return end
+
+    opts = opts or {}
 
     if InCombatLockdown() and cfg.pri < 4 then return end
 
     if active then
         if cfg.pri >= active.pri then
             interruptCurrent()
-            PlayCinematic(typeName, title, subtitle)
+            PlayCinematic(typeName, title, subtitle, opts)
         else
             if #queue < MAX_QUEUE then
-                queue[#queue + 1] = { typeName, title, subtitle }
+                queue[#queue + 1] = { typeName, title, subtitle, opts }
             end
         end
     else
-        PlayCinematic(typeName, title, subtitle)
+        PlayCinematic(typeName, title, subtitle, opts)
     end
 end
 
