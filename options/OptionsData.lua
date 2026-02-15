@@ -289,7 +289,7 @@ local OptionCategories = {
         moduleKey = "focus",
         options = {
             { type = "section", name = "Focus order" },
-            { type = "reorderList", name = "Focus category order", labelMap = addon.SECTION_LABELS, get = function() return addon.GetGroupOrder() end, set = function(order) addon.SetGroupOrder(order) end, desc = "Drag to reorder categories. DELVES and SCENARIO EVENTS stay first." },
+            { type = "reorderList", name = "Focus category order", labelMap = addon.SECTION_LABELS, presets = addon.GROUP_ORDER_PRESETS, get = function() return addon.GetGroupOrder() end, set = function(order) addon.SetGroupOrder(order) end, desc = "Apply a preset or drag to reorder categories." },
             { type = "section", name = "Sort" },
             { type = "dropdown", name = "Focus sort mode", desc = "Order of entries within each category.", dbKey = "entrySortMode", options = { { "Alphabetical", "alpha" }, { "Quest Type", "questType" }, { "Zone", "zone" }, { "Quest Level", "level" } }, get = function() return getDB("entrySortMode", "questType") end, set = function(v) setDB("entrySortMode", v) end },
             { type = "section", name = "Behaviour" },

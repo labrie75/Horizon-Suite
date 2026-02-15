@@ -788,16 +788,67 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
         return line
     end
 
-    local function getInsertionIndexFromCursor()
+    --- Compute insertion index from cursor Y using row screen bounds (avoids IsMouseOver quirks in scroll frames).
+    local function getInsertionIndexFromCursor(cursorScreenY)
         if #rows == 0 then return 1 end
+        if not cursorScreenY then
+            local _, y = GetCursorPosition()
+            local scale = UIParent and UIParent:GetEffectiveScale() or 1
+            cursorScreenY = scale > 0 and (y / scale) or y
+        end
+        -- Rows are ordered 1=top (larger Y in WoW screen coords). Find which row or gap contains cursor.
         for i = 1, #rows do
-            if rows[i]:IsMouseOver() then return i end
+            local r = rows[i]
+            local top, bottom = r:GetTop(), r:GetBottom()
+            if top and bottom then
+                if cursorScreenY <= top and cursorScreenY >= bottom then
+                    return i
+                end
+                if cursorScreenY > top then
+                    return i
+                end
+            end
         end
         return #rows + 1
     end
 
+    local presetOrder = { "Collection Focused", "Quest Focused", "Campaign Focused", "World / Rare Focused" }
+    local presets = (opt.presets and addon.GROUP_ORDER_PRESETS) and opt.presets or nil
+    local presetRow = nil
+    if presets then
+        presetRow = CreateFrame("Frame", nil, container)
+        presetRow:SetHeight(26)
+        presetRow:SetPoint("TOPLEFT", sectionLabel, "BOTTOMLEFT", 0, -8)
+        presetRow:SetPoint("TOPRIGHT", container, "TOPRIGHT", -Def.CardPadding, 0)
+        local btnW, btnH, gap = 90, 22, 6
+        local prevBtn = nil
+        for _, name in ipairs(presetOrder) do
+            local presetOrderArr = presets[name]
+            if presetOrderArr then
+                local btn = CreateFrame("Button", nil, presetRow)
+                btn:SetSize(btnW, btnH)
+                btn:SetPoint("TOPLEFT", prevBtn and prevBtn or presetRow, prevBtn and "TOPRIGHT" or "TOPLEFT", prevBtn and gap or 0, 0)
+                prevBtn = btn
+                local lab = btn:CreateFontString(nil, "OVERLAY")
+                lab:SetFont(Def.FontPath, Def.LabelSize - 1, "OUTLINE")
+                SetTextColor(lab, Def.TextColorLabel)
+                lab:SetText(name:gsub(" / Rare", "/Rare"))
+                lab:SetPoint("CENTER", btn, "CENTER", 0, 0)
+                lab:SetWordWrap(false)
+                btn:SetScript("OnClick", function()
+                    if opt.set then opt.set(presetOrderArr) end
+                    if container.Refresh then container:Refresh() end
+                    if notifyMainAddonFn then notifyMainAddonFn() end
+                end)
+                btn:SetScript("OnEnter", function() SetTextColor(lab, Def.TextColorHighlight) end)
+                btn:SetScript("OnLeave", function() SetTextColor(lab, Def.TextColorLabel) end)
+            end
+        end
+    end
+
+    local rowListAnchor = presetRow or sectionLabel
     local function repositionRows(orderedKeys)
-        local prev = sectionLabel
+        local prev = rowListAnchor
         for i, key in ipairs(orderedKeys) do
             local row = keyToRow[key]
             if row then
@@ -859,7 +910,7 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
         if state.ghostLabel and state.sourceRow and state.sourceRow.label then
             state.ghostLabel:SetText(state.sourceRow.label:GetText() or "")
         end
-        local insertIdx = getInsertionIndexFromCursor()
+        local insertIdx = getInsertionIndexFromCursor(y)
         state.targetIndex = insertIdx
         if insertIdx <= #rows then
             local ref = rows[insertIdx]
@@ -891,7 +942,7 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
         end
     end
 
-    local prevAnchor = sectionLabel
+    local prevAnchor = rowListAnchor
     for i, key in ipairs(keys) do
         local row = CreateFrame("Button", nil, container)
         row:SetSize(240, REORDER_ROW_HEIGHT)
@@ -933,7 +984,7 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
     local resetLabel = resetBtn:CreateFontString(nil, "OVERLAY")
     resetLabel:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
     SetTextColor(resetLabel, Def.TextColorLabel)
-    resetLabel:SetText("Reset order")
+    resetLabel:SetText("Reset to default")
     resetLabel:SetPoint("CENTER", resetBtn, "CENTER", 0, 0)
     resetBtn:SetScript("OnClick", function()
         if opt.set then opt.set(nil) end
@@ -946,7 +997,8 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
     resetBtn:SetScript("OnEnter", function() SetTextColor(resetLabel, Def.TextColorHighlight) end)
     resetBtn:SetScript("OnLeave", function() SetTextColor(resetLabel, Def.TextColorLabel) end)
 
-    local totalH = Def.CardPadding + 14 + (#keys * (REORDER_ROW_HEIGHT + REORDER_ROW_GAP)) + 6 + 22 + Def.CardPadding
+    local presetH = presetRow and (8 + 26) or 0
+    local totalH = Def.CardPadding + 14 + presetH + (#keys * (REORDER_ROW_HEIGHT + REORDER_ROW_GAP)) + 6 + 22 + Def.CardPadding
     container:SetHeight(totalH)
     container.searchText = (opt.name or "order") .. " " .. (opt.desc or opt.tooltip or "")
     function container:Refresh()
