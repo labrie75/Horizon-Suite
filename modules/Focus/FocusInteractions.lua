@@ -115,6 +115,10 @@ for i = 1, addon.POOL_SIZE do
                 local vignetteGUID = self.entryKey:match("^vignette:(.+)$")
                 if vignetteGUID and C_SuperTrack and C_SuperTrack.SetSuperTrackedVignette then
                     C_SuperTrack.SetSuperTrackedVignette(vignetteGUID)
+                    local wqtPanel = _G.WorldQuestTrackerScreenPanel
+                    if wqtPanel and wqtPanel:IsShown() then
+                        wqtPanel:Hide()
+                    end
                 end
                 if WorldMapFrame and not WorldMapFrame:IsShown() and ToggleWorldMap then
                     ToggleWorldMap()
@@ -141,14 +145,28 @@ for i = 1, addon.POOL_SIZE do
                 return
             end
 
-            -- Non-world quests that are not yet tracked: add to tracker (respect Ctrl safety if enabled).
+            -- Non-world quests that are not yet tracked or not yet accepted: handle appropriately.
             if not isWorldQuest and self.isTracked == false then
                 if requireCtrl and not IsControlKeyDown() then
                     -- Safety: ignore plain Left-click when Ctrl is required.
                     return
                 end
-                if C_QuestLog.AddQuestWatch then
-                    C_QuestLog.AddQuestWatch(self.questID)
+                -- Check if quest is accepted
+                local isAccepted = (C_QuestLog and C_QuestLog.IsOnQuest and C_QuestLog.IsOnQuest(self.questID)) or false
+                if isAccepted then
+                    -- Quest is accepted but not tracked: add to tracker
+                    if C_QuestLog.AddQuestWatch then
+                        C_QuestLog.AddQuestWatch(self.questID)
+                    end
+                else
+                    -- Quest not yet accepted: set waypoint to quest giver/start location
+                    if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
+                        C_SuperTrack.SetSuperTrackedQuestID(self.questID)
+                        local wqtPanel = _G.WorldQuestTrackerScreenPanel
+                        if wqtPanel and wqtPanel:IsShown() then
+                            wqtPanel:Hide()
+                        end
+                    end
                 end
                 addon.ScheduleRefresh()
                 return
@@ -161,6 +179,10 @@ for i = 1, addon.POOL_SIZE do
             end
             if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
                 C_SuperTrack.SetSuperTrackedQuestID(self.questID)
+                local wqtPanel = _G.WorldQuestTrackerScreenPanel
+                if wqtPanel and wqtPanel:IsShown() then
+                    wqtPanel:Hide()
+                end
             end
             if addon.FullLayout and not InCombatLockdown() then
                 addon.FullLayout()
@@ -209,6 +231,10 @@ for i = 1, addon.POOL_SIZE do
                 if vignetteGUID and C_SuperTrack and C_SuperTrack.GetSuperTrackedVignette then
                     if C_SuperTrack.GetSuperTrackedVignette() == vignetteGUID then
                         C_SuperTrack.SetSuperTrackedVignette(nil)
+                        local wqtPanel = _G.WorldQuestTrackerScreenPanel
+                        if wqtPanel and wqtPanel:IsShown() then
+                            wqtPanel:Hide()
+                        end
                     end
                 end
                 return
@@ -234,6 +260,10 @@ for i = 1, addon.POOL_SIZE do
                     local focusedQuestID = C_SuperTrack.GetSuperTrackedQuestID()
                     if focusedQuestID and focusedQuestID == self.questID then
                         C_SuperTrack.SetSuperTrackedQuestID(0)
+                        local wqtPanel = _G.WorldQuestTrackerScreenPanel
+                        if wqtPanel and wqtPanel:IsShown() then
+                            wqtPanel:Hide()
+                        end
                         if addon.FullLayout and not InCombatLockdown() then
                             addon.FullLayout()
                         end
@@ -241,18 +271,22 @@ for i = 1, addon.POOL_SIZE do
                     end
                 end
 
+                local usePermanent = addon.GetDB("permanentlySuppressUntracked", false)
+                
                 if addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(self.questID) and addon.RemoveWorldQuestWatch then
                     addon.RemoveWorldQuestWatch(self.questID)
-                    -- Always add to suppression so in-zone-only WQs (not on watch list) also disappear until zone change.
-                    if not addon.recentlyUntrackedWorldQuests then addon.recentlyUntrackedWorldQuests = {} end
-                    addon.recentlyUntrackedWorldQuests[self.questID] = true
+                    -- Add to suppression: permanent or temporary
+                    if usePermanent then
+                        if not HorizonDB.permanentQuestBlacklist then HorizonDB.permanentQuestBlacklist = {} end
+                        HorizonDB.permanentQuestBlacklist[self.questID] = true
+                        -- Trigger blacklist grid refresh
+                        if addon.RefreshBlacklistGrid then addon.RefreshBlacklistGrid() end
+                    else
+                        if not addon.recentlyUntrackedWorldQuests then addon.recentlyUntrackedWorldQuests = {} end
+                        addon.recentlyUntrackedWorldQuests[self.questID] = true
+                    end
                 elseif C_QuestLog.RemoveQuestWatch then
                     C_QuestLog.RemoveQuestWatch(self.questID)
-                end
-                -- Weeklies/dailies in zone: add to suppression so they stay hidden until zone change.
-                if self.category == "WEEKLY" or self.category == "DAILY" then
-                    if not addon.recentlyUntrackedWeekliesAndDailies then addon.recentlyUntrackedWeekliesAndDailies = {} end
-                    addon.recentlyUntrackedWeekliesAndDailies[self.questID] = true
                 end
                 addon.ScheduleRefresh()
             end
@@ -270,15 +304,13 @@ for i = 1, addon.POOL_SIZE do
         if self.creatureID then
             local link = ("unit:Creature-0-0-0-0-%d-0000000000"):format(self.creatureID)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            local ok, err = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
-            if not ok and addon.HSPrint then addon.HSPrint("Tooltip SetHyperlink (creature) failed: " .. tostring(err)) end
+            pcall(GameTooltip.SetHyperlink, GameTooltip, link)
             local att = _G.AllTheThings
             if att and att.Modules and att.Modules.Tooltip then
                 local attach = att.Modules.Tooltip.AttachTooltipSearchResults
                 local searchFn = att.SearchForObject or att.SearchForField
                 if attach and searchFn then
-                    local ok, err = pcall(attach, GameTooltip, searchFn, "npcID", self.creatureID)
-                    if not ok and addon.HSPrint then addon.HSPrint("ATT tooltip attach failed: " .. tostring(err)) end
+                    pcall(attach, GameTooltip, searchFn, "npcID", self.creatureID)
                 end
             end
             GameTooltip:Show()
@@ -390,16 +422,14 @@ for i = 1, addon.POOL_SIZE do
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             local link = GetAchievementLink(self.achievementID)
             if link then
-                local ok, err = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
-                if not ok and addon.HSPrint then addon.HSPrint("Tooltip SetHyperlink (achievement) failed: " .. tostring(err)) end
+                pcall(GameTooltip.SetHyperlink, GameTooltip, link)
             else
                 GameTooltip:SetText(self.titleText:GetText() or "")
             end
             GameTooltip:Show()
         elseif self.questID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            local ok, err = pcall(GameTooltip.SetHyperlink, GameTooltip, "quest:" .. self.questID)
-            if not ok and addon.HSPrint then addon.HSPrint("Tooltip SetHyperlink (quest) failed: " .. tostring(err)) end
+            pcall(GameTooltip.SetHyperlink, GameTooltip, "quest:" .. self.questID)
             addon.AddQuestRewardsToTooltip(GameTooltip, self.questID)
             GameTooltip:Show()
         elseif self.entryKey then

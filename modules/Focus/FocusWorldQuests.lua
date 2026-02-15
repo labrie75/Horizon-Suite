@@ -215,6 +215,14 @@ local function GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)
             end
         end
     end
+    if addon.wqtTrackedQuests then
+        for questID, _ in pairs(addon.wqtTrackedQuests) do
+            if not seen[questID] then
+                seen[questID] = true
+                out[#out + 1] = { questID = questID, isTracked = true }
+            end
+        end
+    end
     if nearbySet and (addon.IsQuestWorldQuest or C_QuestLog.IsWorldQuest) then
         local recentlyUntracked = addon.recentlyUntrackedWorldQuests
         local ids = {}
@@ -228,7 +236,6 @@ local function GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)
                 local qc = C_QuestInfoSystem and C_QuestInfoSystem.GetQuestClassification and C_QuestInfoSystem.GetQuestClassification(questID)
                 local isCampaign = (qc == Enum.QuestClassification.Campaign)
                 local isRecurring = (qc == Enum.QuestClassification.Recurring)
-                -- Only add actual World Quests or Callings to the WORLD list (no IsActive/fromTaskQuestMap-only).
                 if isCampaign or isRecurring then
                     if isCalling then ids[#ids + 1] = questID end
                 elseif isCalling then

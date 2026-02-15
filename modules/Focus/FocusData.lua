@@ -37,12 +37,10 @@ local function GetQuestFrequency(questID)
     if not logIndex then return nil end
     if GetQuestLogTitle then
         local ok, _, _, _, _, _, frequency = pcall(GetQuestLogTitle, logIndex)
-        if not ok and addon.HSPrint then addon.HSPrint("GetQuestLogTitle failed: " .. tostring(logIndex)) end
         if ok and frequency ~= nil then return frequency end
     end
     if C_QuestLog.GetInfo then
         local ok, info = pcall(C_QuestLog.GetInfo, logIndex)
-        if not ok and addon.HSPrint then addon.HSPrint("C_QuestLog.GetInfo failed: " .. tostring(logIndex)) end
         if ok and info and info.frequency ~= nil then return info.frequency end
     end
     return nil
@@ -374,12 +372,10 @@ local function ReadTrackedQuests()
         if logIndex then
             if C_QuestLog.GetInfo then
                 local ok, info = pcall(C_QuestLog.GetInfo, logIndex)
-                if not ok and addon.HSPrint then addon.HSPrint("C_QuestLog.GetInfo (level) failed: " .. tostring(logIndex)) end
                 if ok and info and info.level then questLevel = info.level end
             end
             if not questLevel and GetQuestLogTitle then
                 local ok, _, level = pcall(GetQuestLogTitle, logIndex)
-                if not ok and addon.HSPrint then addon.HSPrint("GetQuestLogTitle (level) failed: " .. tostring(logIndex)) end
                 if ok and level then questLevel = level end
             end
         end
@@ -426,17 +422,23 @@ local function ReadTrackedQuests()
 
     -- Active zone world quests and callings are automatically included from GetNearbyQuestIDs/GetWorldAndCallingQuestIDsToShow.
     -- When showWorldQuests is off, still show WQs on the watch list or when you enter the quest area (GetTasksTable/task map).
+    local permanentBlacklist = (HorizonDB and HorizonDB.permanentQuestBlacklist) or {}
+    local usePermanent = addon.GetDB("permanentlySuppressUntracked", false)
     for _, entry in ipairs(addon.GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)) do
-        if not seen[entry.questID] and (addon.GetDB("showWorldQuests", true) or entry.isTracked or entry.isInQuestArea) then
+        local isBlacklisted = (usePermanent and permanentBlacklist[entry.questID]) or (not usePermanent and addon.recentlyUntrackedWorldQuests and addon.recentlyUntrackedWorldQuests[entry.questID])
+        if not seen[entry.questID] and not isBlacklisted and (addon.GetDB("showWorldQuests", true) or entry.isTracked or entry.isInQuestArea) then
             addQuest(entry.questID, { isTracked = entry.isTracked, forceCategory = entry.forceCategory })
         end
     end
 
     -- Weeklies and dailies in zone (available to accept or already accepted).
     if addon.GetWeekliesAndDailiesInZone then
+        local permanentBlacklist = (HorizonDB and HorizonDB.permanentQuestBlacklist) or {}
         local recentlyUntracked = addon.recentlyUntrackedWeekliesAndDailies
+        local usePermanent = addon.GetDB("permanentlySuppressUntracked", false)
         for _, entry in ipairs(addon.GetWeekliesAndDailiesInZone(nearbySet)) do
-            if not seen[entry.questID] and (not recentlyUntracked or not recentlyUntracked[entry.questID]) then
+            local isBlacklisted = (usePermanent and permanentBlacklist[entry.questID]) or (not usePermanent and recentlyUntracked and recentlyUntracked[entry.questID])
+            if not seen[entry.questID] and not isBlacklisted then
                 addQuest(entry.questID, { isTracked = false, forceCategory = entry.forceCategory })
             end
         end
