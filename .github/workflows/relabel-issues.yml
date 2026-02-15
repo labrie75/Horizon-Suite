@@ -1,4 +1,4 @@
-name: Relabel Issues
+name: Relabel Issues from Pipeline
 
 on:
   workflow_dispatch:
@@ -11,59 +11,76 @@ jobs:
   relabel:
     runs-on: ubuntu-latest
     steps:
-      - name: Relabel all open issues
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Parse pipeline and relabel issues
         uses: actions/github-script@v7
         with:
           script: |
-            const renames = {
-              'module:Focus': 'Focus',
-              'module:Presence': 'Presence',
-              'module:Core': 'Core',
-              'module:Vista': 'Vista',
-              'module:Yield': 'Yield',
-              'module:Pulse': 'Pulse',
-              'module:Essence': 'Essence',
-              'module:Insight': 'Insight',
-              'module:Verse': 'Verse',
-              'priority:P0': 'Priority 0',
-              'priority:P1': 'Priority 1',
-              'priority:P2': 'Priority 2',
-            };
+            const fs = require('fs');
+            const path = require('path');
+            const content = fs.readFileSync(path.join(process.env.GITHUB_WORKSPACE, 'pipeline.md'), 'utf8');
 
-            const oldNames = Object.keys(renames);
+            const openMatch = content.match(/## Open Items\s*\n([\s\S]*?)\n---\s*\n\n## Closed/);
+            if (!openMatch) throw new Error('Could not find Open Items section');
+            const lines = openMatch[1].split('\n').filter(l => /^\s*-\s*`(BUG|FEAT|IMPR|IDEA|MOD|DOC)`/.test(l));
+
+            const typeMap = { BUG: 'bug', FEAT: 'feature', MOD: 'feature', IMPR: 'improvement', IDEA: 'idea', DOC: 'improvement' };
+            const priorityMap = { P0: 'Priority 0', P1: 'Priority 1', P2: 'Priority 2' };
+
+            const pipelineItems = lines.map(line => {
+              const tagMatch = line.match(/`(BUG|FEAT|IMPR|IDEA|MOD|DOC)`/);
+              const priMatch = line.match(/\[(P[012])\]/);
+              const modMatch = line.match(/`\[(Focus|Presence|Vista)\]`/);
+              return {
+                type: typeMap[tagMatch ? tagMatch[1] : 'FEAT'],
+                priority: priMatch ? priorityMap[priMatch[1]] : 'Priority 2',
+                module: modMatch ? modMatch[1] : null,
+              };
+            });
+
             let page = 1;
-            let updated = 0;
-
+            const migrated = [];
             while (true) {
-              const { data: issues } = await github.rest.issues.listForRepo({
+              const { data: batch } = await github.rest.issues.listForRepo({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 state: 'all',
                 per_page: 100,
                 page,
               });
-              if (issues.length === 0) break;
-
-              for (const issue of issues) {
-                if (issue.pull_request) continue;
-                const currentLabels = issue.labels.map(l => l.name);
-                const toRemove = currentLabels.filter(n => oldNames.includes(n));
-                if (toRemove.length === 0) continue;
-
-                const toAdd = toRemove.map(n => renames[n]);
-                const newLabels = currentLabels
-                  .filter(n => !oldNames.includes(n))
-                  .concat(toAdd);
-
-                await github.rest.issues.setLabels({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issue.number,
-                  labels: newLabels,
-                });
-                console.log(`#${issue.number}: ${toRemove.join(', ')} -> ${toAdd.join(', ')}`);
-                updated++;
-              }
+              const withBody = await Promise.all(batch.filter(i => !i.pull_request).map(async (i) => {
+                const { data } = await github.rest.issues.get({ owner: context.repo.owner, repo: context.repo.repo, issue_number: i.number });
+                return { ...i, body: data.body || '' };
+              }));
+              migrated.push(...withBody.filter(i => (i.body || '').includes('Migrated from pipeline')));
+              if (batch.length < 100) break;
               page++;
             }
-            console.log(`Done. Updated ${updated} issues.`);
+            migrated.sort((a, b) => a.number - b.number);
+
+            if (migrated.length === 0) {
+              console.log('No issues with body "Migrated from pipeline" found.');
+              return;
+            }
+            if (migrated.length !== pipelineItems.length) {
+              console.log(`Pipeline has ${pipelineItems.length} open items; found ${migrated.length} migrated issues. Proceeding with min.`);
+            }
+
+            const n = Math.min(pipelineItems.length, migrated.length);
+            for (let i = 0; i < n; i++) {
+              const item = pipelineItems[i];
+              const issue = migrated[i];
+              const labels = [item.type, item.priority];
+              if (item.module) labels.push(item.module);
+
+              await github.rest.issues.setLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels,
+              });
+              console.log(`#${issue.number}: ${labels.join(', ')}`);
+            }
+            console.log(`Done. Labeled ${n} issues from pipeline.md.`);
