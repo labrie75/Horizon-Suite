@@ -109,7 +109,7 @@ Additional suites are planned as pluggable modules in the same spirit: clean, ci
 
 Requires World of Warcraft: Retail (The War Within or later).
 
-1. Download the latest release and extract the `HorizonSuite` folder.
+1. Download the latest release and extract the `HorizonSuite` folder. (Beta testers: [rolling beta from main](https://github.com/Crystilac93/Horizon-Suite/releases/tag/beta).)
 2. Place it in your `World of Warcraft\_retail_\Interface\AddOns\` directory.
 3. Enable **Horizon Suite** in your AddOn list.
 4. Type `/horizon options` to begin tailoring your experience.
