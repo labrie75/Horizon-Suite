@@ -793,8 +793,8 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
 
     --- Compute insertion index from cursor Y using row screen bounds (avoids IsMouseOver quirks in scroll frames).
     local function getInsertionIndexFromCursor()
-    local activeRows = state.rows
-    if not activeRows or #activeRows == 0 then return 1 end
+        local activeRows = state.rows
+        if not activeRows or #activeRows == 0 then return 1 end
         local _, cursorY = GetCursorPosition()
         local scale = UIParent:GetEffectiveScale()
         cursorY = cursorY / scale
@@ -876,7 +876,7 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
     end
 
     local function applyReorderAndCleanup()
-    if not state.active or not state.rows or #state.rows == 0 then return end
+        if not state.active or not state.rows or #state.rows == 0 then return end
 
         panelRef:SetScript("OnUpdate", nil)
         state.active = false
@@ -885,28 +885,24 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
         local toIdx = state.targetIndex or fromIdx
 
         if state.ghostFrame then state.ghostFrame:Hide() end
-            if state.insertionLine then state.insertionLine:Hide() end
-                if state.sourceRow then state.sourceRow:SetAlpha(1) end
+        if state.insertionLine then state.insertionLine:Hide() end
+        if state.sourceRow then state.sourceRow:SetAlpha(1) end
+        if toIdx == fromIdx then return end
 
-                    if toIdx == fromIdx then return end
+        local orderedKeys = {}
+        for i, row in ipairs(state.rows) do
+            orderedKeys[i] = row.key
+        end
 
-                        local orderedKeys = {}
-                        for i, row in ipairs(state.rows) do
-                            orderedKeys[i] = row.key
-                        end
-
-                        local key = orderedKeys[fromIdx]
-                        table.remove(orderedKeys, fromIdx)
-
-                        local insertAt = (fromIdx < toIdx) and (toIdx - 1) or toIdx
-                        table.insert(orderedKeys, insertAt, key)
-
-                        state.set(orderedKeys)
-                        repositionRows(orderedKeys)
-
-                        if notifyMainAddonFn then
-                            notifyMainAddonFn()
-                        end
+        local key = orderedKeys[fromIdx]
+        table.remove(orderedKeys, fromIdx)
+        local insertAt = (fromIdx < toIdx) and (toIdx - 1) or toIdx
+        table.insert(orderedKeys, insertAt, key)
+        state.set(orderedKeys)
+        repositionRows(orderedKeys)
+        if notifyMainAddonFn then
+                notifyMainAddonFn()
+        end
     end
 
 
@@ -954,7 +950,8 @@ function OptionsWidgets_CreateReorderList(parent, anchor, opt, scrollFrameRef, p
                 local sfBottom = scrollFrameRef:GetBottom()
                 local cur = scrollFrameRef:GetVerticalScroll()
                 local vh = scrollFrameRef:GetHeight()
-                local maxScroll = math.max((scrollFrameRef:GetScrollChild():GetHeight() or 0) - vh, 0)
+                local scrollChild = scrollFrameRef:GetScrollChild()
+                local maxScroll = math.max(((scrollChild and scrollChild:GetHeight() or 0) - vh), 0)
 
                 if sfTop and sy > sfTop - REORDER_AUTOSCROLL_MARGIN and cur > 0 then
                     scrollFrameRef:SetVerticalScroll(math.max(cur - REORDER_AUTOSCROLL_STEP, 0))
