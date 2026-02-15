@@ -32,6 +32,13 @@ local function HandlePresenceSlash(msg)
         addon.Presence.QueueOrPlay("QUEST_ACCEPT", "QUEST ACCEPTED", "The Fate of the Horde")
     elseif cmd == "update" then
         addon.Presence.QueueOrPlay("QUEST_UPDATE", "QUEST UPDATE", "Boar Pelts: 7/10")
+    elseif cmd == "scenario" then
+        if addon.GetScenarioDisplayInfo and addon.IsScenarioActive and addon.IsScenarioActive() then
+            local title, subtitle, category = addon.GetScenarioDisplayInfo()
+            addon.Presence.QueueOrPlay("SCENARIO_START", title or "Scenario", subtitle or "", { category = category })
+        else
+            addon.Presence.QueueOrPlay("SCENARIO_START", "Cinderbrew Meadery", "Defend the tavern from attackers", { category = "SCENARIO" })
+        end
     elseif cmd == "zone" then
         addon.Presence.QueueOrPlay("ZONE_CHANGE", GetZoneText() or "Unknown Zone", GetSubZoneText() or "")
     elseif cmd == "subzone" then
@@ -50,14 +57,15 @@ local function HandlePresenceSlash(msg)
             { "QUEST_UPDATE",        "QUEST UPDATE",         "Dragon Glyphs: 3/5"        },
             { "QUEST_COMPLETE",      "QUEST COMPLETE",       "Aiding the Accord"         },
             { "WORLD_QUEST",         "WORLD QUEST",          "Azerite Mining"            },
+            { "SCENARIO_START",      "Cinderbrew Meadery",   "Defend the tavern", { category = "SCENARIO" } },
             { "ACHIEVEMENT",         "ACHIEVEMENT EARNED",   "Exploring Khaz Algar"      },
             { "BOSS_EMOTE",          "Ragnaros",             "BY FIRE BE PURGED!"        },
             { "LEVEL_UP",            "LEVEL UP",             "You have reached level 80" },
         }
         for i, d in ipairs(demos) do
             C_Timer.After((i - 1) * 3, function()
-                if d[4] then addon.Presence.SetPendingDiscovery() end
-                addon.Presence.QueueOrPlay(d[1], d[2], d[3])
+                if d[4] == true then addon.Presence.SetPendingDiscovery() end
+                addon.Presence.QueueOrPlay(d[1], d[2], d[3], type(d[4]) == "table" and d[4] or nil)
             end)
         end
     elseif cmd == "" or cmd == "help" then
@@ -71,6 +79,7 @@ local function HandlePresenceSlash(msg)
         HSPrint("  /horizon presence ach      - Test Achievement")
         HSPrint("  /horizon presence accept   - Test Quest Accepted")
         HSPrint("  /horizon presence wqaccept - Test World Quest Accepted")
+        HSPrint("  /horizon presence scenario - Test Scenario Start")
         HSPrint("  /horizon presence quest    - Test Quest Complete")
         HSPrint("  /horizon presence wq       - Test World Quest")
         HSPrint("  /horizon presence update   - Test Quest Update")

@@ -205,14 +205,18 @@ end
 local function OnZoneChanged(event)
     addon.zoneJustChanged = true
     addon.lastPlayerMapID = nil
-    if addon.recentlyUntrackedWorldQuests then wipe(addon.recentlyUntrackedWorldQuests) end
+    -- Only clear right-click suppression on major area change (return to main zone), not on subzone change—unless option is "suppress until reload".
+    if event == "ZONE_CHANGED_NEW_AREA" then
+        if not addon.GetDB("suppressUntrackedUntilReload", false) then
+            if addon.recentlyUntrackedWorldQuests then wipe(addon.recentlyUntrackedWorldQuests) end
+            if addon.recentlyUntrackedWeekliesAndDailies then wipe(addon.recentlyUntrackedWeekliesAndDailies) end
+        end
+        C_Timer.After(2.5, function() if addon.enabled then ScheduleRefresh() end end)
+    end
     if addon.zoneTaskQuestCache then wipe(addon.zoneTaskQuestCache) end
     ScheduleRefresh()
     C_Timer.After(0.4, function() if addon.enabled then addon.FullLayout() end end)
     C_Timer.After(1.5, function() if addon.enabled then ScheduleRefresh() end end)
-    if event == "ZONE_CHANGED_NEW_AREA" then
-        C_Timer.After(2.5, function() if addon.enabled then ScheduleRefresh() end end)
-    end
 end
 
 local eventHandlers = {

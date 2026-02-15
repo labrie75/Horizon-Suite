@@ -471,6 +471,17 @@ local function PopulateEntry(entry, questData, groupKey)
     if questData.category == "DELVES" and type(questData.delveTier) == "number" then
         displayTitle = displayTitle .. (" (Tier %d)"):format(questData.delveTier)
     end
+    -- ** = not in quest log. WORLD: also require not on WQ watch list (tracked). WEEKLY/DAILY: only "not in log".
+    local showInZoneSuffix = addon.GetDB("showInZoneSuffix", true)
+    if showInZoneSuffix then
+        local needSuffix = false
+        if questData.category == "WORLD" then
+            needSuffix = (questData.isAccepted == false and questData.isTracked == false)
+        elseif questData.category == "WEEKLY" or questData.category == "DAILY" then
+            needSuffix = (questData.isAccepted == false)
+        end
+        if needSuffix then displayTitle = displayTitle .. " **" end
+    end
     displayTitle = addon.ApplyTextCase(displayTitle, "questTitleCase", "proper")
     entry.titleText:SetText(displayTitle)
     entry.titleShadow:SetText(displayTitle)
@@ -572,6 +583,7 @@ local function PopulateEntry(entry, questData, groupKey)
     if questData.isRare then
         entry.questID    = nil
         entry.entryKey   = questData.entryKey
+        entry.category   = nil
         entry.creatureID = questData.creatureID
         entry.achievementID = nil
         entry.endeavorID = nil
@@ -581,6 +593,7 @@ local function PopulateEntry(entry, questData, groupKey)
     elseif questData.isAchievement or questData.category == "ACHIEVEMENT" then
         entry.questID    = nil
         entry.entryKey   = questData.entryKey
+        entry.category   = nil
         entry.creatureID = nil
         entry.achievementID = questData.achievementID
         entry.endeavorID = nil
@@ -588,6 +601,7 @@ local function PopulateEntry(entry, questData, groupKey)
     elseif questData.isEndeavor or questData.category == "ENDEAVOR" then
         entry.questID    = nil
         entry.entryKey   = questData.entryKey
+        entry.category   = nil
         entry.creatureID = nil
         entry.achievementID = nil
         entry.endeavorID = questData.endeavorID
@@ -596,14 +610,16 @@ local function PopulateEntry(entry, questData, groupKey)
     elseif questData.isDecor or questData.category == "DECOR" then
         entry.questID    = nil
         entry.entryKey   = questData.entryKey
+        entry.category   = nil
         entry.creatureID = nil
         entry.achievementID = nil
         entry.endeavorID = nil
         entry.decorID    = questData.decorID
         entry.isTracked  = true
-    elseif questData.isScenarioMain or questData.isScenarioBonus then
+        elseif questData.isScenarioMain or questData.isScenarioBonus then
         entry.questID    = questData.questID
         entry.entryKey   = questData.entryKey
+        entry.category   = questData.category
         entry.creatureID = nil
         entry.achievementID = nil
         entry.endeavorID = nil
@@ -612,6 +628,7 @@ local function PopulateEntry(entry, questData, groupKey)
     else
         entry.questID    = questData.questID
         entry.entryKey   = nil
+        entry.category   = questData.category
         entry.creatureID = nil
         entry.achievementID = nil
         entry.endeavorID = nil
@@ -1093,6 +1110,16 @@ local function RefreshContentInCombat()
         if questData.category == "DELVES" and type(questData.delveTier) == "number" then
             displayTitle = displayTitle .. (" (Tier %d)"):format(questData.delveTier)
         end
+        local showInZoneSuffix = addon.GetDB("showInZoneSuffix", true)
+        if showInZoneSuffix then
+            local needSuffix = false
+            if questData.category == "WORLD" then
+                needSuffix = (questData.isAccepted == false and questData.isTracked == false)
+            elseif questData.category == "WEEKLY" or questData.category == "DAILY" then
+                needSuffix = (questData.isAccepted == false)
+            end
+            if needSuffix then displayTitle = displayTitle .. " **" end
+        end
         displayTitle = addon.ApplyTextCase and addon.ApplyTextCase(displayTitle, "questTitleCase", "proper") or displayTitle
         entry.titleText:SetText(displayTitle)
         entry.titleShadow:SetText(displayTitle)
@@ -1441,10 +1468,77 @@ local function FullLayout()
                 entry:SetAlpha(0)
             end
             if entry then
+                entry.groupKey = grp.key
                 PopulateEntry(entry, qData, grp.key)
             end
         end
     end
+
+    -- Build current "priority" sets (tracked/in-log) for WORLD, WEEKLY, DAILY to detect promotion.
+    local function isPriorityWorld(q) return (q.isTracked or q.isAccepted) and true or false end
+    local function isPriorityWeeklyDaily(q) return q.isAccepted and true or false end
+    local curPriority = {}
+    for _, grp in ipairs(grouped) do
+        if grp.key == "WORLD" or grp.key == "WEEKLY" or grp.key == "DAILY" then
+            curPriority[grp.key] = {}
+            for _, qData in ipairs(grp.quests) do
+                local key = qData.entryKey or qData.questID
+                if key and ((grp.key == "WORLD" and isPriorityWorld(qData)) or ((grp.key == "WEEKLY" or grp.key == "DAILY") and isPriorityWeeklyDaily(qData))) then
+                    curPriority[grp.key][key] = true
+                end
+            end
+        end
+    end
+
+    -- Promotion animation: if priority set grew (tracked/in-log added), fade out only the promoted quest(s) then reflow and fade them in at top.
+    if addon.GetDB("animations", true) then
+        addon.prevPriorityWorld  = addon.prevPriorityWorld  or {}
+        addon.prevPriorityWeekly = addon.prevPriorityWeekly or {}
+        addon.prevPriorityDaily  = addon.prevPriorityDaily  or {}
+        local promotedKeys = {}
+        for _, grp in ipairs(grouped) do
+            if grp.key == "WORLD" or grp.key == "WEEKLY" or grp.key == "DAILY" then
+                local cur = (grp.key == "WORLD" and curPriority.WORLD) or (grp.key == "WEEKLY" and curPriority.WEEKLY) or (grp.key == "DAILY" and curPriority.DAILY) or {}
+                local prev = (grp.key == "WORLD" and addon.prevPriorityWorld) or (grp.key == "WEEKLY" and addon.prevPriorityWeekly) or (grp.key == "DAILY" and addon.prevPriorityDaily) or {}
+                if next(prev) then
+                    for k in pairs(cur) do
+                        if not prev[k] then promotedKeys[k] = true end
+                    end
+                end
+            end
+        end
+        local promotionFadeOutCount = 0
+        if next(promotedKeys) then
+            addon.prevPriorityWorld  = curPriority.WORLD  or {}
+            addon.prevPriorityWeekly = curPriority.WEEKLY or {}
+            addon.prevPriorityDaily  = curPriority.DAILY  or {}
+            for key in pairs(promotedKeys) do
+                local entry = activeMap[key]
+                if entry and (entry.animState == "active" or entry.animState == "fadein") and entry.finalX and entry.finalY then
+                    entry.animState = "fadeout"
+                    entry.animTime  = 0
+                    entry.promotionFadeOut = true
+                    promotionFadeOutCount = promotionFadeOutCount + 1
+                end
+            end
+            if promotionFadeOutCount > 0 then
+                addon.promotionFadeOutCount = promotionFadeOutCount
+                addon.onPromotionFadeOutCompleteCallback = function()
+                    addon.onPromotionFadeOutCompleteCallback = nil
+                    addon.promotionFadeOutCount = nil
+                    if addon.FullLayout then addon.FullLayout() end
+                end
+                addon.UpdateHeaderQuestCount(#quests, CountTrackedInLog(quests))
+                if addon.EnsureFocusUpdateRunning then addon.EnsureFocusUpdateRunning() end
+                return
+            end
+        end
+    end
+
+    -- Update prev priority for next comparison (when not doing promotion transition).
+    addon.prevPriorityWorld  = curPriority.WORLD  or {}
+    addon.prevPriorityWeekly = curPriority.WEEKLY or {}
+    addon.prevPriorityDaily  = curPriority.DAILY  or {}
 
     HideAllSectionHeaders()
     addon.sectionIdx = 0

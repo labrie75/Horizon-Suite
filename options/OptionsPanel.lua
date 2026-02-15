@@ -820,7 +820,12 @@ for _, mk in ipairs(groupOrder) do
     local fullHeight = TAB_ROW_HEIGHT * #g.categories
     tabsContainer:SetHeight(GetGroupCollapsed(mk) and 0 or fullHeight)
     g.tabsContainer = tabsContainer
-    lastSidebarRow = tabsContainer
+    -- Anchor spacer: 1px frame so next group anchors to non-zero-height frame when tabsContainer collapses to 0
+    local spacer = CreateFrame("Frame", nil, sidebar)
+    spacer:SetSize(1, 1)
+    spacer:SetPoint("TOPLEFT", tabsContainer, "BOTTOMLEFT", 0, 0)
+    spacer:SetAlpha(0)
+    lastSidebarRow = spacer
     header:SetScript("OnClick", function()
         local collapsed = not GetGroupCollapsed(mk)
         SetGroupCollapsed(mk, collapsed)

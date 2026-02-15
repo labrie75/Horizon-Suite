@@ -11,36 +11,29 @@ if not addon or not addon.RegisterModule then return end
 -- FOCUS MODULE DEFINITION
 -- ============================================================================
 
-local function HookWorldMapOnHide()
-    if WorldMapFrame and not WorldMapFrame._HSOnHideHooked then
-        WorldMapFrame._HSOnHideHooked = true
-        WorldMapFrame:HookScript("OnHide", function()
-            if not addon.GetCurrentWorldQuestWatchSet then return end
-            local currentSet = addon.GetCurrentWorldQuestWatchSet()
-            local lastSet = addon.lastWorldQuestWatchSet
-            if lastSet and next(lastSet) then
-                if not addon.recentlyUntrackedWorldQuests then addon.recentlyUntrackedWorldQuests = {} end
-                for questID, _ in pairs(lastSet) do
-                    if not currentSet[questID] then
-                        addon.recentlyUntrackedWorldQuests[questID] = true
-                    end
+-- Poll World Map visibility instead of HookScript to avoid ADDON_ACTION_BLOCKED
+-- (Blizzard's map POI code calls protected APIs; hooks put us on that call stack).
+local function RunWorldMapVisibilityCheck()
+    if not WorldMapFrame then return end
+    local shown = WorldMapFrame:IsShown()
+    if addon._worldMapWasShown == shown then return end
+    addon._worldMapWasShown = shown
+    if shown then
+        if addon.ScheduleRefresh then addon.ScheduleRefresh() end
+    else
+        if not addon.GetCurrentWorldQuestWatchSet then return end
+        local currentSet = addon.GetCurrentWorldQuestWatchSet()
+        local lastSet = addon.lastWorldQuestWatchSet
+        if lastSet and next(lastSet) then
+            if not addon.recentlyUntrackedWorldQuests then addon.recentlyUntrackedWorldQuests = {} end
+            for questID, _ in pairs(lastSet) do
+                if not currentSet[questID] then
+                    addon.recentlyUntrackedWorldQuests[questID] = true
                 end
             end
-            addon.lastWorldQuestWatchSet = currentSet
-            if addon.ScheduleRefresh then addon.ScheduleRefresh() end
-        end)
-    end
-end
-
-local function HookWorldMapOnShow()
-    if WorldMapFrame and not WorldMapFrame._HSOnShowHooked then
-        WorldMapFrame._HSOnShowHooked = true
-        WorldMapFrame:HookScript("OnShow", function()
-            C_Timer.After(0.5, function()
-                if not addon.enabled or not WorldMapFrame then return end
-                if addon.ScheduleRefresh then addon.ScheduleRefresh() end
-            end)
-        end)
+        end
+        addon.lastWorldQuestWatchSet = currentSet
+        if addon.ScheduleRefresh then addon.ScheduleRefresh() end
     end
 end
 
@@ -81,6 +74,7 @@ local function StartMapCheckTicker()
     if addon._mapCheckTicker then return end
     addon._mapCheckTicker = C_Timer.NewTicker(0.5, function()
         if addon.RunMapCheck then addon.RunMapCheck() end
+        RunWorldMapVisibilityCheck()
     end)
 end
 
@@ -91,9 +85,9 @@ local function StopMapCheckTicker()
     end
 end
 
+-- Called when Blizzard_WorldMap loads; reset visibility state so next ticker run resyncs.
 local function tryHookWorldMap()
-    HookWorldMapOnHide()
-    HookWorldMapOnShow()
+    addon._worldMapWasShown = nil
 end
 
 -- Expose for FocusEvents when Blizzard_WorldMap loads after us

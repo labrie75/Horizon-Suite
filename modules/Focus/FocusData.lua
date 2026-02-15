@@ -434,8 +434,9 @@ local function ReadTrackedQuests()
 
     -- Weeklies and dailies in zone (available to accept or already accepted).
     if addon.GetWeekliesAndDailiesInZone then
+        local recentlyUntracked = addon.recentlyUntrackedWeekliesAndDailies
         for _, entry in ipairs(addon.GetWeekliesAndDailiesInZone(nearbySet)) do
-            if not seen[entry.questID] then
+            if not seen[entry.questID] and (not recentlyUntracked or not recentlyUntracked[entry.questID]) then
                 addQuest(entry.questID, { isTracked = false, forceCategory = entry.forceCategory })
             end
         end
@@ -497,6 +498,17 @@ local CATEGORY_SORT_ORDER = {
 }
 
 local function CompareEntriesBySortMode(a, b)
+    -- Within WORLD: tracked or in-log first. Within WEEKLY/DAILY: in-log first.
+    if a.category == "WORLD" or a.category == "CALLING" then
+        local pa = ((a.isTracked or a.isAccepted) and 1) or 0
+        local pb = ((b.isTracked or b.isAccepted) and 1) or 0
+        if pa ~= pb then return pa > pb end
+    elseif a.category == "WEEKLY" or a.category == "DAILY" then
+        local pa = (a.isAccepted and 1) or 0
+        local pb = (b.isAccepted and 1) or 0
+        if pa ~= pb then return pa > pb end
+    end
+
     local mode = GetSortMode()
     local ta, tb = (a.title or ""):lower(), (b.title or ""):lower()
 

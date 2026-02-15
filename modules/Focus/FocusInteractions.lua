@@ -16,24 +16,17 @@ StaticPopupDialogs["HORIZONSUITE_ABANDON_QUEST"] = StaticPopupDialogs["HORIZONSU
     button2 = NO,
     OnAccept = function(self)
         local data = self.data
-        if addon.HSPrint then addon.HSPrint("Abandon OnAccept ran, data=" .. tostring(data) .. " questID=" .. tostring(data and data.questID)) end
         if data and data.questID and C_QuestLog and C_QuestLog.AbandonQuest then
             if C_QuestLog.SetSelectedQuest then
                 C_QuestLog.SetSelectedQuest(data.questID)
-                if addon.HSPrint then addon.HSPrint("SetSelectedQuest(" .. tostring(data.questID) .. ") done") end
             end
             if C_QuestLog.SetAbandonQuest then
                 C_QuestLog.SetAbandonQuest()
-                if addon.HSPrint then addon.HSPrint("SetAbandonQuest() done") end
             elseif SetAbandonQuest then
                 SetAbandonQuest()
-                if addon.HSPrint then addon.HSPrint("SetAbandonQuest (global) done") end
             end
             C_QuestLog.AbandonQuest()
-            if addon.HSPrint then addon.HSPrint("AbandonQuest() called") end
             addon.ScheduleRefresh()
-        else
-            if addon.HSPrint then addon.HSPrint("Abandon skipped: guard failed") end
         end
     end,
     timeout = 0,
@@ -221,11 +214,13 @@ for i = 1, addon.POOL_SIZE do
                 return
             end
             if self.questID then
-                -- Shift+Right: abandon quest with confirmation.
+                -- Shift+Right: abandon quest with confirmation (non-world quests only). For world quests, untrack instead.
                 if IsShiftKeyDown() then
-                    local questName = C_QuestLog.GetTitleForQuestID(self.questID) or "this quest"
-                    StaticPopup_Show("HORIZONSUITE_ABANDON_QUEST", questName, nil, { questID = self.questID })
-                    return
+                    if not (addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(self.questID)) then
+                        local questName = C_QuestLog.GetTitleForQuestID(self.questID) or "this quest"
+                        StaticPopup_Show("HORIZONSUITE_ABANDON_QUEST", questName, nil, { questID = self.questID })
+                        return
+                    end
                 end
 
                 local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
@@ -248,8 +243,16 @@ for i = 1, addon.POOL_SIZE do
 
                 if addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(self.questID) and addon.RemoveWorldQuestWatch then
                     addon.RemoveWorldQuestWatch(self.questID)
+                    -- Always add to suppression so in-zone-only WQs (not on watch list) also disappear until zone change.
+                    if not addon.recentlyUntrackedWorldQuests then addon.recentlyUntrackedWorldQuests = {} end
+                    addon.recentlyUntrackedWorldQuests[self.questID] = true
                 elseif C_QuestLog.RemoveQuestWatch then
                     C_QuestLog.RemoveQuestWatch(self.questID)
+                end
+                -- Weeklies/dailies in zone: add to suppression so they stay hidden until zone change.
+                if self.category == "WEEKLY" or self.category == "DAILY" then
+                    if not addon.recentlyUntrackedWeekliesAndDailies then addon.recentlyUntrackedWeekliesAndDailies = {} end
+                    addon.recentlyUntrackedWeekliesAndDailies[self.questID] = true
                 end
                 addon.ScheduleRefresh()
             end

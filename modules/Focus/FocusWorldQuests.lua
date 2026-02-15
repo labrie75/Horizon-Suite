@@ -187,6 +187,15 @@ local function GetCurrentWorldQuestWatchSet()
     return set
 end
 
+-- True if questID is currently on the world quest watch list (avoids timing: map add can update list after we read it).
+local function IsOnWorldQuestWatchList(questID)
+    if not questID or not C_QuestLog.GetNumWorldQuestWatches or not C_QuestLog.GetQuestIDForWorldQuestWatchIndex then return false end
+    for i = 1, C_QuestLog.GetNumWorldQuestWatches() do
+        if C_QuestLog.GetQuestIDForWorldQuestWatchIndex(i) == questID then return true end
+    end
+    return false
+end
+
 -- Returns watch-list WQs plus in-zone *active* world quests/callings so they appear in the objective list.
 -- Filter out deprecated/expired WQs: only show if on watch list, or calling, or (world/task and currently active or in quest log).
 local function GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)
@@ -245,7 +254,9 @@ local function GetWorldAndCallingQuestIDsToShow(nearbySet, taskQuestOnlySet)
             local forceCategory = (fromTaskQuestMap and not isWorld and not isCalling and not isCampaign and not isRecurring) and "WORLD" or nil
             -- isInQuestArea: player within distance of quest (Blizzard-style). Zone-only WQs stay hidden when WQ off.
             local isInQuestArea = playerMapID and IsPlayerNearQuestArea(questID, playerMapID)
-            out[#out + 1] = { questID = questID, isTracked = false, isInQuestArea = isInQuestArea, forceCategory = forceCategory }
+            -- Re-check watch list so WQs just added from map get isTracked = true (no **).
+            local isTracked = IsOnWorldQuestWatchList(questID)
+            out[#out + 1] = { questID = questID, isTracked = isTracked, isInQuestArea = isInQuestArea, forceCategory = forceCategory }
         end
     end
     return out

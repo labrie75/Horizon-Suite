@@ -109,6 +109,44 @@ local function IsScenarioActive()
     return false
 end
 
+--- Get display info for Presence scenario-start toast. Returns nil if not in scenario.
+--- @return title, subtitle, category or nil, nil, nil
+local function GetScenarioDisplayInfo()
+    if not IsScenarioActive() then return nil, nil, nil end
+    local isDelve = IsDelveActive()
+    local inPartyDungeon = addon.IsInPartyDungeon and addon.IsInPartyDungeon()
+    local category = isDelve and "DELVES" or (inPartyDungeon and "DUNGEON") or "SCENARIO"
+
+    local scenarioName
+    if C_Scenario and C_Scenario.GetInfo then
+        local ok, name = pcall(C_Scenario.GetInfo)
+        if ok and name and name ~= "" then scenarioName = name end
+    end
+
+    local stageName
+    if C_Scenario and C_Scenario.GetStepInfo then
+        local ok, name = pcall(C_Scenario.GetStepInfo)
+        if ok and name and name ~= "" then stageName = name end
+    end
+
+    local title = scenarioName
+    if not title or title == "" then
+        if isDelve then
+            local tier = GetActiveDelveTier()
+            title = tier and ("Delves (Tier " .. tier .. ")") or "Delves"
+        elseif inPartyDungeon then
+            title = "Dungeon"
+        else
+            title = "Scenario"
+        end
+    elseif isDelve then
+        local tier = GetActiveDelveTier()
+        if tier then title = title .. " (Tier " .. tier .. ")" end
+    end
+
+    return title or "Scenario", stageName or "", category
+end
+
 --- Build tracker rows from active scenario main step and bonus steps.
 -- @return table Array of normalized entry tables for the tracker
 local function ReadScenarioEntries()
@@ -300,6 +338,7 @@ local function ReadScenarioEntries()
     return out
 end
 
-addon.ReadScenarioEntries = ReadScenarioEntries
-addon.IsScenarioActive   = IsScenarioActive
-addon.IsDelveActive      = IsDelveActive
+addon.ReadScenarioEntries    = ReadScenarioEntries
+addon.IsScenarioActive      = IsScenarioActive
+addon.IsDelveActive        = IsDelveActive
+addon.GetScenarioDisplayInfo = GetScenarioDisplayInfo

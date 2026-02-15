@@ -162,7 +162,15 @@ local function UpdateEntryAnimations(dt, useAnim)
         elseif e.animState == "fadeout" then
             e.animTime = e.animTime + dt
             if not useAnim then
+                local wasPromotion = e.promotionFadeOut
+                if wasPromotion then
+                    addon.promotionFadeOutCount = (addon.promotionFadeOutCount or 0) - 1
+                    e.promotionFadeOut = nil
+                end
                 addon.ClearEntry(e)
+                if wasPromotion and addon.promotionFadeOutCount == 0 and addon.onPromotionFadeOutCompleteCallback then
+                    addon.onPromotionFadeOutCompleteCallback()
+                end
             else
                 local p  = math.min(e.animTime / addon.FADE_OUT_DUR, 1)
                 local ep = addon.easeIn(p)
@@ -173,7 +181,15 @@ local function UpdateEntryAnimations(dt, useAnim)
                     e:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", e.finalX, e.finalY + driftY)
                 end
                 if p >= 1 then
+                    local wasPromotion = e.promotionFadeOut
+                    if wasPromotion then
+                        addon.promotionFadeOutCount = (addon.promotionFadeOutCount or 0) - 1
+                        e.promotionFadeOut = nil
+                    end
                     addon.ClearEntry(e)
+                    if wasPromotion and addon.promotionFadeOutCount == 0 and addon.onPromotionFadeOutCompleteCallback then
+                        addon.onPromotionFadeOutCompleteCallback()
+                    end
                 end
             end
             anyAnimating = true

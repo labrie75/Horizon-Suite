@@ -55,7 +55,8 @@ local TYPES = {
     QUEST_ACCEPT       = { pri = 1, category = "DEFAULT",   subCategory = "DEFAULT", sz = 36, dur = 3.0 },  -- overridden by opts.questID
     WORLD_QUEST_ACCEPT = { pri = 1, category = "WORLD",     subCategory = "DEFAULT", sz = 36, dur = 3.0 },
     QUEST_UPDATE       = { pri = 1, category = "NEARBY",   subCategory = "DEFAULT", sz = 20, dur = 2.5 },
-    SUBZONE_CHANGE = { pri = 1, category = "DEFAULT",   subCategory = "CAMPAIGN", sz = 36, dur = 3.0 },
+    SUBZONE_CHANGE     = { pri = 1, category = "DEFAULT",   subCategory = "CAMPAIGN", sz = 36, dur = 3.0 },
+    SCENARIO_START     = { pri = 2, category = "SCENARIO", subCategory = "DEFAULT", sz = 36, dur = 3.5 },  -- category overridden by opts.category (DELVES|DUNGEON|SCENARIO)
 }
 
 local function getCategoryColor(cat, default)
@@ -75,7 +76,9 @@ local function resolveColors(typeName, cfg, opts)
         return c, sc
     end
     local cat = cfg.category
-    if opts.questID then
+    if opts.category and typeName == "SCENARIO_START" then
+        cat = opts.category
+    elseif opts.questID then
         if typeName == "QUEST_COMPLETE" and addon.GetQuestBaseCategory then
             cat = addon.GetQuestBaseCategory(opts.questID) or cat
         elseif typeName == "QUEST_ACCEPT" and addon.GetQuestCategory then
