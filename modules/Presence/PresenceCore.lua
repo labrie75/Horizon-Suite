@@ -2,6 +2,14 @@
     Horizon Suite - Presence - Core
     Cinematic zone text and notification display. Frame, layers, animation engine,
     and public QueueOrPlay API. Ported from ModernZoneText.
+
+    Design notes:
+    - Colour is resolved at show time only (resolveColors, getDiscoveryColor); OnUpdate
+      touches alpha and layout only, never colour or text.
+    - Presence uses fixed cinematic timings (ENTRANCE_DUR 0.7s, EXIT_DUR 0.8s) and
+      larger type sizes by design.
+    - QueueOrPlay(typeName, title, subtitle, opts): title = heading, subtitle = second
+      line; opts.questID is for colour/icon only, never displayed.
 ]]
 
 local addon = _G.HorizonSuite
@@ -13,7 +21,7 @@ addon.Presence = addon.Presence or {}
 -- CONFIGURATION
 -- ============================================================================
 
-local FONT_PATH    = "Fonts\\FRIZQT__.TTF"
+local FONT_PATH    = (addon.FONT_PATH and addon.FONT_PATH ~= "") and addon.FONT_PATH or "Fonts\\FRIZQT__.TTF"
 local MAIN_SIZE    = 48
 local SUB_SIZE     = 24
 local FRAME_WIDTH  = 800
@@ -50,11 +58,20 @@ local TYPES = {
     SUBZONE_CHANGE = { pri = 1, category = "DEFAULT",   subCategory = "CAMPAIGN", sz = 36, dur = 3.0 },
 }
 
+local function getCategoryColor(cat, default)
+    local c = (addon.GetQuestColor and addon.GetQuestColor(cat)) or (addon.QUEST_COLORS and addon.QUEST_COLORS[cat]) or (addon.QUEST_COLORS and addon.QUEST_COLORS.DEFAULT) or default
+    return c
+end
+
+local function getDiscoveryColor()
+    return addon.PRESENCE_DISCOVERY_COLOR or getCategoryColor("COMPLETE", { 0.4, 1, 0.5 })
+end
+
 local function resolveColors(typeName, cfg, opts)
     opts = opts or {}
     if cfg.specialColor and typeName == "BOSS_EMOTE" then
         local c = addon.PRESENCE_BOSS_EMOTE_COLOR or { 1, 0.2, 0.2 }
-        local sc = (addon.QUEST_COLORS and addon.QUEST_COLORS.DEFAULT) or { 1, 1, 1 }
+        local sc = getCategoryColor("DEFAULT", { 1, 1, 1 })
         return c, sc
     end
     local cat = cfg.category
@@ -65,9 +82,9 @@ local function resolveColors(typeName, cfg, opts)
             cat = addon.GetQuestCategory(opts.questID) or cat
         end
     end
-    local c = (addon.GetQuestColor and addon.GetQuestColor(cat)) or (addon.QUEST_COLORS and addon.QUEST_COLORS[cat]) or (addon.QUEST_COLORS and addon.QUEST_COLORS.DEFAULT) or { 0.9, 0.9, 0.9 }
+    local c = getCategoryColor(cat, { 0.9, 0.9, 0.9 })
     local subCat = cfg.subCategory or "DEFAULT"
-    local sc = (addon.GetQuestColor and addon.GetQuestColor(subCat)) or (addon.QUEST_COLORS and addon.QUEST_COLORS[subCat]) or { 1, 1, 1 }
+    local sc = getCategoryColor(subCat, { 1, 1, 1 })
     return c, sc
 end
 
@@ -78,8 +95,8 @@ end
 local function CreateLayer(parent)
     local L = {}
     local shadowA = (addon.SHADOW_A ~= nil) and addon.SHADOW_A or 0.8
-    local campaignColor = (addon.QUEST_COLORS and addon.QUEST_COLORS.CAMPAIGN) or { 1, 0.82, 0 }
-    local discoveryColor = addon.PRESENCE_DISCOVERY_COLOR or (addon.QUEST_COLORS and addon.QUEST_COLORS.COMPLETE) or { 0.4, 1, 0.5 }
+    local shadowX = addon.SHADOW_OX or 2
+    local shadowY = addon.SHADOW_OY or -2
 
     L.titleShadow = parent:CreateFontString(nil, "BORDER")
     L.titleShadow:SetFont(FONT_PATH, MAIN_SIZE, "OUTLINE")
@@ -91,12 +108,12 @@ local function CreateLayer(parent)
     L.titleText:SetTextColor(1, 1, 1, 1)
     L.titleText:SetJustifyH("CENTER")
     L.titleText:SetPoint("TOP", 0, 0)
-    L.titleShadow:SetPoint("CENTER", L.titleText, "CENTER", 2, -2)
+    L.titleShadow:SetPoint("CENTER", L.titleText, "CENTER", shadowX, shadowY)
 
     -- Quest-type icon (same atlas as Focus); larger size to match heading scale
     L.questTypeIcon = parent:CreateTexture(nil, "ARTWORK")
     L.questTypeIcon:SetSize(QUEST_ICON_SIZE, QUEST_ICON_SIZE)
-    L.questTypeIcon:SetPoint("TOPRIGHT", L.titleText, "TOPLEFT", -6, 0)
+    L.questTypeIcon:SetPoint("RIGHT", L.titleText, "LEFT", -6, 0)
     L.questTypeIcon:Hide()
 
     L.divider = parent:CreateTexture(nil, "ARTWORK")
@@ -112,10 +129,10 @@ local function CreateLayer(parent)
 
     L.subText = parent:CreateFontString(nil, "OVERLAY")
     L.subText:SetFont(FONT_PATH, SUB_SIZE, "OUTLINE")
-    L.subText:SetTextColor(campaignColor[1], campaignColor[2], campaignColor[3], 1)
+    L.subText:SetTextColor(1, 1, 1, 1)  -- neutral; resolved at play via resolveColors
     L.subText:SetJustifyH("CENTER")
     L.subText:SetPoint("TOP", L.divider, "BOTTOM", 0, -10)
-    L.subShadow:SetPoint("CENTER", L.subText, "CENTER", 1, -1)
+    L.subShadow:SetPoint("CENTER", L.subText, "CENTER", shadowX, shadowY)
 
     L.discoveryShadow = parent:CreateFontString(nil, "BORDER")
     L.discoveryShadow:SetFont(FONT_PATH, DISCOVERY_SIZE, "OUTLINE")
@@ -124,10 +141,10 @@ local function CreateLayer(parent)
 
     L.discoveryText = parent:CreateFontString(nil, "OVERLAY")
     L.discoveryText:SetFont(FONT_PATH, DISCOVERY_SIZE, "OUTLINE")
-    L.discoveryText:SetTextColor(discoveryColor[1], discoveryColor[2], discoveryColor[3], 1)
+    L.discoveryText:SetTextColor(1, 1, 1, 1)  -- neutral; resolved at show via getDiscoveryColor
     L.discoveryText:SetJustifyH("CENTER")
     L.discoveryText:SetPoint("TOP", L.subText, "BOTTOM", 0, -5)
-    L.discoveryShadow:SetPoint("CENTER", L.discoveryText, "CENTER", 1, -1)
+    L.discoveryShadow:SetPoint("CENTER", L.discoveryText, "CENTER", shadowX, shadowY)
     L.discoveryText:SetAlpha(0)
     L.discoveryShadow:SetAlpha(0)
 
@@ -136,7 +153,7 @@ end
 
 local F, layerA, layerB, curLayer, oldLayer
 local anim
-local active, activeTitle
+local active, activeTitle, activeTypeName
 local queue, crossfadeStartAlpha
 local PlayCinematic
 
@@ -174,6 +191,7 @@ local function updateEntrance()
 
     L.titleText:SetAlpha(te)
     L.titleShadow:SetAlpha(te * 0.8)
+    if L.questTypeIcon and L.questTypeIcon:IsShown() then L.questTypeIcon:SetAlpha(te) end
     L.titleText:ClearAllPoints()
     L.titleText:SetPoint("TOP", 0, (1 - te) * 20)
 
@@ -197,6 +215,7 @@ local function updateCrossfade()
     local fade  = crossfadeStartAlpha * (1 - easeIn(fadeT))
     oldLayer.titleText:SetAlpha(fade)
     oldLayer.titleShadow:SetAlpha(fade * 0.8)
+    if oldLayer.questTypeIcon and oldLayer.questTypeIcon:IsShown() then oldLayer.questTypeIcon:SetAlpha(fade) end
     oldLayer.divider:SetAlpha(fade * 0.5)
     oldLayer.subText:SetAlpha(fade)
     oldLayer.subShadow:SetAlpha(fade * 0.8)
@@ -214,6 +233,7 @@ local function updateExit()
 
     L.titleText:SetAlpha(inv)
     L.titleShadow:SetAlpha(inv * 0.8)
+    if L.questTypeIcon and L.questTypeIcon:IsShown() then L.questTypeIcon:SetAlpha(inv) end
     L.titleText:ClearAllPoints()
     L.titleText:SetPoint("TOP", 0, e * 15)
 
@@ -235,6 +255,7 @@ local function finalizeEntrance()
     local L = curLayer
     L.titleText:SetAlpha(1)
     L.titleShadow:SetAlpha(0.8)
+    if L.questTypeIcon and L.questTypeIcon:IsShown() then L.questTypeIcon:SetAlpha(1) end
     L.titleText:ClearAllPoints()
     L.titleText:SetPoint("TOP", 0, 0)
     L.divider:SetAlpha(0.5)
@@ -250,6 +271,7 @@ local function finalizeEntrance()
 end
 
 local onComplete
+-- OnUpdate: drives entrance/hold/exit phases; adjusts alpha and layout only (no colour or text).
 local function PresenceOnUpdate(_, dt)
     if anim.phase == "idle" then return end
     anim.elapsed = anim.elapsed + dt
@@ -284,9 +306,10 @@ end
 
 onComplete = function()
     F:SetScript("OnUpdate", nil)
-    anim.phase  = "idle"
-    active      = nil
-    activeTitle = nil
+    anim.phase      = "idle"
+    active          = nil
+    activeTitle     = nil
+    activeTypeName  = nil
     resetLayer(curLayer)
     resetLayer(oldLayer)
     F:Hide()
@@ -323,6 +346,7 @@ function addon.Presence.Init()
     anim = { phase = "idle", elapsed = 0, holdDur = 4 }
     active = nil
     activeTitle = nil
+    activeTypeName = nil
     queue = {}
     crossfadeStartAlpha = 1
     addon.Presence.pendingDiscovery = nil
@@ -381,10 +405,11 @@ PlayCinematic = function(typeName, title, subtitle, opts)
         if showIcon and atlas then
             L.questTypeIcon:SetAtlas(atlas)
             -- Scale icon to match title size so it aligns visually (QUEST_UPDATE uses sz=20)
-            local iconSz = (mainSz < QUEST_ICON_SIZE) and mainSz or QUEST_ICON_SIZE
+            local iconMax = (addon.GetDB and addon.GetDB("presenceIconSize", 24)) or QUEST_ICON_SIZE
+            local iconSz = (mainSz < iconMax) and mainSz or iconMax
             L.questTypeIcon:SetSize(iconSz, iconSz)
             L.questTypeIcon:ClearAllPoints()
-            L.questTypeIcon:SetPoint("TOPRIGHT", L.titleText, "TOPLEFT", -6, 0)
+            L.questTypeIcon:SetPoint("RIGHT", L.titleText, "LEFT", -6, 0)
             L.questTypeIcon:Show()
         else
             L.questTypeIcon:Hide()
@@ -396,14 +421,18 @@ PlayCinematic = function(typeName, title, subtitle, opts)
     L.subText:ClearAllPoints()
     L.subText:SetPoint("TOP", L.divider, "BOTTOM", 0, -20)
 
-    if addon.Presence.pendingDiscovery and (typeName == "ZONE_CHANGE" or typeName == "SUBZONE_CHANGE") then
+    if addon.Presence.pendingDiscovery and (typeName == "ZONE_CHANGE" or typeName == "SUBZONE_CHANGE") and (not addon.GetDB or addon.GetDB("showPresenceDiscovery", true)) then
         L.discoveryText:SetText("Discovered")
         L.discoveryShadow:SetText("Discovered")
+        local dc = getDiscoveryColor()
+        L.discoveryText:SetTextColor(dc[1], dc[2], dc[3], 1)
+        L.discoveryShadow:SetTextColor(0, 0, 0, (addon.SHADOW_A ~= nil) and addon.SHADOW_A or 0.8)
         addon.Presence.pendingDiscovery = nil
     end
 
-    active       = cfg
-    activeTitle  = title
+    active        = cfg
+    activeTitle   = title
+    activeTypeName = typeName
     anim.elapsed = 0
     anim.holdDur = cfg.dur
 
@@ -429,8 +458,12 @@ end
 
 function addon.Presence.ShowDiscoveryLine()
     if not curLayer then return end
+    if addon.GetDB and not addon.GetDB("showPresenceDiscovery", true) then return end
     curLayer.discoveryText:SetText("Discovered")
     curLayer.discoveryShadow:SetText("Discovered")
+    local dc = getDiscoveryColor()
+    curLayer.discoveryText:SetTextColor(dc[1], dc[2], dc[3], 1)
+    curLayer.discoveryShadow:SetTextColor(0, 0, 0, (addon.SHADOW_A ~= nil) and addon.SHADOW_A or 0.8)
     if anim.phase == "hold" then
         curLayer.discoveryText:SetAlpha(1)
         curLayer.discoveryShadow:SetAlpha(0.8)
@@ -444,8 +477,9 @@ end
 local function interruptCurrent()
     crossfadeStartAlpha = curLayer.titleText:GetAlpha()
     oldLayer, curLayer = curLayer, oldLayer
-    active      = nil
-    activeTitle = nil
+    active         = nil
+    activeTitle    = nil
+    activeTypeName = nil
 end
 
 function addon.Presence.QueueOrPlay(typeName, title, subtitle, opts)
@@ -455,13 +489,18 @@ function addon.Presence.QueueOrPlay(typeName, title, subtitle, opts)
 
     opts = opts or {}
 
+    if InCombatLockdown() and cfg.pri < 4 then return end
+
     if active then
         if cfg.pri >= active.pri then
             interruptCurrent()
             PlayCinematic(typeName, title, subtitle, opts)
         else
             if #queue < MAX_QUEUE then
-                queue[#queue + 1] = { typeName, title, subtitle, opts }
+                -- Dedup: skip if same type and title already showing (e.g. duplicate zone change)
+                if not (activeTitle == title and activeTypeName == typeName) then
+                    queue[#queue + 1] = { typeName, title, subtitle, opts }
+                end
             end
         end
     else
@@ -472,9 +511,10 @@ end
 function addon.Presence.HideAndClear()
     if not F then return end
     F:SetScript("OnUpdate", nil)
-    anim.phase  = "idle"
-    active      = nil
-    activeTitle = nil
+    anim.phase      = "idle"
+    active          = nil
+    activeTitle     = nil
+    activeTypeName  = nil
     queue = {}
     addon.Presence.pendingDiscovery = nil
     resetLayer(curLayer)

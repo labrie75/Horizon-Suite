@@ -44,19 +44,6 @@ pcall(function() eventFrame:RegisterEvent("INITIATIVE_TASKS_TRACKED_LIST_CHANGED
 pcall(function() eventFrame:RegisterEvent("TRACKING_TARGET_INFO_UPDATE") end)
 pcall(function() eventFrame:RegisterEvent("TRACKABLE_INFO_UPDATE") end)
 
--- Helpers used during programmatic Housing Dashboard open/close (endeavor cache prime)
-local suppressUISound = false
-local function MuteUISound()
-    suppressUISound = true
-    local vol = tonumber(GetCVar("Sound_EnableSFX"))
-    SetCVar("Sound_EnableSFX", 0)
-    return vol
-end
-local function UnmuteUISound(prevVol)
-    suppressUISound = false
-    SetCVar("Sound_EnableSFX", prevVol or 1)
-end
-
 local function ScheduleRefresh()
     if not addon.enabled then return end
     if addon.refreshPending then return end
@@ -152,10 +139,8 @@ local function OnPlayerLoginOrEnteringWorld()
             if addon.enabled and addon.GetTrackedEndeavorIDs and addon.RequestEndeavorTaskInfo then
                 local idList = addon.GetTrackedEndeavorIDs()
                 if #idList > 0 and HousingFramesUtil and HousingFramesUtil.ToggleHousingDashboard then
-                    local prevVol = MuteUISound()
                     pcall(HousingFramesUtil.ToggleHousingDashboard)
                     pcall(HousingFramesUtil.ToggleHousingDashboard)
-                    C_Timer.After(0.05, function() UnmuteUISound(prevVol) end)
                 end
                 for _, id in ipairs(idList) do
                     addon.RequestEndeavorTaskInfo(id)

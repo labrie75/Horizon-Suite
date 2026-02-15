@@ -7,6 +7,18 @@ local addon = _G.HorizonSuite
 if not addon or not addon.Presence then return end
 
 -- ============================================================================
+-- FORMATTING & MARKUP
+-- ============================================================================
+
+local function StripPresenceMarkup(s)
+    if not s or s == "" then return s or "" end
+    s = s:gsub("|T.-|t", "")
+    s = s:gsub("|c%x%x%x%x%x%x%x%x", "")
+    s = s:gsub("|r", "")
+    return strtrim(s)
+end
+
+-- ============================================================================
 -- QUEST TEXT DETECTION (used by PresenceErrors and here)
 -- ============================================================================
 
@@ -74,17 +86,17 @@ end
 
 local function OnAchievementEarned(_, achID)
     local _, name = GetAchievementInfo(achID)
-    addon.Presence.QueueOrPlay("ACHIEVEMENT", "ACHIEVEMENT EARNED", name or "")
+    addon.Presence.QueueOrPlay("ACHIEVEMENT", "ACHIEVEMENT EARNED", StripPresenceMarkup(name or ""))
 end
 
 local function OnQuestAccepted(_, questID)
     local opts = (questID and { questID = questID }) or {}
     if C_QuestLog and C_QuestLog.GetTitleForQuestID then
-        local title = C_QuestLog.GetTitleForQuestID(questID) or "New Quest"
+        local questName = StripPresenceMarkup(C_QuestLog.GetTitleForQuestID(questID) or "New Quest")
         if addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID) then
-            addon.Presence.QueueOrPlay("WORLD_QUEST_ACCEPT", "WORLD QUEST ACCEPTED", title, opts)
+            addon.Presence.QueueOrPlay("WORLD_QUEST_ACCEPT", "WORLD QUEST ACCEPTED", questName, opts)
         else
-            addon.Presence.QueueOrPlay("QUEST_ACCEPT", "QUEST ACCEPTED", title, opts)
+            addon.Presence.QueueOrPlay("QUEST_ACCEPT", "QUEST ACCEPTED", questName, opts)
         end
     else
         addon.Presence.QueueOrPlay("QUEST_ACCEPT", "QUEST ACCEPTED", "New Quest", opts)
@@ -93,21 +105,22 @@ end
 
 local function OnQuestTurnedIn(_, questID)
     local opts = (questID and { questID = questID }) or {}
-    local title = "Objective"
+    local questName = "Objective"
     if C_QuestLog then
         if C_QuestLog.GetTitleForQuestID then
-            title = C_QuestLog.GetTitleForQuestID(questID) or title
+            questName = StripPresenceMarkup(C_QuestLog.GetTitleForQuestID(questID) or questName)
         end
         -- Use addon.IsQuestWorldQuest (QuestUtils + C_QuestLog) so world quests are detected even at turn-in when quest may be removed from log
         if addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID) then
-            addon.Presence.QueueOrPlay("WORLD_QUEST", "WORLD QUEST", title, opts)
+            addon.Presence.QueueOrPlay("WORLD_QUEST", "WORLD QUEST", questName, opts)
             return
         end
     end
-    addon.Presence.QueueOrPlay("QUEST_COMPLETE", "QUEST COMPLETE", title, opts)
+    addon.Presence.QueueOrPlay("QUEST_COMPLETE", "QUEST COMPLETE", questName, opts)
 end
 
 local lastQuestUpdateQuestID, lastQuestUpdateTime = nil, 0
+local lastUIInfoMsg, lastUIInfoTime = nil, 0
 local QUEST_UPDATE_THROTTLE = 1.5  -- seconds between toasts per quest
 local questLogUpdateTimer = nil
 
@@ -135,7 +148,7 @@ local function TryShowQuestUpdate(questID)
     end
     if not msg or msg == "" then msg = "Objective updated" end
 
-    addon.Presence.QueueOrPlay("QUEST_UPDATE", "QUEST UPDATE", msg, { questID = questID })
+    addon.Presence.QueueOrPlay("QUEST_UPDATE", "QUEST UPDATE", StripPresenceMarkup(msg), { questID = questID })
 end
 
 local function OnQuestWatchUpdate(_, questID)
@@ -156,11 +169,17 @@ end
 
 local function OnUIInfoMessage(_, msgType, msg)
     if IsQuestText(msg) and not (msg and (msg:find("Quest Accepted") or msg:find("Accepted"))) then
-        -- Use super-tracked (focused) quest for icon when available; update is often for that quest
         local questID = (C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID) and C_SuperTrack.GetSuperTrackedQuestID() or nil
         if questID and questID <= 0 then questID = nil end
-        local opts = questID and { questID = questID } or {}
-        addon.Presence.QueueOrPlay("QUEST_UPDATE", "QUEST UPDATE", msg or "", opts)
+        -- Route through TryShowQuestUpdate when questID available: uses same per-quest throttle as QUEST_WATCH_UPDATE to prevent double toasts
+        if questID then
+            TryShowQuestUpdate(questID)
+        else
+            local now = GetTime()
+            if lastUIInfoMsg == msg and (now - lastUIInfoTime) < QUEST_UPDATE_THROTTLE then return end
+            lastUIInfoMsg, lastUIInfoTime = msg, now
+            addon.Presence.QueueOrPlay("QUEST_UPDATE", "QUEST UPDATE", StripPresenceMarkup(msg or ""), {})
+        end
     end
 end
 
@@ -180,7 +199,7 @@ local function OnZoneChangedNewArea()
                 addon.Presence.pendingDiscovery = nil
             end
         else
-            addon.Presence.QueueOrPlay("ZONE_CHANGE", zone, sub)
+            addon.Presence.QueueOrPlay("ZONE_CHANGE", StripPresenceMarkup(zone), StripPresenceMarkup(sub))
         end
     end)
 end
@@ -202,7 +221,7 @@ local function OnZoneChanged()
                     addon.Presence.pendingDiscovery = nil
                 end
             else
-                addon.Presence.QueueOrPlay("SUBZONE_CHANGE", zone, sub)
+                addon.Presence.QueueOrPlay("SUBZONE_CHANGE", StripPresenceMarkup(zone), StripPresenceMarkup(sub))
             end
         end)
     end

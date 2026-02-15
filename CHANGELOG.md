@@ -8,6 +8,14 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [1.1.2] – 2026-02-15
+
+### Fixes
+
+- **(Focus)** Game sounds no longer muted or clipped when endeavor cache primes at login.
+
+---
+
 ## [1.1.1] – 2026-02-14
 
 ### New Features
