@@ -13,3 +13,7 @@ Thumbs.db
 
 # Local dev notes (not for version control)
 pipeline.md
+
+# Local dev tools
+tools/pipeline-viewer.html
+tools/serve-pipeline.ps1
