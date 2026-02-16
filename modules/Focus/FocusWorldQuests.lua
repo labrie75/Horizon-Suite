@@ -25,29 +25,32 @@ local function GetNearbyQuestIDs()
         local seen = { [mapID] = true }
         local myMapInfo = C_Map.GetMapInfo(mapID) or nil
         local myMapType = myMapInfo and myMapInfo.mapType
-    if C_Map.GetMapInfo and myMapType ~= nil and myMapType >= 4 then
-        local parentInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)) or nil
-        local parentMapID = parentInfo and parentInfo.parentMapID and parentInfo.parentMapID ~= 0 and parentInfo.parentMapID or nil
-        if parentMapID then
-            local parentMapInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(parentMapID)) or nil
-            local mapType = parentMapInfo and parentMapInfo.mapType
-            if mapType == nil or mapType >= 3 then
-                if not seen[parentMapID] then
-                    seen[parentMapID] = true
-                    mapIDsToCheck[#mapIDsToCheck + 1] = parentMapID
+    -- In a Delve, only use the current map; do not add parent or children (avoids pulling in zone quests).
+    if not (addon.IsDelveActive and addon.IsDelveActive()) then
+        if C_Map.GetMapInfo and myMapType ~= nil and myMapType >= 4 then
+            local parentInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)) or nil
+            local parentMapID = parentInfo and parentInfo.parentMapID and parentInfo.parentMapID ~= 0 and parentInfo.parentMapID or nil
+            if parentMapID then
+                local parentMapInfo = (C_Map.GetMapInfo and C_Map.GetMapInfo(parentMapID)) or nil
+                local mapType = parentMapInfo and parentMapInfo.mapType
+                if mapType == nil or mapType >= 3 then
+                    if not seen[parentMapID] then
+                        seen[parentMapID] = true
+                        mapIDsToCheck[#mapIDsToCheck + 1] = parentMapID
+                    end
                 end
             end
         end
-    end
-    -- Only add children when player's map is Micro (5) or Dungeon (4); never when in a Zone (city).
-    if C_Map.GetMapChildrenInfo and myMapType ~= nil and myMapType >= 4 then
-        local children = C_Map.GetMapChildrenInfo(mapID, nil, true)
-        if children then
-            for _, child in ipairs(children) do
-                local childID = child and child.mapID
-                if childID and not seen[childID] then
-                    seen[childID] = true
-                    mapIDsToCheck[#mapIDsToCheck + 1] = childID
+        -- Only add children when player's map is Micro (5) or Dungeon (4); never when in a Zone (city).
+        if C_Map.GetMapChildrenInfo and myMapType ~= nil and myMapType >= 4 then
+            local children = C_Map.GetMapChildrenInfo(mapID, nil, true)
+            if children then
+                for _, child in ipairs(children) do
+                    local childID = child and child.mapID
+                    if childID and not seen[childID] then
+                        seen[childID] = true
+                        mapIDsToCheck[#mapIDsToCheck + 1] = childID
+                    end
                 end
             end
         end

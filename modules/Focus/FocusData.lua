@@ -454,12 +454,22 @@ local function ReadTrackedQuests()
         end
     end
 
-    -- In a Delve, include all nearby quests so both Delve objectives show (e.g. Kriegval's Rest).
+    -- In a Delve, include nearby quests on the current map so both Delve objectives show (e.g. Kriegval's Rest).
+    -- Only add quests whose map matches the player's current map (safeguard against zone quests in nearbySet).
     if addon.IsDelveActive and addon.IsDelveActive() then
+        local playerMapID = (C_Map and C_Map.GetBestMapForUnit) and C_Map.GetBestMapForUnit("player") or nil
         for questID, _ in pairs(nearbySet) do
             if not seen[questID] and not IsQuestWorldQuest(questID) then
                 if not (C_QuestLog.IsQuestCalling and C_QuestLog.IsQuestCalling(questID)) then
-                    addQuest(questID, { isTracked = false, forceCategory = "DELVES" })
+                    local questOnCurrentMap = true
+                    if playerMapID and C_TaskQuest and C_TaskQuest.GetQuestInfoByQuestID then
+                        local info = C_TaskQuest.GetQuestInfoByQuestID(questID)
+                        local questMapID = info and (info.mapID or info.uiMapID)
+                        questOnCurrentMap = (questMapID == playerMapID)
+                    end
+                    if questOnCurrentMap then
+                        addQuest(questID, { isTracked = false, forceCategory = "DELVES" })
+                    end
                 end
             end
         end
