@@ -1,6 +1,6 @@
 --[[
     Horizon Suite - Presence - Slash Commands
-    /horizon presence [zone|subzone|discover|level|boss|ach|quest|wq|wqaccept|accept|update|all]
+    Slash command dispatch for /horizon presence [cmd]. Test playback for all notification types.
 ]]
 
 local addon = _G.HorizonSuite
@@ -8,6 +8,9 @@ if not addon or not addon.Presence then return end
 
 local HSPrint = addon.HSPrint or function(msg) print("|cFF00CCFFHorizon Suite:|r " .. tostring(msg or "")) end
 
+--- Handle /horizon presence [cmd] subcommands. Returns true if handled, false to pass to parent handler.
+--- @param msg string Subcommand (zone, subzone, discover, level, boss, ach, quest, wq, wqaccept, accept, update, scenario, all, help)
+--- @return boolean
 local function HandlePresenceSlash(msg)
     local cmd = strtrim(msg or ""):lower()
 
@@ -102,5 +105,9 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
     end
     if oldHandler then oldHandler(msg) end
 end
+
+-- ============================================================================
+-- Exports
+-- ============================================================================
 
 addon.Presence.HandlePresenceSlash = HandlePresenceSlash

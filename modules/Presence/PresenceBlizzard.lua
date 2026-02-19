@@ -2,14 +2,13 @@
     Horizon Suite - Presence - Blizzard Suppression
     Hide default zone text, level-up, boss emotes, achievements, event toasts.
     Restore all when Presence is disabled.
+    Frames: ZoneTextFrame, SubZoneTextFrame, RaidBossEmoteFrame, LevelUpDisplay,
+    BossBanner, ObjectiveTrackerBonusBannerFrame, ObjectiveTrackerTopBannerFrame,
+    EventToastManagerFrame, WorldQuestCompleteBannerFrame.
 ]]
 
 local addon = _G.HorizonSuite
 if not addon or not addon.Presence then return end
-
--- ============================================================================
--- BLIZZARD SUPPRESSION
--- ============================================================================
 
 local hiddenParent = CreateFrame("Frame")
 hiddenParent:Hide()
@@ -18,8 +17,13 @@ local suppressedFrames = {}
 local originalParents = {}
 local originalPoints = {}
 local originalAlphas = {}
-local addonLoadedUnregistered = false
+local ZONE_TEXT_EVENTS = { "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }
 
+-- ============================================================================
+-- Private helpers
+-- ============================================================================
+
+-- pcall: frame methods can throw on protected or invalid frames.
 local function KillBlizzardFrame(frame)
     if not frame then return end
     local ok1, err1 = pcall(function()
@@ -40,8 +44,7 @@ local function KillBlizzardFrame(frame)
     if not ok2 and addon.HSPrint then addon.HSPrint("Presence KillBlizzardFrame OnShow hook failed: " .. tostring(err2)) end
 end
 
-local ZONE_TEXT_EVENTS = { "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }
-
+-- pcall: frame methods can throw on protected or invalid frames.
 local function RestoreBlizzardFrame(frame)
     if not frame or not suppressedFrames[frame] then return end
     local ok, err = pcall(function()
@@ -70,6 +73,13 @@ local function RestoreBlizzardFrame(frame)
     originalAlphas[frame] = nil
 end
 
+-- ============================================================================
+-- Public functions
+-- ============================================================================
+
+--- Suppress Blizzard zone text, level-up, boss emotes, achievement toasts, and related frames when Presence is enabled.
+--- Idempotent; safe to call multiple times.
+--- @return nil
 local function SuppressBlizzard()
     KillBlizzardFrame(ZoneTextFrame)
     KillBlizzardFrame(SubZoneTextFrame)
@@ -89,6 +99,8 @@ local function SuppressBlizzard()
     end
 end
 
+--- Restore all suppressed Blizzard frames when Presence is disabled.
+--- @return nil
 local function RestoreBlizzard()
     RestoreBlizzardFrame(ZoneTextFrame)
     RestoreBlizzardFrame(SubZoneTextFrame)
@@ -102,6 +114,8 @@ local function RestoreBlizzard()
     if wqFrame then RestoreBlizzardFrame(wqFrame) end
 end
 
+--- Suppress WorldQuestCompleteBannerFrame (called on ADDON_LOADED for Blizzard_WorldQuestComplete).
+--- @return nil
 local function KillWorldQuestBanner()
     local frame = WorldQuestCompleteBannerFrame or _G["WorldQuestCompleteBannerFrame"]
     if frame then
@@ -109,6 +123,10 @@ local function KillWorldQuestBanner()
     end
 end
 
-addon.Presence.SuppressBlizzard = SuppressBlizzard
-addon.Presence.RestoreBlizzard = RestoreBlizzard
+-- ============================================================================
+-- Exports
+-- ============================================================================
+
+addon.Presence.SuppressBlizzard     = SuppressBlizzard
+addon.Presence.RestoreBlizzard      = RestoreBlizzard
 addon.Presence.KillWorldQuestBanner = KillWorldQuestBanner

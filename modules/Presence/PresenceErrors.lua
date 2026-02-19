@@ -1,17 +1,17 @@
 --[[
     Horizon Suite - Presence - Error Frame & Alert Interception
     UIErrorsFrame hook for "Discovered" and quest text. AlertFrame muting.
+    APIs: hooksecurefunc, UIErrorsFrame, AlertFrame.
 ]]
 
 local addon = _G.HorizonSuite
 if not addon or not addon.Presence then return end
 
 -- ============================================================================
--- UIERRORSFRAME HOOK
+-- Private helpers
 -- ============================================================================
 
 local uiErrorsHooked = false
-local originalAddMessage = nil
 
 local function OnUIErrorsAddMessage(self, msg)
     if msg and msg:find("Discovered") then
@@ -29,6 +29,12 @@ local function OnUIErrorsAddMessage(self, msg)
     end
 end
 
+-- ============================================================================
+-- Public functions
+-- ============================================================================
+
+--- Hook UIErrorsFrame AddMessage to intercept "Discovered" and quest text. Idempotent.
+--- @return nil
 local function HookUIErrorsFrame()
     if uiErrorsHooked or not UIErrorsFrame then return end
     if hooksecurefunc then
@@ -40,6 +46,8 @@ local function HookUIErrorsFrame()
     end
 end
 
+--- Clear hook state. Note: hooksecurefunc cannot be undone; callback no-ops when Presence disabled.
+--- @return nil
 local function UnhookUIErrorsFrame()
     -- hooksecurefunc cannot be undone; we simply stop acting in the callback when Presence is disabled
     -- The callback will remain but will no-op when addon:IsModuleEnabled("presence") is false
@@ -53,8 +61,11 @@ end
 local alertsMuted = false
 local alertEventsUnregistered = {}
 
+--- Unregister AlertFrame from ACHIEVEMENT_EARNED and QUEST_TURNED_IN so Presence can replace them. Idempotent.
+--- @return nil
 local function MuteAlerts()
     if alertsMuted then return end
+    -- pcall: AlertFrame may not exist or methods may throw.
     pcall(function()
         if AlertFrame and AlertFrame.UnregisterEvent then
             AlertFrame:UnregisterEvent("ACHIEVEMENT_EARNED")
@@ -66,8 +77,11 @@ local function MuteAlerts()
     alertsMuted = true
 end
 
+--- Re-register AlertFrame events when Presence is disabled.
+--- @return nil
 local function RestoreAlerts()
     if not alertsMuted then return end
+    -- pcall: AlertFrame may not exist or methods may throw.
     pcall(function()
         if AlertFrame and AlertFrame.RegisterEvent then
             if alertEventsUnregistered["ACHIEVEMENT_EARNED"] then
@@ -84,10 +98,10 @@ local function RestoreAlerts()
 end
 
 -- ============================================================================
--- EXPORTS
+-- Exports
 -- ============================================================================
 
-addon.Presence.HookUIErrorsFrame = HookUIErrorsFrame
+addon.Presence.HookUIErrorsFrame   = HookUIErrorsFrame
 addon.Presence.UnhookUIErrorsFrame = UnhookUIErrorsFrame
-addon.Presence.MuteAlerts = MuteAlerts
-addon.Presence.RestoreAlerts = RestoreAlerts
+addon.Presence.MuteAlerts         = MuteAlerts
+addon.Presence.RestoreAlerts      = RestoreAlerts

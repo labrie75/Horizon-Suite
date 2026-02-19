@@ -2,6 +2,7 @@
     Horizon Suite - Presence - Core
     Cinematic zone text and notification display. Frame, layers, animation engine,
     and public QueueOrPlay API. Ported from ModernZoneText.
+    Step-by-step flow notes: notes/PresenceCore.md
 
     Design notes:
     - Colour is resolved at show time only (resolveColors, getDiscoveryColor); OnUpdate
@@ -330,10 +331,12 @@ onComplete = function()
 end
 
 -- ============================================================================
--- INIT & PUBLIC API
+-- Public functions
 -- ============================================================================
 
-function addon.Presence.Init()
+--- One-time setup: create frame, layers, animation state. Idempotent.
+--- @return nil
+local function Init()
     if F then return end
 
     F = CreateFrame("Frame", "HorizonSuitePresenceFrame", UIParent)
@@ -450,7 +453,10 @@ PlayCinematic = function(typeName, title, subtitle, opts)
     F:Show()
 end
 
-function addon.Presence.SoftUpdateSubtitle(newSub)
+--- Update the subtitle text of the currently displayed cinematic (e.g. subzone soft-update).
+--- @param newSub string New subtitle text
+--- @return nil
+local function SoftUpdateSubtitle(newSub)
     if not curLayer then return end
     curLayer.subText:SetText(newSub or "")
     curLayer.subShadow:SetText(newSub or "")
@@ -459,7 +465,9 @@ function addon.Presence.SoftUpdateSubtitle(newSub)
     end
 end
 
-function addon.Presence.ShowDiscoveryLine()
+--- Show the "Discovered" line on the current layer (zone/subzone discovery).
+--- @return nil
+local function ShowDiscoveryLine()
     if not curLayer then return end
     if addon.GetDB and not addon.GetDB("showPresenceDiscovery", true) then return end
     curLayer.discoveryText:SetText("Discovered")
@@ -473,7 +481,9 @@ function addon.Presence.ShowDiscoveryLine()
     end
 end
 
-function addon.Presence.SetPendingDiscovery()
+--- Set flag so next zone/subzone change shows "Discovered" line.
+--- @return nil
+local function SetPendingDiscovery()
     addon.Presence.pendingDiscovery = true
 end
 
@@ -485,8 +495,14 @@ local function interruptCurrent()
     activeTypeName = nil
 end
 
-function addon.Presence.QueueOrPlay(typeName, title, subtitle, opts)
-    if not F then addon.Presence.Init() end
+--- Queue or immediately play a cinematic notification.
+--- @param typeName string LEVEL_UP, BOSS_EMOTE, ACHIEVEMENT, QUEST_COMPLETE, etc.
+--- @param title string Heading text (first line)
+--- @param subtitle string Second line text
+--- @param opts table|nil Optional; opts.questID for colour/icon, opts.category for SCENARIO_START
+--- @return nil
+local function QueueOrPlay(typeName, title, subtitle, opts)
+    if not F then Init() end
     local cfg = TYPES[typeName]
     if not cfg then return end
 
@@ -511,7 +527,9 @@ function addon.Presence.QueueOrPlay(typeName, title, subtitle, opts)
     end
 end
 
-function addon.Presence.HideAndClear()
+--- Hide frame, clear queue, reset animation state.
+--- @return nil
+local function HideAndClear()
     if not F then return end
     F:SetScript("OnUpdate", nil)
     anim.phase      = "idle"
@@ -525,4 +543,14 @@ function addon.Presence.HideAndClear()
     F:Hide()
 end
 
-addon.Presence.DISCOVERY_WAIT = 0.15
+-- ============================================================================
+-- Exports
+-- ============================================================================
+
+addon.Presence.Init               = Init
+addon.Presence.QueueOrPlay        = QueueOrPlay
+addon.Presence.SoftUpdateSubtitle = SoftUpdateSubtitle
+addon.Presence.ShowDiscoveryLine  = ShowDiscoveryLine
+addon.Presence.SetPendingDiscovery = SetPendingDiscovery
+addon.Presence.HideAndClear       = HideAndClear
+addon.Presence.DISCOVERY_WAIT     = 0.15

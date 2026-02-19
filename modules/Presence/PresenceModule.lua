@@ -1,7 +1,6 @@
 --[[
     Horizon Suite - Presence Module
-    Cinematic zone text and notifications. Zone/subzone changes, discoveries,
-    level up, boss emotes, achievements, quest accept/complete/update, world quests.
+    Cinematic zone text and notifications. Registers with addon:RegisterModule.
 ]]
 
 local addon = _G.HorizonSuite

@@ -1,6 +1,8 @@
 --[[
     Horizon Suite - Presence - Event Dispatch
     Zone changes, level up, boss emotes, achievements, quest events.
+    APIs: C_QuestLog, C_SuperTrack, C_Timer, GetZoneText, GetSubZoneText, GetAchievementInfo.
+    Step-by-step flow notes: notes/PresenceEvents.md
 ]]
 
 local addon = _G.HorizonSuite
@@ -28,9 +30,12 @@ local function StripPresenceMarkup(s)
 end
 
 -- ============================================================================
--- QUEST TEXT DETECTION
+-- Quest text detection (private)
 -- ============================================================================
 
+--- Returns true if the message looks like quest objective progress (e.g. "7/10", "slain", "Complete").
+--- @param msg string|nil Message text to check
+--- @return boolean
 local function IsQuestText(msg)
     if not msg then return false end
     return msg:find("%d+/%d+")
@@ -41,10 +46,8 @@ local function IsQuestText(msg)
         or msg:find("Complete")
 end
 
-addon.Presence.IsQuestText = IsQuestText
-
 -- ============================================================================
--- EVENT FRAME
+-- Event frame and handlers
 -- ============================================================================
 
 local eventFrame = CreateFrame("Frame")
@@ -138,7 +141,7 @@ local lastQuestObjectivesCache = {}  -- questID -> serialized objectives
 local bufferedUpdates = {}           -- questID -> timerObject
 local UPDATE_BUFFER_TIME = 0.35      -- Time to wait for data to settle (fix for 55/100 vs 71/100)
 
--- Core function to actually show the update after the buffer timer expires
+-- Process debounced quest objective update; shows QUEST_UPDATE or skips if unchanged/blind.
 local function ExecuteQuestUpdate(questID, isBlindUpdate)
     bufferedUpdates[questID] = nil -- Clear the timer ref
 
@@ -224,8 +227,8 @@ local function OnQuestWatchUpdate(_, questID)
     RequestQuestUpdate(questID, false)
 end
 
+-- Guess active WQ ID for blind QUEST_LOG_UPDATE/UI_INFO_MESSAGE (super-tracked or nearby).
 local function GetWorldQuestIDForObjectiveUpdate()
-    -- 1. Super-tracked
     local super = (C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID) and C_SuperTrack.GetSuperTrackedQuestID() or 0
     if super and super > 0 and addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(super) then
         if not (C_QuestLog and C_QuestLog.IsComplete and C_QuestLog.IsComplete(super)) then
@@ -388,7 +391,9 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
     if fn then fn(event, ...) end
 end)
 
-function addon.Presence.EnableEvents()
+--- Register all Presence events. Idempotent.
+--- @return nil
+local function EnableEvents()
     if eventsRegistered then return end
     for _, evt in ipairs(PRESENCE_EVENTS) do
         eventFrame:RegisterEvent(evt)
@@ -400,7 +405,9 @@ function addon.Presence.EnableEvents()
     end)
 end
 
-function addon.Presence.DisableEvents()
+--- Unregister all Presence events.
+--- @return nil
+local function DisableEvents()
     if not eventsRegistered then return end
     for _, evt in ipairs(PRESENCE_EVENTS) do
         eventFrame:UnregisterEvent(evt)
@@ -408,4 +415,11 @@ function addon.Presence.DisableEvents()
     eventsRegistered = false
 end
 
-addon.Presence.eventFrame = eventFrame
+-- ============================================================================
+-- Exports
+-- ============================================================================
+
+addon.Presence.EnableEvents  = EnableEvents
+addon.Presence.DisableEvents = DisableEvents
+addon.Presence.IsQuestText   = IsQuestText
+addon.Presence.eventFrame    = eventFrame
