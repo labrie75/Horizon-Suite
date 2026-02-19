@@ -385,12 +385,23 @@ local function UpdateSectionHeaderFadeOut(dt, useAnim)
 end
 
 local function UpdateSectionHeaderSlideUp(dt, useAnim)
-    if not useAnim then return end
-    local anySliding = false
+    if not useAnim then
+        for i = 1, addon.SECTION_POOL_SIZE do
+            local s = sectionPool[i]
+            if s and s.active and s.slideUpStartY ~= nil then
+                s.slideUpStartY = nil
+                s.slideUpAnimTime = nil
+                if not InCombatLockdown() and s.finalX ~= nil and s.finalY ~= nil then
+                    s:ClearAllPoints()
+                    s:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", s.finalX, s.finalY)
+                end
+            end
+        end
+        return
+    end
     for i = 1, addon.SECTION_POOL_SIZE do
         local s = sectionPool[i]
         if s and s.active and s.slideUpStartY ~= nil and s.finalX ~= nil and s.finalY ~= nil then
-            anySliding = true
             s.slideUpAnimTime = (s.slideUpAnimTime or 0) + dt
             local p = GetProgress(s.slideUpAnimTime, 0, anim.dur)
             local ep = addon.easeOut(p)
@@ -522,7 +533,7 @@ local function UpdateGroupCollapseCompletion()
                         local e = pool[i]
                         if e and (e.questID or e.entryKey)
                            and e.groupKey ~= groupKey
-                           and (e.animState == "active" or e.animState == "fadein")
+                           and e.animState == "active"
                            and e.finalY ~= nil then
                             local key = e.questID or e.entryKey
                             slideUpStarts[key] = e.finalY
@@ -549,11 +560,11 @@ local function UpdateGroupCollapseCompletion()
                     addon.FullLayout()
                 end
 
-                -- Apply slide-up animation to entries that moved up.
+                -- Apply slide-up animation to entries that moved up (exclude fadein to avoid interrupting).
                 if useAnim and next(slideUpStarts) then
                     for i = 1, addon.POOL_SIZE do
                         local e = pool[i]
-                        if e and (e.questID or e.entryKey) and e.finalY ~= nil then
+                        if e and (e.questID or e.entryKey) and e.animState == "active" and e.finalY ~= nil then
                             local key = e.questID or e.entryKey
                             local startY = slideUpStarts[key]
                             if startY and startY ~= e.finalY then
@@ -657,7 +668,7 @@ function addon.PrepareGroupExpandSlideDown(expandingKey)
         local e = pool[i]
         if e and (e.questID or e.entryKey)
            and e.groupKey ~= expandingKey
-           and (e.animState == "active" or e.animState == "fadein")
+           and e.animState == "active"
            and e.finalY ~= nil then
             starts[e.questID or e.entryKey] = e.finalY
         end
@@ -683,7 +694,7 @@ function addon.ApplyGroupExpandSlideDown()
     if starts then
         for i = 1, addon.POOL_SIZE do
             local e = pool[i]
-            if e and (e.questID or e.entryKey) and e.finalY ~= nil then
+            if e and (e.questID or e.entryKey) and e.animState == "active" and e.finalY ~= nil then
                 local key = e.questID or e.entryKey
                 local startY = starts[key]
                 if startY and startY ~= e.finalY then
