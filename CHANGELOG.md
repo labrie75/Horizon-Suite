@@ -10,6 +10,16 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [2.0.0] – 2026-02-20
+
+### New Features
+
+- **(Presence) Configurable colors, animations, and subtitle transitions for Presence notifications** — Tailor the look and feel of Presence toasts to match your UI theme. Per-type colors for boss emotes, discovery lines, and other categories; configurable animations; smooth subtitle fade when multi-line notifications update.
+
+- **(Focus) Show achievement progress for numeric objectives in tracker** — Tracked achievements with numeric goals (e.g., collect 300 decors) now display current progress (e.g. 247/300) in the tracker at a glance.
+
+---
+
 ## [1.2.4] – 2026-02-20
 
 ### New Features
