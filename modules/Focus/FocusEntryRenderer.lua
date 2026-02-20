@@ -155,8 +155,9 @@ local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, 
             end
 
             obj.text:ClearAllPoints()
-            -- Give objectives a small constant inset from the title.
-            obj.text:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", OBJ_EXTRA_LEFT_PAD, -objSpacing)
+            -- First objective gets inset from title; subsequent objectives align with it.
+            local leftPad = (shownObjs == 0) and OBJ_EXTRA_LEFT_PAD or 0
+            obj.text:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", leftPad, -objSpacing)
             obj.text:Show()
             obj.shadow:Show()
 
@@ -198,7 +199,7 @@ local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, 
             obj2.shadow:SetText(clickText)
             obj2.text:SetTextColor(doneColor[1], doneColor[2], doneColor[3], 1)
             obj2.text:ClearAllPoints()
-            obj2.text:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", OBJ_EXTRA_LEFT_PAD, -objSpacing)
+            obj2.text:SetPoint("TOPLEFT", prevAnchor, "BOTTOMLEFT", 0, -objSpacing)
             obj2.text:Show()
             obj2.shadow:Show()
             local obj2H = obj2.text:GetStringHeight()

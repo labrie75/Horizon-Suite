@@ -99,8 +99,9 @@ end
 local function CreateLayer(parent)
     local L = {}
     local shadowA = (addon.SHADOW_A ~= nil) and addon.SHADOW_A or 0.8
-    local shadowX = addon.SHADOW_OX or 2
-    local shadowY = addon.SHADOW_OY or -2
+    -- Respect Typography shadow settings when available; fall back to addon globals
+    local shadowX = (addon.GetDB and tonumber(addon.GetDB("shadowOffsetX", 2))) or addon.SHADOW_OX or 2
+    local shadowY = (addon.GetDB and tonumber(addon.GetDB("shadowOffsetY", -2))) or addon.SHADOW_OY or -2
 
     L.titleShadow = parent:CreateFontString(nil, "BORDER")
     L.titleShadow:SetFont(FONT_PATH, MAIN_SIZE, "OUTLINE")
