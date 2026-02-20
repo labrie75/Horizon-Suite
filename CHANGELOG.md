@@ -6,9 +6,29 @@ All notable changes to Horizon Suite are documented here.
 
 ## [Unreleased]
 
+<!-- Changelog entries are generated from closed GitHub Issues at release time. -->
+
+---
+
+## [1.2.4] – 2026-02-20
+
 ### New Features
 
-- **(Presence) Delve and scenario objective progress toasts** — Objective updates in Delves, party dungeons, and other scenarios now show Presence toasts (e.g. "Slay enemies 5/10"). Uses C_ScenarioInfo; delve objectives cannot be tracked via the quest watch list, so this scenario-based flow complements the quest-update flow.
+- **(Presence) Delve and scenario objective progress toasts** — Objective updates in Delves, party dungeons, and other scenarios now show Presence toasts (e.g. "Slay enemies 5/10").
+
+- **(Focus) Separate Hide in dungeons from M+ timer** — You can now hide the tracker in dungeons independently of the Mythic+ timer block.
+
+- **(Focus) Show unaccepted quests in the current zone** — Quests available to accept in your current zone appear in the tracker.
+
+- **(Focus) Scenario start notification** — Entering a Delve, scenario, or dungeon triggers a Presence notification.
+
+- **(Focus) Deaths in M+ block** — The Mythic+ module now displays death count.
+
+- **(Focus) Separate font, size, and color for M+ module** — Typography for the M+ block can be customized separately from the main tracker.
+
+### Improvements
+
+- **(Core) Add missing non-options strings to koKR locale** — Strings in modules (Focus, Presence) are now in koKR so Korean users can fork and translate.
 
 ---
 
