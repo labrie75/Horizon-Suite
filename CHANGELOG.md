@@ -10,6 +10,14 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [2.0.1] – 2026-02-20
+
+### Improvements
+
+- **(Presence) Presence module enabled by default for new installs** — New users get the full Horizon Suite experience (cinematic zone text, quest notifications, achievements, etc.) immediately after install. Users migrating from the legacy Vista module have their previous enabled/disabled preference preserved.
+
+---
+
 ## [2.0.0] – 2026-02-20
 
 ### New Features
