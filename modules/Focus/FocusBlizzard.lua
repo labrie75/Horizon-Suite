@@ -138,6 +138,10 @@ local function HookWQTTracking()
                     HorizonDB.wqtTrackedQuests = HorizonDB.wqtTrackedQuests or {}
                     HorizonDB.wqtTrackedQuests[qid] = true
                 end
+                -- Also focus (super-track) the quest so it highlights in our list when coming from WQT.
+                if C_SuperTrack and C_SuperTrack.SetSuperTrackedQuestID then
+                    pcall(C_SuperTrack.SetSuperTrackedQuestID, qid)
+                end
             elseif C_QuestLog and C_QuestLog.AddQuestWatch then
                 C_QuestLog.AddQuestWatch(qid)
             end
@@ -160,6 +164,13 @@ local function HookWQTTracking()
                 addon.focus.wqtTrackedQuests[questID] = nil
                 if HorizonDB and HorizonDB.wqtTrackedQuests then
                     HorizonDB.wqtTrackedQuests[questID] = nil
+                end
+                -- If WQT deselected the quest and it's currently super-tracked, clear super-tracking.
+                if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.SetSuperTrackedQuestID then
+                    local ok, cur = pcall(C_SuperTrack.GetSuperTrackedQuestID)
+                    if ok and cur == questID then
+                        pcall(C_SuperTrack.SetSuperTrackedQuestID, 0)
+                    end
                 end
                 local wqtPanel = _G.WorldQuestTrackerScreenPanel
                 if wqtPanel and wqtPanel:IsShown() then

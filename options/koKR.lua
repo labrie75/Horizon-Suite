@@ -210,8 +210,8 @@ L["Play a sound when a rare is added."]                 = "희귀 몹이 추가�
 -- =====================================================================
 -- OptionsData.lua Features — World quests
 -- =====================================================================
-L["Show world quests"]                                  = "월드 퀘스트 표시"
-L["Show world quests and callings in the list."]        = "목록에 월드 퀘스트와 부름을 표시합니다."
+L["Show in-zone world quests"]                          = "현재 지역 월드 퀘스트 표시"
+L["Auto-add world quests in your current zone. When off, only quests you've tracked or world quests you're in close proximity to appear (Blizzard default)."] = "현재 지역의 월드 퀘스트를 자동으로 표시합니다. 끄면 추적 목록에 있거나 퀘스트 지역에 가까이 있는 월드 퀘스트만 표시됩니다 (블리자드 기본값)."
 
 -- =====================================================================
 -- OptionsData.lua Features — Floating quest item

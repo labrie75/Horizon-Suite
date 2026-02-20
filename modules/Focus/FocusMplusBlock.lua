@@ -10,9 +10,16 @@ local addon = _G.HorizonSuite
 -- MYTHIC+ BANNER (CINEMATIC, ALWAYS-VISIBLE ABOVE / BELOW LIST)
 -- ============================================================================
 
-local MPLUS_BANNER_HEIGHT = 46
-local mplusBlock = CreateFrame("Frame", nil, addon.HS)
-mplusBlock:SetSize(addon.GetPanelWidth() - addon.PADDING * 2, MPLUS_BANNER_HEIGHT)
+local MPLUS_MIN_HEIGHT = 80
+-- Gap between tick and text (matches FocusEntryRenderer/FocusCollapse SetPoint offset -4)
+local TICK_TEXT_GAP = " "
+-- Parented to UIParent so it stays visible even when the main tracker
+-- panel (addon.HS) is hidden by "Show in dungeon" being OFF.
+local mplusBlock = CreateFrame("Frame", nil, UIParent)
+mplusBlock:SetSize(addon.GetPanelWidth() - addon.PADDING * 2, MPLUS_MIN_HEIGHT)
+mplusBlock:SetFrameStrata(addon.HS:GetFrameStrata())
+mplusBlock:SetFrameLevel(addon.HS:GetFrameLevel() + 5)
+mplusBlock:EnableMouse(true)
 mplusBlock:Hide()
 
 -- Cinematic gradient background (dark top, slightly lighter center, dark bottom).
@@ -29,8 +36,9 @@ end
 local accent = mplusBlock:CreateTexture(nil, "BORDER")
 local dungeonColor = (addon.QUEST_COLORS and addon.QUEST_COLORS.DUNGEON) or { 0.6, 0.4, 1.0 }
 accent:SetColorTexture(dungeonColor[1], dungeonColor[2], dungeonColor[3], 0.65)
+accent:Hide()  -- Hide the accent bar for M+ block
 
-local contentOffsetX = 8
+local contentOffsetX = 12
 local iconSize = addon.QUEST_TYPE_ICON_SIZE or 16
 local iconGap = addon.QUEST_TYPE_ICON_GAP or 4
 
@@ -38,272 +46,587 @@ local iconGap = addon.QUEST_TYPE_ICON_GAP or 4
 local mplusIcon = mplusBlock:CreateTexture(nil, "OVERLAY")
 mplusIcon:SetSize(iconSize, iconSize)
 mplusIcon:SetAtlas("questlog-questtypeicon-dungeon")
+mplusIcon:Hide()  -- Hide the icon for M+ block
 
--- Hero text (left): dungeon name + keystone level.
+-- Line 1: Dungeon name + keystone level
+local mplusHeroShadow = mplusBlock:CreateFontString(nil, "BORDER")
 local mplusHeroText = mplusBlock:CreateFontString(nil, "OVERLAY")
-mplusHeroText:SetFontObject(addon.TitleFont)
-mplusHeroText:SetTextColor(0.96, 0.96, 1.0, 1)
 mplusHeroText:SetWordWrap(true)
 mplusHeroText:SetJustifyH("LEFT")
 
--- Progress pill (right): timer • completion.
+-- Line 2: Timer (elapsed / target). No shadow: still looks heavy with outline.
 local mplusPillText = mplusBlock:CreateFontString(nil, "OVERLAY")
-mplusPillText:SetFontObject(addon.ObjFont)
-mplusPillText:SetTextColor(0.6, 0.88, 1.0, 1)
-mplusPillText:SetPoint("TOPLEFT", mplusBlock, "CENTER", contentOffsetX, -2)
-mplusPillText:SetPoint("TOPRIGHT", mplusBlock, "TOPRIGHT", -contentOffsetX, -2)
-mplusPillText:SetJustifyH("RIGHT")
+mplusPillText:SetJustifyH("LEFT")
 
--- Affixes row (bottom, subdued).
+-- Line 3: Progress bar (enemy forces)
+local PROGRESS_BAR_HEIGHT = 16
+local mplusProgressBar = CreateFrame("Frame", nil, mplusBlock)
+mplusProgressBar:SetHeight(PROGRESS_BAR_HEIGHT)
+
+local progressBarBg = mplusProgressBar:CreateTexture(nil, "BACKGROUND")
+progressBarBg:SetAllPoints()
+progressBarBg:SetColorTexture(0.08, 0.08, 0.12, 0.85)
+
+local progressBarFill = mplusProgressBar:CreateTexture(nil, "ARTWORK")
+progressBarFill:SetPoint("TOPLEFT")
+progressBarFill:SetPoint("BOTTOMLEFT")
+progressBarFill:SetWidth(1)
+progressBarFill:SetColorTexture(0.20, 0.55, 0.30, 0.90)
+
+-- Percentage label (left of center inside bar)
+local progressPercentShadow = mplusProgressBar:CreateFontString(nil, "BORDER")
+local progressPercentLabel = mplusProgressBar:CreateFontString(nil, "OVERLAY")
+progressPercentLabel:SetJustifyH("RIGHT")
+
+-- Count label (right of center inside bar)
+local progressCountShadow = mplusProgressBar:CreateFontString(nil, "BORDER")
+local progressCountLabel = mplusProgressBar:CreateFontString(nil, "OVERLAY")
+progressCountLabel:SetJustifyH("LEFT")
+
+-- Position both labels centered together inside the bar
+progressPercentLabel:SetPoint("RIGHT", mplusProgressBar, "CENTER", -3, 0)
+progressCountLabel:SetPoint("LEFT", mplusProgressBar, "CENTER", 3, 0)
+
+-- Line 4: Affixes (one per line). No shadow: multi-line text + shadow creates fuzzy overlap.
 local mplusAffixesText = mplusBlock:CreateFontString(nil, "OVERLAY")
-mplusAffixesText:SetFontObject(addon.SectionFont)
-mplusAffixesText:SetTextColor(0.72, 0.76, 0.88, 1)
-mplusAffixesText:SetPoint("TOPLEFT", mplusHeroText, "BOTTOMLEFT", 0, -4)
-mplusAffixesText:SetPoint("TOPRIGHT", mplusBlock, "TOPRIGHT", -contentOffsetX, -8)
 mplusAffixesText:SetWordWrap(true)
 mplusAffixesText:SetJustifyH("LEFT")
 
-addon.mplusBlock       = mplusBlock
-addon.mplusTimerText   = mplusHeroText  -- backward compat
-addon.mplusPctText     = mplusPillText  -- backward compat
-addon.mplusAffixesText = mplusAffixesText
+-- Lines 5+: Bosses (one per line). No shadow: multi-line text + shadow creates fuzzy overlap.
+local mplusBossesText = mplusBlock:CreateFontString(nil, "OVERLAY")
+mplusBossesText:SetWordWrap(true)
+mplusBossesText:SetJustifyH("LEFT")
+mplusBossesText:SetJustifyV("TOP")
 
-addon.MPLUS_BANNER_HEIGHT = MPLUS_BANNER_HEIGHT
+addon.mplusBlock            = mplusBlock
+addon.mplusHeroText         = mplusHeroText
+addon.mplusTimerText        = mplusPillText
+addon.mplusProgressBar      = mplusProgressBar
+addon.mplusAffixesText      = mplusAffixesText
+addon.mplusBossesText       = mplusBossesText
+
+-- Function to get current M+ block height (dynamic based on content)
+function addon.GetMplusBlockHeight()
+    if mplusBlock and mplusBlock:IsShown() then
+        return mplusBlock:GetHeight() or MPLUS_MIN_HEIGHT
+    end
+    return MPLUS_MIN_HEIGHT
+end
 
 local function GetMplusTimer()
-    if not C_ScenarioInfo or not C_ScenarioInfo.GetCriteriaInfo then return nil, nil end
-    local maxIdx = 20
-    for i = 0, maxIdx do
-        local ok, info = pcall(C_ScenarioInfo.GetCriteriaInfo, i)
-        if ok and info and info.duration and info.duration > 0 and info.elapsed and type(info.elapsed) == "number" then
-            if not info.complete and not info.completed and not info.failed then
-                local startTime = GetTime() - math.max(0, math.min(info.elapsed, info.duration))
-                return info.duration, startTime
-            end
+    -- Get world elapsed timer for active scenarios 
+    local _, elapsedTime = GetWorldElapsedTime(1)
+    return elapsedTime
+end
+
+local function GetMplusData()
+    local data = {
+        dungeonName = "",
+        level = 0,
+        timer = 0,
+        timeLimit = 0,
+        deathPenalty = 0,
+        numDeaths = 0,
+        bossList = {},  -- Array of {name, completed}
+        enemyForces = { current = 0, total = 0, percent = 0 },
+        affixes = {}  -- { name, desc, iconFileID }
+    }
+
+    -- Get active challenge map ID
+    local mapId = C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID and C_ChallengeMode.GetActiveChallengeMapID()
+    if not mapId then return data end
+
+    -- Get dungeon name from map info
+    if mapId and C_ChallengeMode.GetMapUIInfo then
+        local name, _, timeLimit = C_ChallengeMode.GetMapUIInfo(mapId)
+        if name then
+            data.dungeonName = name
+        end
+        if timeLimit then
+            data.timeLimit = timeLimit
         end
     end
-    return nil, nil
-end
 
-local function ApplyMplusAlignment()
-    -- Align with quest entry layout: bar at BAR_LEFT_OFFSET left of content, text at GetContentLeftOffset().
-    local contentLeft = addon.GetContentLeftOffset and addon.GetContentLeftOffset() or (addon.PADDING + addon.ICON_COLUMN_WIDTH)
-    local barLeft = addon.BAR_LEFT_OFFSET or 9
-    local accentX = contentLeft - addon.PADDING - barLeft
-    local heroLeft = contentLeft - addon.PADDING
-    local barW = math.max(2, math.min(6, tonumber(addon.GetDB("highlightBarWidth", 2)) or 2))
-
-    accent:SetWidth(barW)
-    accent:ClearAllPoints()
-    accent:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", accentX, 0)
-    accent:SetPoint("BOTTOMLEFT", mplusBlock, "BOTTOMLEFT", accentX, 0)
-
-    -- Match quest entry: icon right edge at BAR_LEFT_OFFSET+2 left of content (no overlap with bar).
-    local iconRightEdge = contentLeft - addon.PADDING - ((addon.BAR_LEFT_OFFSET or 9) + 2)
-    mplusIcon:ClearAllPoints()
-    mplusIcon:SetPoint("TOPRIGHT", mplusBlock, "TOPLEFT", iconRightEdge, -2)
-
-    mplusHeroText:ClearAllPoints()
-    mplusHeroText:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", heroLeft, -2)
-    mplusHeroText:SetPoint("TOPRIGHT", mplusBlock, "CENTER", -contentOffsetX, -2)
-
-    local blockW = addon.GetPanelWidth() - addon.PADDING * 2
-    mplusAffixesText:SetWidth(blockW - contentOffsetX - heroLeft)
-end
-
-local function PositionMplusBlock(pos)
-    mplusBlock:SetWidth(addon.GetPanelWidth() - addon.PADDING * 2)
-    ApplyMplusAlignment()
-    mplusBlock:ClearAllPoints()
-    if pos == "bottom" then
-        mplusBlock:SetPoint("BOTTOMLEFT", addon.HS, "BOTTOMLEFT", addon.PADDING, addon.PADDING)
-        mplusBlock:SetPoint("BOTTOMRIGHT", addon.HS, "BOTTOMRIGHT", -addon.PADDING, addon.PADDING)
-    else
-        local topOffset = addon.GetContentTop()
-        mplusBlock:SetPoint("TOPLEFT", addon.HS, "TOPLEFT", addon.PADDING, topOffset)
-        mplusBlock:SetPoint("TOPRIGHT", addon.HS, "TOPRIGHT", -addon.PADDING, topOffset)
-    end
-end
-
-local function ShowMplusTooltip()
-    local show = addon.GetDB("showMythicPlusBlock", false)
-    local inMplus = addon.IsInMythicDungeon and addon.IsInMythicDungeon()
-    if not show or (not inMplus and not addon.mplusDebugPreview) then return end
-
-    if not GameTooltip then return end
-    GameTooltip:SetOwner(mplusBlock, "ANCHOR_RIGHT", 0, 0)
-    GameTooltip:ClearLines()
-
-    local dc = dungeonColor
-    local hex = string.format("|cFF%02x%02x%02x", dc[1] * 255, dc[2] * 255, dc[3] * 255)
-
-    local dungeonName, level, pctStr, timerStr, affixList = "Mythic+ Dungeon", "+15", "—", "—", {}
-
-    if addon.mplusDebugPreview then
-        dungeonName = "Darkheart Thicket"
-        level = "+15"
-        pctStr = "67%"
-        timerStr = "18:32"
-        affixList = {
-            { name = "Fortified", desc = "Non-boss enemies have 20% more health and deal 30% more damage." },
-            { name = "Bursting", desc = "When slain, non-boss enemies explode, dealing damage over 4 sec." },
-            { name = "Sanguine", desc = "When slain, non-boss enemies leave a pool of blood." },
-        }
-    else
-        if addon.GetMythicDungeonName then
-            local ok, name = pcall(addon.GetMythicDungeonName)
-            if ok and name and name ~= "" then dungeonName = name end
+    -- Get keystone level and affixes
+    if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo then
+        local level, affixes, wasEnergized = C_ChallengeMode.GetActiveKeystoneInfo()
+        if level and level > 0 then
+            data.level = level
         end
-        if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneLevel then
-            local ok, lvl = pcall(C_ChallengeMode.GetActiveKeystoneLevel)
-            if ok and lvl and lvl > 0 then level = "+" .. tostring(lvl) end
-        end
-        if C_Scenario and C_Scenario.GetScenarioStepInfo then
-            local ok, stepInfo = pcall(C_Scenario.GetScenarioStepInfo)
-            if ok and stepInfo then
-                local p = (type(stepInfo) == "table" and stepInfo.progress) or (type(stepInfo) == "number" and stepInfo)
-                if p then pctStr = tostring(p) .. "%" end
-            end
-        end
-        if C_Scenario and C_Scenario.GetScenarioInfo then
-            local ok, info = pcall(C_Scenario.GetScenarioInfo)
-            if ok and info and info.currentStage and info.numStages and info.numStages > 0 then
-                pctStr = string.format("%d/%d", info.currentStage or 0, info.numStages or 0)
-            end
-        end
-        local dur, start = GetMplusTimer()
-        if dur and start then
-            local rem = math.max(0, dur - (GetTime() - start))
-            timerStr = string.format("%d:%02d", math.floor(rem / 60), math.floor(rem % 60))
-        end
-        if C_MythicPlus and C_MythicPlus.GetCurrentAffixes then
-            local ok, affixes = pcall(C_MythicPlus.GetCurrentAffixes)
-            if ok and affixes then
-                for _, a in ipairs(affixes) do
-                    local id = a
-                    local name = nil
-                    if type(a) == "table" then
-                        id = a.id or a
-                        name = a.name
-                    end
-                    local desc = nil
-                    if C_ChallengeMode and C_ChallengeMode.GetAffixInfo and type(id) == "number" then
-                        local dOk, info = pcall(C_ChallengeMode.GetAffixInfo, id)
-                        if dOk and info then
-                            name = name or info.name
-                            desc = info.description
+        
+        -- Try multiple methods to get affixes
+        local affixesFound = false
+        
+        -- Method 1: From GetActiveKeystoneInfo
+        if affixes and type(affixes) == "table" and #affixes > 0 then
+            for i = 1, #affixes do
+                local affixID = affixes[i]
+                if affixID and type(affixID) == "number" then
+                    if C_ChallengeMode.GetAffixInfo then
+                        local name, desc, iconFileID = C_ChallengeMode.GetAffixInfo(affixID)
+                        if name and name ~= "" then
+                            data.affixes[#data.affixes + 1] = { name = name, desc = desc or "", iconFileID = iconFileID }
+                            affixesFound = true
                         end
                     end
-                    affixList[#affixList + 1] = { name = name or "Affix", desc = desc or "" }
+                end
+            end
+        end
+        
+        -- Method 2: Try C_MythicPlus.GetCurrentAffixes() if available
+        if not affixesFound and C_MythicPlus and C_MythicPlus.GetCurrentAffixes then
+            local currentAffixes = C_MythicPlus.GetCurrentAffixes()
+            if currentAffixes and type(currentAffixes) == "table" then
+                for _, affixInfo in ipairs(currentAffixes) do
+                    if affixInfo and affixInfo.id then
+                        local name, desc, iconFileID = C_ChallengeMode.GetAffixInfo(affixInfo.id)
+                        if name and name ~= "" then
+                            data.affixes[#data.affixes + 1] = { name = name, desc = desc or "", iconFileID = iconFileID }
+                            affixesFound = true
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Method 3: Affixes may not be available until key is inserted; leave empty if so.
+    end
+
+    -- Get timer
+    data.timer = GetMplusTimer() or 0
+
+    -- Get death count and penalty
+    if C_ChallengeMode and C_ChallengeMode.GetDeathCount then
+        local numDeaths, timePenalty = C_ChallengeMode.GetDeathCount()
+        if numDeaths and numDeaths > 0 then
+            data.numDeaths = numDeaths
+        end
+        if timePenalty and timePenalty > 0 then
+            data.deathPenalty = timePenalty
+        end
+    end
+
+    -- Get boss progress and forces from scenario criteria
+    local stepCount = C_Scenario and C_Scenario.GetStepInfo and select(3, C_Scenario.GetStepInfo()) or 0
+    
+    -- Track seen boss criteria by index to handle multi-boss encounters
+    local seenBosses = {}
+    
+    if stepCount and stepCount > 0 then
+        for i = 1, stepCount do
+            local criteriaInfo = C_ScenarioInfo and C_ScenarioInfo.GetCriteriaInfo and C_ScenarioInfo.GetCriteriaInfo(i)
+            if criteriaInfo then
+                -- Enemy Forces are weighted progress
+                if criteriaInfo.isWeightedProgress and criteriaInfo.totalQuantity and criteriaInfo.totalQuantity > 0 then
+                    -- quantityString contains the current count with a % sign
+                    local currentCount = criteriaInfo.quantityString and tonumber(criteriaInfo.quantityString:match("%d+")) or 0
+                    data.enemyForces.current = currentCount
+                    data.enemyForces.total = criteriaInfo.totalQuantity
+                    data.enemyForces.percent = (currentCount / criteriaInfo.totalQuantity) * 100
+                
+                -- Bosses are non-weighted objectives
+                elseif not criteriaInfo.isWeightedProgress then
+                    -- Try to get proper encounter name, fall back to description
+                    -- For multi-boss encounters, description contains individual NPC names
+                    -- Use criteriaString if available as it may contain the encounter name
+                    local bossName = criteriaInfo.criteriaString or criteriaInfo.description or ("Boss " .. i)
+                    local completed = criteriaInfo.completed or false
+                    
+                    -- Avoid duplicates for multi-boss encounters (e.g., Demolition Duo)
+                    if not seenBosses[bossName] then
+                        seenBosses[bossName] = true
+                        data.bossList[#data.bossList + 1] = { name = bossName, completed = completed }
+                    end
                 end
             end
         end
     end
 
-    GameTooltip:AddLine(hex .. dungeonName .. " (" .. level .. ")|r", 1, 1, 1, true)
-    GameTooltip:AddLine(hex .. "Progress: " .. pctStr .. "  |  Time: " .. timerStr .. "|r", 0.9, 0.9, 0.9, false)
-    GameTooltip:AddLine(" ")
+    return data
+end
 
-    for _, a in ipairs(affixList) do
-        GameTooltip:AddLine(hex .. (a.name or "Affix") .. "|r", 0.95, 0.95, 1, true)
-        if a.desc and a.desc ~= "" then
-            GameTooltip:AddLine("  " .. a.desc, 0.75, 0.78, 0.85, true)
+-- No static ApplyMplusAlignment — all positioning is done in
+-- UpdateMplusBlockDisplay so we can skip hidden elements and
+-- avoid anchor-chain issues (hidden frames collapse anchors).
+
+local function GetBlockContentWidth()
+    local w = (addon.HS and addon.HS.GetWidth and addon.HS:GetWidth()) or addon.GetPanelWidth()
+    return (w or addon.PANEL_WIDTH) - addon.PADDING * 2
+end
+
+local function PositionMplusBlock(pos)
+    local panelWidth = GetBlockContentWidth()
+    mplusBlock:SetWidth(panelWidth)
+    mplusBlock:ClearAllPoints()
+    if pos == "bottom" then
+        mplusBlock:SetPoint("BOTTOMLEFT", addon.HS, "BOTTOMLEFT", addon.PADDING, addon.PADDING)
+    else
+        local topOffset = addon.GetContentTop()
+        mplusBlock:SetPoint("TOPLEFT", addon.HS, "TOPLEFT", addon.PADDING, topOffset)
+    end
+end
+
+local function ApplyMplusTypography()
+    local fontPath = addon.GetDB("fontPath", (addon.GetDefaultFontPath and addon.GetDefaultFontPath()) or "Fonts\\FRIZQT__.TTF")
+    local fontOutline = addon.GetDB("fontOutline", "OUTLINE")
+
+    local dungeonSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusDungeonSize", 14)) or 14))
+    local dungeonR = addon.GetDB("mplusDungeonColorR", 0.96)
+    local dungeonG = addon.GetDB("mplusDungeonColorG", 0.96)
+    local dungeonB = addon.GetDB("mplusDungeonColorB", 1.0)
+
+    local timerSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusTimerSize", 13)) or 13))
+
+    local progressSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusProgressSize", 12)) or 12))
+    local progressR = addon.GetDB("mplusProgressColorR", 0.72)
+    local progressG = addon.GetDB("mplusProgressColorG", 0.76)
+    local progressB = addon.GetDB("mplusProgressColorB", 0.88)
+
+    local affixSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusAffixSize", 12)) or 12))
+    local affixR = addon.GetDB("mplusAffixColorR", 0.85)
+    local affixG = addon.GetDB("mplusAffixColorG", 0.85)
+    local affixB = addon.GetDB("mplusAffixColorB", 0.95)
+
+    local bossSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusBossSize", 12)) or 12))
+    local bossR = addon.GetDB("mplusBossColorR", 0.78)
+    local bossG = addon.GetDB("mplusBossColorG", 0.82)
+    local bossB = addon.GetDB("mplusBossColorB", 0.92)
+
+    local shadowOx = tonumber(addon.GetDB("shadowOffsetX", 2)) or 2
+    local shadowOy = tonumber(addon.GetDB("shadowOffsetY", -2)) or -2
+    local shadowA = addon.GetDB("showTextShadow", true) and (tonumber(addon.GetDB("shadowAlpha", 0.8)) or 0.8) or 0
+
+    mplusHeroShadow:SetFont(fontPath, dungeonSize, fontOutline)
+    mplusHeroShadow:SetTextColor(0, 0, 0, shadowA)
+    mplusHeroShadow:SetJustifyH("LEFT")
+    mplusHeroShadow:SetPoint("CENTER", mplusHeroText, "CENTER", shadowOx, shadowOy)
+    mplusHeroText:SetFont(fontPath, dungeonSize, fontOutline)
+    mplusHeroText:SetTextColor(dungeonR, dungeonG, dungeonB, 1)
+
+    mplusPillText:SetFont(fontPath, timerSize, fontOutline)
+    -- Timer color is dynamic (in-time vs overtime); only UpdateMplusBlockDisplay sets it.
+
+    progressPercentShadow:SetFont(fontPath, progressSize, fontOutline)
+    progressPercentShadow:SetTextColor(0, 0, 0, shadowA)
+    progressPercentShadow:SetJustifyH("RIGHT")
+    progressPercentShadow:SetPoint("CENTER", progressPercentLabel, "CENTER", shadowOx, shadowOy)
+    progressCountShadow:SetFont(fontPath, progressSize, fontOutline)
+    progressCountShadow:SetTextColor(0, 0, 0, shadowA)
+    progressCountShadow:SetJustifyH("LEFT")
+    progressCountShadow:SetPoint("CENTER", progressCountLabel, "CENTER", shadowOx, shadowOy)
+    progressPercentLabel:SetFont(fontPath, progressSize, fontOutline)
+    progressPercentLabel:SetTextColor(progressR, progressG, progressB, 1)
+    progressCountLabel:SetFont(fontPath, progressSize, fontOutline)
+    progressCountLabel:SetTextColor(progressR, progressG, progressB, 1)
+
+    mplusAffixesText:SetFont(fontPath, affixSize, fontOutline)
+    mplusAffixesText:SetTextColor(affixR, affixG, affixB, 1)
+
+    mplusBossesText:SetFont(fontPath, bossSize, fontOutline)
+    mplusBossesText:SetTextColor(bossR, bossG, bossB, 1)
+end
+
+local function UpdateMplusBlockDisplay(data)
+    if not data then return end
+
+    -- Sizes for layout (ty applied in ApplyMplusTypography)
+    local dungeonSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusDungeonSize", 14)) or 14))
+    local timerSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusTimerSize", 13)) or 13))
+    local progressSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusProgressSize", 12)) or 12))
+    local affixSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusAffixSize", 12)) or 12))
+    local bossSize = math.max(8, math.min(32, tonumber(addon.GetDB("mplusBossSize", 12)) or 12))
+
+    local timerR = addon.GetDB("mplusTimerColorR", 0.6)
+    local timerG = addon.GetDB("mplusTimerColorG", 0.88)
+    local timerB = addon.GetDB("mplusTimerColorB", 1.0)
+    local timerOvertimeR = addon.GetDB("mplusTimerOvertimeColorR", 0.9)
+    local timerOvertimeG = addon.GetDB("mplusTimerOvertimeColorG", 0.25)
+    local timerOvertimeB = addon.GetDB("mplusTimerOvertimeColorB", 0.2)
+
+    local barNormR = addon.GetDB("mplusBarColorR", 0.20)
+    local barNormG = addon.GetDB("mplusBarColorG", 0.45)
+    local barNormB = addon.GetDB("mplusBarColorB", 0.60)
+    local barDoneR = addon.GetDB("mplusBarDoneColorR", 0.15)
+    local barDoneG = addon.GetDB("mplusBarDoneColorG", 0.65)
+    local barDoneB = addon.GetDB("mplusBarDoneColorB", 0.25)
+
+    -- Line 1: Dungeon name + keystone level
+    local dungeonName = data.dungeonName ~= "" and data.dungeonName or "Mythic+"
+    local level = data.level > 0 and (" (+" .. data.level .. ")") or ""
+    local heroStr = dungeonName .. level
+    mplusHeroText:SetText(heroStr)
+    mplusHeroShadow:SetText(heroStr)
+
+    -- Line 2: Timer (elapsed / target + penalty)
+    local timerStr = "—"
+    local isOvertime = false
+    if data.timer and data.timer > 0 and data.timeLimit and data.timeLimit > 0 then
+        local elapsed = data.timer
+        local target = data.timeLimit
+        isOvertime = elapsed >= target
+        local elapsedStr = string.format("%d:%02d", math.floor(elapsed / 60), math.floor(elapsed % 60))
+        local targetStr = string.format("%d:%02d", math.floor(target / 60), math.floor(target % 60))
+        timerStr = elapsedStr .. " / " .. targetStr
+        if data.numDeaths and data.numDeaths > 0 then
+            local deathStr = data.numDeaths == 1 and "1 death" or (data.numDeaths .. " deaths")
+            timerStr = timerStr .. "  |cffcc4444" .. deathStr
+            if data.deathPenalty and data.deathPenalty > 0 then
+                local penStr = string.format(" +%d:%02d", math.floor(data.deathPenalty / 60), math.floor(data.deathPenalty % 60))
+                timerStr = timerStr .. penStr
+            end
+            timerStr = timerStr .. "|r"
+        elseif data.deathPenalty and data.deathPenalty > 0 then
+            local penStr = string.format("+%d:%02d", math.floor(data.deathPenalty / 60), math.floor(data.deathPenalty % 60))
+            timerStr = timerStr .. "  |cffcc4444" .. penStr .. "|r"
         end
     end
+    -- Switch timer color when over the time limit
+    if isOvertime then
+        mplusPillText:SetTextColor(timerOvertimeR, timerOvertimeG, timerOvertimeB, 1)
+    else
+        mplusPillText:SetTextColor(timerR, timerG, timerB, 1)
+    end
+    mplusPillText:SetText(timerStr)
 
-    GameTooltip:Show()
+    -- Line 3: Progress bar (enemy forces)
+    if data.enemyForces.total > 0 then
+        local pctStr  = string.format("%.2f%%", data.enemyForces.percent)
+        local cntStr  = string.format("(%d/%d)", data.enemyForces.current, data.enemyForces.total)
+        progressPercentLabel:SetText(pctStr)
+        progressPercentShadow:SetText(pctStr)
+        progressCountLabel:SetText(cntStr)
+        progressCountShadow:SetText(cntStr)
+
+        -- Color: user-picked bar fill; switches to "done" color at 100%
+        if data.enemyForces.percent >= 100 then
+            progressBarFill:SetColorTexture(barDoneR, barDoneG, barDoneB, 0.90)
+        else
+            progressBarFill:SetColorTexture(barNormR, barNormG, barNormB, 0.90)
+        end
+        mplusProgressBar:SetHeight(math.max(PROGRESS_BAR_HEIGHT, progressSize + 6))
+        mplusProgressBar:Show()
+    else
+        progressPercentLabel:SetText("")
+        progressPercentShadow:SetText("")
+        progressCountLabel:SetText("")
+        progressCountShadow:SetText("")
+        mplusProgressBar:Hide()
+    end
+
+    -- Line 4: Affixes (one per line)
+    local affixStr = ""
+    local showIcons = addon.GetDB("mplusShowAffixIcons", true)
+    if #data.affixes > 0 then
+        local affixLines = {}
+        for _, a in ipairs(data.affixes) do
+            local line = a.name
+            if showIcons and a.iconFileID then
+                line = "|T" .. a.iconFileID .. ":" .. (affixSize or 14) .. ":" .. (affixSize or 14) .. ":0:0|t " .. line
+            end
+            affixLines[#affixLines + 1] = line
+        end
+        affixStr = table.concat(affixLines, "\n")
+    end
+    mplusAffixesText:SetText(affixStr)
+
+    -- Lines 5+: Bosses (tick = checkmark/cross; green = colored name)
+    local bossStr = ""
+    local bossCompletedDisplay = addon.GetDB("mplusBossCompletedDisplay", "tick")
+    if #data.bossList > 0 then
+        local bossLines = {}
+        for _, boss in ipairs(data.bossList) do
+            if boss.completed then
+                if bossCompletedDisplay == "tick" then
+                    bossLines[#bossLines + 1] = "|TInterface\\Buttons\\UI-CheckBox-Check:" .. bossSize .. ":" .. bossSize .. ":0:0|t" .. TICK_TEXT_GAP .. boss.name
+                else
+                    bossLines[#bossLines + 1] = "|cff44cc44" .. boss.name .. "|r"
+                end
+            else
+                if bossCompletedDisplay == "tick" then
+                    bossLines[#bossLines + 1] = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:" .. bossSize .. ":" .. bossSize .. ":0:0|t" .. TICK_TEXT_GAP .. boss.name
+                else
+                    bossLines[#bossLines + 1] = boss.name
+                end
+            end
+        end
+        bossStr = table.concat(bossLines, "\n")
+    end
+    mplusBossesText:SetText(bossStr)
+
+    -- ----------------------------------------------------------------
+    -- Block width matches panel so resize works both ways. Content wraps
+    -- within that; progress bar stays stable. Use live HS width during drag.
+    -- ----------------------------------------------------------------
+    local heroLeft = 4          -- small inset from block edge (no icon column needed)
+    local sidePadding = heroLeft + 4  -- left + right inset
+
+    local panelWidth = GetBlockContentWidth()
+    mplusBlock:SetWidth(panelWidth)
+
+    -- ----------------------------------------------------------------
+    -- Position every element explicitly from the top.  No anchor
+    -- chains through hidden frames, no RIGHT-anchor wobble.
+    -- ----------------------------------------------------------------
+    local barWidth = math.max(1, panelWidth - sidePadding)
+    local barH = math.max(PROGRESS_BAR_HEIGHT, progressSize + 6)
+    local y = -4
+
+    mplusHeroText:ClearAllPoints()
+    mplusHeroText:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", heroLeft, y)
+    mplusHeroText:SetWidth(barWidth)
+    mplusHeroShadow:SetWidth(barWidth)
+    mplusHeroShadow:SetWordWrap(true)
+    local heroH = mplusHeroText:GetStringHeight() or dungeonSize
+    y = y - heroH - 6
+
+    mplusPillText:ClearAllPoints()
+    mplusPillText:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", heroLeft, y)
+    local timerH = mplusPillText:GetStringHeight() or timerSize
+    y = y - timerH - 6
+
+    if data.enemyForces.total > 0 then
+        mplusProgressBar:ClearAllPoints()
+        mplusProgressBar:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", heroLeft, y)
+        mplusProgressBar:SetSize(math.max(1, barWidth), barH)
+        local fillFrac = math.min(1, data.enemyForces.percent / 100)
+        progressBarFill:SetWidth(math.max(1, barWidth * fillFrac))
+        y = y - barH - 6
+    end
+
+    -- Bosses (objectives) above affixes
+    mplusBossesText:ClearAllPoints()
+    mplusBossesText:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", heroLeft, y)
+    mplusBossesText:SetWidth(barWidth)
+    local bossH = 0
+    if bossStr ~= "" then
+        bossH = mplusBossesText:GetStringHeight() or bossSize
+        y = y - bossH - 6
+    end
+
+    mplusAffixesText:ClearAllPoints()
+    mplusAffixesText:SetPoint("TOPLEFT", mplusBlock, "TOPLEFT", heroLeft, y)
+    mplusAffixesText:SetWidth(barWidth)
+    local affixH = 0
+    if affixStr ~= "" then
+        affixH = mplusAffixesText:GetStringHeight() or affixSize
+        y = y - affixH - 6
+    end
+
+    -- Final block height
+    local heightNeeded = -y + 4  -- y is negative, add bottom padding
+    local finalHeight = math.max(MPLUS_MIN_HEIGHT, heightNeeded)
+    mplusBlock:SetHeight(finalHeight)
+end
+
+local TOOLTIP_ICON_SIZE = 20
+local TOOLTIP_FONT_SIZE = 13
+
+local function ShowMplusTooltip()
+    if not addon.GetDB("mplusShowAffixDescriptions", true) then return end
+    local data = GetMplusData()
+    if not data or #data.affixes == 0 then return end
+    local tt = GameTooltip
+    tt:SetOwner(mplusBlock, "ANCHOR_RIGHT")
+    tt:ClearLines()
+    for _, a in ipairs(data.affixes) do
+        local title = a.name
+        if a.iconFileID then
+            title = "|T" .. a.iconFileID .. ":" .. TOOLTIP_ICON_SIZE .. ":" .. TOOLTIP_ICON_SIZE .. ":0:0|t " .. title
+        end
+        tt:AddLine(title, 1, 1, 1)
+        if a.desc and a.desc ~= "" then
+            tt:AddLine(a.desc, 0.8, 0.8, 0.8, true)
+        end
+    end
+    tt:Show()
+    local fontPath = (GameFontNormal and GameFontNormal:GetFont()) or "Fonts\\FRIZQT__.TTF"
+    for i = 1, tt:NumLines() do
+        local left = _G["GameTooltipTextLeft" .. i]
+        if left then
+            left:SetFont(fontPath, TOOLTIP_FONT_SIZE, "OUTLINE")
+        end
+    end
 end
 
 local function HideMplusTooltip()
-    if GameTooltip and GameTooltip:GetOwner() == mplusBlock then
+    if GameTooltip:IsOwned(mplusBlock) then
         GameTooltip:Hide()
     end
 end
 
-mplusBlock:SetScript("OnEnter", function()
-    if mplusBlock:IsShown() then ShowMplusTooltip() end
-end)
+mplusBlock:SetScript("OnEnter", ShowMplusTooltip)
 mplusBlock:SetScript("OnLeave", HideMplusTooltip)
+
+-- OnUpdate for timer refresh (updates every second)
+local timeSinceLastUpdate = 0
+mplusBlock:SetScript("OnUpdate", function(self, elapsed)
+    if not self:IsShown() then return end
+    if addon.mplusDebugPreview then return end
+    
+    timeSinceLastUpdate = timeSinceLastUpdate + elapsed
+    
+    -- Update display every 1 second for smooth timer
+    if timeSinceLastUpdate >= 1.0 then
+        timeSinceLastUpdate = 0
+        local data = GetMplusData()
+        UpdateMplusBlockDisplay(data)
+    end
+end)
 
 local function UpdateMplusBlock()
     local pos = addon.GetDB("mplusBlockPosition", "top") or "top"
-
+    
+    -- mplusDebugPreview: show hardcoded demo data (from /horizon mplusdebug)
     if addon.mplusDebugPreview then
         PositionMplusBlock(pos)
-        mplusHeroText:SetText("Darkheart Thicket (+15)")
-        mplusPillText:SetText("18:32 • 67%")
-        mplusAffixesText:SetText("Fortified  Bursting  Sanguine")
+        ApplyMplusTypography()
+        local demoData = {
+            dungeonName = "Darkheart Thicket",
+            level = 15,
+            timer = 1112,
+            timeLimit = 1800,
+            deathPenalty = 15,
+            bossList = {
+                { name = "Boss 1", completed = true },
+                { name = "Boss 2", completed = true },
+                { name = "Boss 3", completed = false },
+                { name = "Boss 4", completed = false },
+            },
+            enemyForces = { current = 340, total = 400, percent = 85.25 },
+            numDeaths = 2,
+            affixes = {
+                { name = "Fortified", desc = "Non-boss enemies have 20% more health." },
+                { name = "Bursting", desc = "When slain, non-boss enemies burst, causing damage." },
+                { name = "Sanguine", desc = "When slain, non-boss enemies leave a pool of blood." },
+            }
+        }
+        UpdateMplusBlockDisplay(demoData)
         mplusBlock:Show()
         return
     end
 
-    if not addon.GetDB("showMythicPlusBlock", false) or not addon.IsInMythicDungeon() then
+    -- Check visibility settings
+    local showInDungeon = addon.GetDB("showInDungeon", false)
+    local alwaysShow = addon.GetDB("mplusAlwaysShow", false)
+    local hasActiveKeystone = C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID and C_ChallengeMode.GetActiveChallengeMapID() ~= nil
+
+    -- "Show in dungeon" ON  → show the M+ block.
+    -- "Show in dungeon" OFF → only show if "Always show M+ block" is ON.
+    local shouldShow = hasActiveKeystone and (showInDungeon or alwaysShow)
+    
+    if not shouldShow then
         mplusBlock:Hide()
         return
     end
 
     PositionMplusBlock(pos)
-
-    local dungeonName = (addon.GetMythicDungeonName and addon.GetMythicDungeonName()) or ""
-    local level = 0
-    if C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneLevel then
-        local ok, lvl = pcall(C_ChallengeMode.GetActiveKeystoneLevel)
-        if ok and lvl and lvl > 0 then level = lvl end
+    if not mplusBlock:IsShown() then
+        ApplyMplusTypography()
     end
-    local heroStr = (dungeonName ~= "" and dungeonName or "Mythic+") .. (level > 0 and (" (+" .. level .. ")") or "")
-
-    local pctStr = ""
-    if C_Scenario and C_Scenario.GetScenarioStepInfo then
-        local ok, stepInfo = pcall(C_Scenario.GetScenarioStepInfo)
-        if ok and stepInfo then
-            local p = (type(stepInfo) == "table" and stepInfo.progress) or (type(stepInfo) == "number" and stepInfo)
-            if p then pctStr = tostring(p) .. "%" end
-        end
-    end
-    if pctStr == "" and C_Scenario and C_Scenario.GetScenarioInfo then
-        local ok, info = pcall(C_Scenario.GetScenarioInfo)
-        if ok and info and info.currentStage and info.numStages and info.numStages > 0 then
-            pctStr = string.format("%d/%d", info.currentStage or 0, info.numStages or 0)
-        end
-    end
-    if pctStr == "" then pctStr = "—" end
-
-    local timerStr = ""
-    local dur, start = GetMplusTimer()
-    if dur and start then
-        local rem = math.max(0, dur - (GetTime() - start))
-        timerStr = string.format("%d:%02d", math.floor(rem / 60), math.floor(rem % 60))
-    end
-    if timerStr == "" then timerStr = "—" end
-
-    local pillStr = timerStr .. " • " .. pctStr
-
-    local affixStr = ""
-    if C_MythicPlus and C_MythicPlus.GetCurrentAffixes then
-        local ok, affixes = pcall(C_MythicPlus.GetCurrentAffixes)
-        if ok and affixes and #affixes > 0 then
-            local names = {}
-            for _, a in ipairs(affixes) do
-                if type(a) == "table" and a.name then
-                    names[#names + 1] = a.name
-                elseif type(a) == "number" and C_ChallengeMode and C_ChallengeMode.GetAffixInfo then
-                    local dOk, info = pcall(C_ChallengeMode.GetAffixInfo, a)
-                    if dOk and info and info.name then names[#names + 1] = info.name end
-                end
-            end
-            affixStr = table.concat(names, "  ")
-        end
-    end
-    if affixStr == "" then affixStr = "—" end
-
-    mplusHeroText:SetText(heroStr)
-    mplusPillText:SetText(pillStr)
-    mplusAffixesText:SetText(affixStr)
+    local data = GetMplusData()
+    UpdateMplusBlockDisplay(data)
     mplusBlock:Show()
 end
 
 addon.UpdateMplusBlock = UpdateMplusBlock
-
-addon.UpdateMplusBlock = UpdateMplusBlock
-
-
+addon.ApplyMplusTypography = ApplyMplusTypography

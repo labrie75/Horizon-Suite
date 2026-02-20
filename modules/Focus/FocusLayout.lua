@@ -89,6 +89,21 @@ local function AcquireEntry()
     return nil
 end
 
+-- Safety: if load order is disrupted (or a hot-reload partially loads files),
+-- layout can run before FocusAnimation defines addon.SetEntryFadeIn.
+-- Fall back to a no-animation init so we never hard-crash.
+local function SafeEntryFadeIn(entry, staggerIndex)
+    if addon.SetEntryFadeIn then
+        addon.SetEntryFadeIn(entry, staggerIndex)
+        return
+    end
+    if not entry then return end
+    entry.animState = "active"
+    entry.animTime = 0
+    entry.staggerDelay = 0
+    if entry.SetAlpha then entry:SetAlpha(1) end
+end
+
 local headerBtn = CreateFrame("Button", nil, addon.HS)
 headerBtn:SetPoint("TOPLEFT", addon.HS, "TOPLEFT", 0, 0)
 headerBtn:SetPoint("TOPRIGHT", addon.HS, "TOPRIGHT", 0, 0)
@@ -197,6 +212,28 @@ local function FullLayout()
         addon.ApplyGrowUpAnchor()
     end
 
+    -- Layout indentation model:
+    --  - Category chevron '−/+' is the left pivot.
+    --  - Quest titles start two spaces to the right of the chevron.
+    --  - Zone/objectives start two spaces to the right of the title.
+    -- Measure "two spaces" using the current TitleFont so it scales with typography.
+    do
+        addon.focus.layout = addon.focus.layout or {}
+        local twoSpaces = 8
+        local ok = pcall(function()
+            addon.focus.layout.__indentMeasure = addon.focus.layout.__indentMeasure or addon.scrollChild:CreateFontString(nil, "ARTWORK")
+            local fs = addon.focus.layout.__indentMeasure
+            fs:Hide()
+            fs:SetFontObject(addon.TitleFont)
+            fs:SetText("  ")
+            local w = fs:GetStringWidth()
+            if w and w > 0 then twoSpaces = w end
+        end)
+        if not ok then twoSpaces = 8 end
+        addon.focus.layout.twoSpacesPx = twoSpaces
+        addon.focus.layout.titleIndentPx = twoSpaces
+    end
+
     local minimal = addon.GetDB("hideObjectivesHeader", false)
     local hideOptBtn = addon.GetDB("hideOptionsButton", false)
     if minimal then
@@ -292,6 +329,9 @@ local function FullLayout()
     end
 
     if addon.focus.collapsed then
+        if addon.focus.collapse.pendingWQCollapse then
+            addon.focus.collapse.pendingWQCollapse = false
+        end
         local quests = addon.ReadTrackedQuests()
         for _, r in ipairs(rares) do quests[#quests + 1] = r end
         if addon.GetDB("showAchievements", true) and addon.ReadTrackedAchievements then
@@ -335,7 +375,7 @@ local function FullLayout()
                     local sec = addon.AcquireSectionHeader(grp.key, focusedGroupKey)
                     if sec then
                         sec:ClearAllPoints()
-                        local x = addon.GetContentLeftOffset()
+                        local x = addon.PADDING
                         sec:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", x, yOff)
                         sec.finalX, sec.finalY = x, yOff
                         yOff = yOff - (addon.SECTION_SIZE + 4) - addon.GetSectionToEntryGap()
@@ -347,7 +387,8 @@ local function FullLayout()
                 addon.focus.layout.scrollOffset = 0
                 local headerArea = addon.PADDING + addon.GetHeaderHeight() + addon.DIVIDER_HEIGHT + addon.GetHeaderToContentGap()
                 local visibleH = math.min(totalContentH, addon.GetMaxContentHeight())
-                addon.focus.layout.targetHeight = math.max(addon.MIN_HEIGHT, headerArea + visibleH + addon.PADDING)
+                local mplusHeight = (hasMplus and addon.GetMplusBlockHeight and (addon.GetMplusBlockHeight() + gap * 2)) or 0
+                addon.focus.layout.targetHeight = math.max(addon.MIN_HEIGHT, headerArea + visibleH + addon.PADDING + mplusHeight)
             else
                 scrollFrame:Hide()
                 addon.focus.layout.targetHeight = addon.GetCollapsedHeight()
@@ -383,6 +424,9 @@ local function FullLayout()
 
     -- When a category is collapsing, skip full layout to avoid section header flicker.
     if addon.focus.collapse.groups and next(addon.focus.collapse.groups) then
+        if addon.focus.collapse.pendingWQCollapse then
+            addon.focus.collapse.pendingWQCollapse = false
+        end
         addon.UpdateHeaderQuestCount(#quests, addon.CountTrackedInLog(quests))
         if addon.EnsureFocusUpdateRunning then addon.EnsureFocusUpdateRunning() end
         return
@@ -395,15 +439,59 @@ local function FullLayout()
 
     local onlyDelveShown = (#grouped == 1 and grouped[1] and grouped[1].key == "DELVES")
         and (addon.IsDelveActive and addon.IsDelveActive())
+    local useWQCollapse = addon.focus.collapse.pendingWQCollapse
+        and addon.GetDB("animations", true)
+        and not onlyDelveShown
+    local useWQExpand = addon.focus.collapse.pendingWQExpand
+        and addon.GetDB("animations", true)
+    if useWQExpand then
+        if addon.PrepareGroupExpandSlideDown then addon.PrepareGroupExpandSlideDown("WORLD") end
+        addon.focus.collapse.pendingWQExpand = false
+    end
+    local slideUpStarts = nil
+    local slideUpStartsSec = nil
+    if useWQCollapse then
+        slideUpStarts = {}
+        for k in pairs(currentIDs) do
+            local e = activeMap[k]
+            if e and (e.animState == "active" or e.animState == "fadein") and e.finalY ~= nil then
+                slideUpStarts[k] = e.finalY
+            end
+        end
+        slideUpStartsSec = {}
+        for i = 1, addon.SECTION_POOL_SIZE do
+            local s = sectionPool[i]
+            if s and s.active and s.groupKey and s.finalY ~= nil then
+                slideUpStartsSec[s.groupKey] = s.finalY
+            end
+        end
+    end
+    local toRemove = {}
     for key, entry in pairs(activeMap) do
         if not currentIDs[key] then
             if onlyDelveShown and addon.ClearEntry then
                 addon.ClearEntry(entry)
+            elseif useWQCollapse and entry.animState ~= "completing" and entry.animState ~= "fadeout" then
+                toRemove[#toRemove + 1] = { key = key, entry = entry }
             elseif entry.animState ~= "completing" and entry.animState ~= "fadeout" then
                 addon.SetEntryFadeOut(entry)
             end
             activeMap[key] = nil
         end
+    end
+    if useWQCollapse and #toRemove > 0 then
+        table.sort(toRemove, function(a, b)
+            return (a.entry.finalY or 0) > (b.entry.finalY or 0)
+        end)
+        addon.focus.collapse.optionCollapseKeys = {}
+        for i, t in ipairs(toRemove) do
+            addon.SetEntryCollapsing(t.entry, i - 1)
+            addon.focus.collapse.optionCollapseKeys[t.key] = true
+        end
+        addon.focus.collapse.pendingWQCollapse = false
+    end
+    if addon.focus.collapse.pendingWQCollapse then
+        addon.focus.collapse.pendingWQCollapse = false
     end
     if onlyDelveShown and addon.ClearEntry then
         for i = 1, addon.POOL_SIZE do
@@ -424,12 +512,12 @@ local function FullLayout()
             if not entry then
                 entry = AcquireEntry()
                 if entry then
-                    addon.SetEntryFadeIn(entry, 0)
+                    SafeEntryFadeIn(entry, 0)
                     activeMap[key] = entry
                 end
             elseif entry.animState == "idle" and not entry.questID and not entry.entryKey then
                 -- Zombie entry left over from a group collapse: reset it for fadein.
-                addon.SetEntryFadeIn(entry, 0)
+                SafeEntryFadeIn(entry, 0)
             end
             if entry then
                 entry.groupKey = grp.key
@@ -503,7 +591,28 @@ local function FullLayout()
     addon.focus.promotion.prevWeekly = curPriority.WEEKLY or {}
     addon.focus.promotion.prevDaily  = curPriority.DAILY  or {}
 
-    addon.HideAllSectionHeaders()
+    local excludeSectionHeadersForFade = nil
+    if addon.focus.collapse.optionCollapseKeys and next(addon.focus.collapse.optionCollapseKeys) and addon.GetDB("animations", true) then
+        local newGroupKeys = {}
+        for _, grp in ipairs(grouped) do
+            newGroupKeys[grp.key] = true
+        end
+        local disappearing = {}
+        for i = 1, addon.SECTION_POOL_SIZE do
+            local s = sectionPool[i]
+            if s and s.active and s.groupKey and not newGroupKeys[s.groupKey] then
+                disappearing[s.groupKey] = true
+            end
+        end
+        if next(disappearing) then
+            addon.focus.collapse.sectionHeadersFadingOut = true
+            addon.focus.collapse.sectionHeadersFadingOutKeys = disappearing
+            addon.focus.collapse.sectionHeaderFadeTime = 0
+            excludeSectionHeadersForFade = disappearing
+            if addon.EnsureFocusUpdateRunning then addon.EnsureFocusUpdateRunning() end
+        end
+    end
+    addon.HideAllSectionHeaders(excludeSectionHeadersForFade)
     addon.focus.layout.sectionIdx = 0
 
     local yOff = 0
@@ -511,6 +620,28 @@ local function FullLayout()
 
     local showSections = #grouped > 1 and addon.GetDB("showSectionHeaders", true)
     local focusedGroupKey = addon.GetFocusedGroupKey(grouped)
+
+    -- Offset quest entries so their text starts under the section header label
+    -- (i.e. same start as category text, excluding the chevron).
+    local sectionLabelX = 0
+    if showSections then
+        local w = addon.focus.layout and addon.focus.layout.twoSpacesPx
+        if type(w) == "number" and w > 0 then
+            sectionLabelX = math.floor(w + 0.5)
+        else
+            -- Fallback if the layout cache isn't populated yet.
+            local meas = addon.focus.layout.__sectionIndentMeasure
+            if not meas then
+                meas = scrollChild:CreateFontString(nil, "ARTWORK")
+                meas:Hide()
+                addon.focus.layout.__sectionIndentMeasure = meas
+            end
+            meas:SetFontObject(addon.TitleFont)
+            meas:SetText("  ")
+            local mw = meas:GetStringWidth()
+            if mw and mw > 0 then sectionLabelX = math.floor(mw + 0.5) end
+        end
+    end
 
     for gi, grp in ipairs(grouped) do
         local isCollapsed = showSections and addon.IsCategoryCollapsed(grp.key)
@@ -522,7 +653,7 @@ local function FullLayout()
             local sec = addon.AcquireSectionHeader(grp.key, focusedGroupKey)
             if sec then
                 sec:ClearAllPoints()
-                local x = addon.GetContentLeftOffset()
+                local x = addon.PADDING
                 sec:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", x, yOff)
                 sec.finalX, sec.finalY = x, yOff
                 yOff = yOff - (addon.SECTION_SIZE + 4) - addon.GetSectionToEntryGap()
@@ -540,11 +671,14 @@ local function FullLayout()
                 end
             end
         else
-            local entrySpacing = ((grp.key == "DELVES" or grp.key == "DUNGEON") and addon.DELVE_ENTRY_SPACING) or addon.GetTitleSpacing()
-            for _, qData in ipairs(grp.quests) do
-                local key = qData.entryKey or qData.questID
-                local entry = activeMap[key]
-                if entry then
+             local entrySpacing = ((grp.key == "DELVES" or grp.key == "DUNGEON") and addon.DELVE_ENTRY_SPACING) or addon.GetTitleSpacing()
+             local categoryCounter = 0
+             for _, qData in ipairs(grp.quests) do
+                categoryCounter = categoryCounter + 1
+                qData.categoryIndex = categoryCounter
+                 local key = qData.entryKey or qData.questID
+                 local entry = activeMap[key]
+                 if entry then
                     entry.groupKey = grp.key
                     entry.finalX = addon.GetContentLeftOffset()
                     entry.finalY = yOff
@@ -552,15 +686,43 @@ local function FullLayout()
                     entryIndex = entryIndex + 1
 
                     if not entry:IsShown() and (entry.animState == "active" or entry.animState == "idle") and addon.GetDB("animations", true) then
-                        addon.SetEntryFadeIn(entry, entryIndex - 1)
+                        SafeEntryFadeIn(entry, entryIndex - 1)
                     end
                     entry:ClearAllPoints()
                     entry:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", addon.GetContentLeftOffset(), yOff)
                     entry:Show()
                     yOff = yOff - entry.entryHeight - entrySpacing
+                 end
+             end
+         end
+     end
+
+    if slideUpStarts and next(slideUpStarts) and addon.GetDB("animations", true) then
+        for i = 1, addon.POOL_SIZE do
+            local e = pool[i]
+            if e and (e.questID or e.entryKey) and e.animState == "active" and e.finalY ~= nil then
+                local key = e.questID or e.entryKey
+                local prevY = slideUpStarts[key]
+                if prevY and prevY ~= e.finalY then
+                    addon.SetEntrySlideUp(e, prevY)
                 end
             end
         end
+    end
+    if slideUpStartsSec and next(slideUpStartsSec) and addon.GetDB("animations", true) then
+        for i = 1, addon.SECTION_POOL_SIZE do
+            local s = sectionPool[i]
+            if s and s.active and s.groupKey and s.finalY ~= nil then
+                local prevY = slideUpStartsSec[s.groupKey]
+                if prevY and prevY ~= s.finalY then
+                    s.slideUpStartY = prevY
+                    s.slideUpAnimTime = 0
+                end
+            end
+        end
+    end
+    if useWQExpand and addon.ApplyGroupExpandSlideDown then
+        addon.ApplyGroupExpandSlideDown()
     end
 
     addon.UpdateHeaderQuestCount(#quests, addon.CountTrackedInLog(quests))
@@ -576,7 +738,8 @@ local function FullLayout()
 
     local headerArea    = addon.PADDING + addon.GetHeaderHeight() + addon.DIVIDER_HEIGHT + addon.GetHeaderToContentGap()
     local visibleH      = math.min(totalContentH, addon.GetMaxContentHeight())
-    addon.focus.layout.targetHeight  = math.max(addon.MIN_HEIGHT, headerArea + visibleH + addon.PADDING)
+    local mplusHeight   = (hasMplus and addon.GetMplusBlockHeight and (addon.GetMplusBlockHeight() + gap * 2)) or 0
+    addon.focus.layout.targetHeight  = math.max(addon.MIN_HEIGHT, headerArea + visibleH + addon.PADDING + mplusHeight)
 
     if #quests > 0 then
         if addon.focus.combat.fadeState == "in" then addon.HS:SetAlpha(0) end
