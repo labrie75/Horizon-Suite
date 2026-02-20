@@ -10,6 +10,14 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [1.2.1] – 2026-02-20
+
+### Improvements
+
+- **(Focus) M+ timer verification, debug cleanup, and localization** — Follow-up polish from recent Mythic+ and world quest improvements.
+
+---
+
 ## [1.2.0] – 2026-02-19
 
 ### New Features
