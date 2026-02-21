@@ -10,6 +10,26 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [2.2.0] – 2026-02-21
+
+### ✨ New Features
+
+- **(Focus) Option to fade objectives during combat instead of fully hiding them** — Objectives remain visible but partially transparent in combat; opacity returns to normal out of combat.
+
+### 🔧 Improvements
+
+- **(Core) Changelog sections use emoji icons for quicker scanning** — Section headers now have emoji prefixes for visual distinction.
+- **(Core) Update credits section with French localization contributor and development attribution** — Credits now list Aishuu for French localization and development attribution for feanor21.
+- **(Core) Add Presence notification strings to French and Korean localization** — Level-up, achievement, quest complete, and other Presence notification text is now localized for French and Korean.
+- **(Core) Improve French localization clarity and consistency in options panel** — French labels and tooltips are clearer and align better with game terminology.
+
+### 🐛 Fixes
+
+- **(Core)** Beta release workflow no longer crashes when creating the beta tag.
+- **(Core)** SharedMedia_Noto fonts now appear in the font dropdown alongside other SharedMedia fonts.
+
+---
+
 ## [2.1.0] – 2026-02-21
 
 ### ✨ New Features
