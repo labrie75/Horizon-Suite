@@ -7,6 +7,12 @@
 if not _G.HorizonSuite then _G.HorizonSuite = {} end
 local addon = _G.HorizonSuite
 
+-- ---------------------------------------------------------------------------
+-- Forward declarations (Lua local scoping)
+-- ---------------------------------------------------------------------------
+
+local EnsureProfilesAndMigrateLegacy
+
 -- ==========================================================================
 -- DB AND DIMENSION HELPERS (depend on Config constants)
 -- ==========================================================================
@@ -106,16 +112,765 @@ function addon.GetContentLeftOffset()
     return math.max(addon.PADDING, base)
 end
 
+-- ==========================================================================
+-- PROFILES
+-- ==========================================================================
+
+-- No "Default" profile: profiles are always character/explicitly named.
+-- Each character's base profile selection is stored in HorizonDB.charProfileKeys[charName-realm].
+local PROFILE_DEFAULT_KEY = nil
+
+local function GetSpecIndexSafe()
+    if _G.GetSpecialization then
+        local s = _G.GetSpecialization()
+        if type(s) == "number" and s >= 1 and s <= 4 then return s end
+    end
+    return nil
+end
+
+local _cachedCharKey = nil
+
+local function GetCurrentCharacterProfileKey()
+    if _cachedCharKey then return _cachedCharKey end
+    local name = _G.UnitName and _G.UnitName("player")
+    local realm = _G.GetNormalizedRealmName and _G.GetNormalizedRealmName() or (_G.GetRealmName and _G.GetRealmName())
+    if type(name) ~= "string" or name == "" then return nil end
+    realm = (type(realm) == "string" and realm ~= "") and realm or nil
+    local key = realm and (name .. "-" .. realm) or name
+    key = key:gsub("%s+", "")
+    if realm then _cachedCharKey = key end
+    return key
+end
+
+local function GetSpecName(specIndex)
+    if type(specIndex) ~= "number" then return nil end
+    if _G.GetSpecializationInfo then
+        local id, name = _G.GetSpecializationInfo(specIndex)
+        if type(name) == "string" and name ~= "" then return name end
+    end
+    return ("Spec %d"):format(specIndex)
+end
+
+function addon.ListSpecOptions()
+    local out = {}
+    local numSpecs = _G.GetNumSpecializations and _G.GetNumSpecializations() or 4
+    for i = 1, numSpecs do
+        local name = GetSpecName(i)
+        if name and name ~= "" then
+            out[#out + 1] = { tostring(i), name }
+        end
+    end
+    return out
+end
+
+local function GetCharPerSpecKeys()
+    local charKey = GetCurrentCharacterProfileKey()
+    if not charKey then return nil end
+    HorizonDB.charPerSpecKeys = HorizonDB.charPerSpecKeys or {}
+    HorizonDB.charPerSpecKeys[charKey] = HorizonDB.charPerSpecKeys[charKey] or {}
+    return HorizonDB.charPerSpecKeys[charKey]
+end
+
+function addon.GetProfileModeState()
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    local useGlobal = HorizonDB.useGlobalProfile == true
+    local usePerSpec = HorizonDB.usePerSpecProfiles == true
+    local globalKey = HorizonDB.globalProfileKey
+    local perSpec = GetCharPerSpecKeys()
+    return useGlobal, usePerSpec, globalKey, perSpec
+end
+
+function addon.SetUseGlobalProfile(v)
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    HorizonDB.useGlobalProfile = v and true or false
+end
+
+function addon.SetUsePerSpecProfiles(v)
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    HorizonDB.usePerSpecProfiles = v and true or false
+end
+
+function addon.SetGlobalProfileKey(key)
+    if type(key) ~= "string" or key == "" then return end
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    HorizonDB.globalProfileKey = key
+end
+
+function addon.SetPerSpecProfileKey(specIndex, key)
+    if type(specIndex) ~= "number" then return end
+    if type(key) ~= "string" or key == "" then return end
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    local perSpec = GetCharPerSpecKeys()
+    if perSpec then
+        perSpec[specIndex] = key
+    end
+end
+
+function addon.GetEffectiveProfileKey()
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+
+    local charKey = GetCurrentCharacterProfileKey()
+
+    if HorizonDB.useGlobalProfile == true then
+        if type(HorizonDB.globalProfileKey) == "string" and HorizonDB.globalProfileKey ~= "" and HorizonDB.globalProfileKey ~= "Default" then
+            return HorizonDB.globalProfileKey
+        end
+    end
+
+    if HorizonDB.usePerSpecProfiles == true then
+        local spec = GetSpecIndexSafe()
+        local perSpec = GetCharPerSpecKeys()
+        if spec and perSpec and type(perSpec[spec]) == "string" and perSpec[spec] ~= "" and perSpec[spec] ~= "Default" then
+            return perSpec[spec]
+        end
+    end
+
+    if not charKey or charKey == "" then return nil end
+
+    HorizonDB.charProfileKeys = HorizonDB.charProfileKeys or {}
+    local selected = HorizonDB.charProfileKeys[charKey] or charKey
+    if selected == "Default" then selected = charKey end
+    return selected
+end
+
+function addon.GetActiveProfileKey()
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    return addon.GetEffectiveProfileKey()
+end
+
+function addon.GetActiveProfile()
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    local key = addon.GetEffectiveProfileKey()
+    if not key or key == "" then
+        addon._earlyLoadProfile = addon._earlyLoadProfile or {}
+        return addon._earlyLoadProfile, nil
+    end
+    HorizonDB.profiles = HorizonDB.profiles or {}
+    HorizonDB.profiles[key] = HorizonDB.profiles[key] or {}
+    return HorizonDB.profiles[key], key
+end
+
+function addon.SetActiveProfileKey(key)
+    if type(key) ~= "string" or key == "" or key == "Default" then return end
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    HorizonDB.profiles = HorizonDB.profiles or {}
+    HorizonDB.profiles[key] = HorizonDB.profiles[key] or {}
+
+    local charKey = GetCurrentCharacterProfileKey()
+    if not charKey or charKey == "" then return end
+    HorizonDB.charProfileKeys = HorizonDB.charProfileKeys or {}
+    HorizonDB.charProfileKeys[charKey] = key
+
+    if HorizonDB.useGlobalProfile == true then
+        HorizonDB.globalProfileKey = key
+    end
+end
+
+EnsureProfilesAndMigrateLegacy = function()
+    if not HorizonDB then HorizonDB = {} end
+
+    HorizonDB.profiles = HorizonDB.profiles or {}
+    HorizonDB.charProfileKeys = HorizonDB.charProfileKeys or {}
+    HorizonDB.charPerSpecKeys = HorizonDB.charPerSpecKeys or {}
+
+    local charKey = GetCurrentCharacterProfileKey()
+
+    -- Ensure the Default profile always exists (empty = all default values).
+    if not HorizonDB.profiles["Default"] then
+        HorizonDB.profiles["Default"] = {}
+    end
+
+    -- If character info is not yet available (early load), skip charProfileKeys
+    -- modifications to avoid creating stale entries under a partial key.
+    if not charKey or charKey == "" then return end
+
+    -- If we've already migrated, just ensure the selected key exists.
+    if HorizonDB._profilesMigrated then
+        -- Clean up stale "Profile" entries from older early-load fallback bug.
+        if HorizonDB.charProfileKeys["Profile"] then
+            HorizonDB.charProfileKeys["Profile"] = nil
+        end
+        if HorizonDB.profiles["Profile"] and not HorizonDB.charProfileKeys[charKey] then
+            HorizonDB.profiles["Profile"] = nil
+        end
+
+        -- For characters that haven't picked a profile yet, default to their
+        -- own character-named profile (NOT the stale shared profileKey).
+        if not HorizonDB.charProfileKeys[charKey] or HorizonDB.charProfileKeys[charKey] == "Default" then
+            HorizonDB.charProfileKeys[charKey] = charKey
+        end
+        local activeKey = HorizonDB.charProfileKeys[charKey] or charKey
+        HorizonDB.profiles[activeKey] = HorizonDB.profiles[activeKey] or {}
+        -- Validate referenced keys: reset dangling references instead of auto-creating profiles.
+        if type(HorizonDB.globalProfileKey) == "string" and HorizonDB.globalProfileKey ~= "" then
+            if not HorizonDB.profiles[HorizonDB.globalProfileKey] or HorizonDB.globalProfileKey == "Default" then
+                HorizonDB.globalProfileKey = activeKey
+            end
+        end
+        -- Per-character spec keys: initialize if missing, default all to the character's active profile.
+        HorizonDB.charPerSpecKeys[charKey] = HorizonDB.charPerSpecKeys[charKey] or {}
+        local charSpecs = HorizonDB.charPerSpecKeys[charKey]
+        for i = 1, 4 do
+            charSpecs[i] = charSpecs[i] or activeKey
+            -- Validate: if the referenced profile was deleted, reset to activeKey.
+            if type(charSpecs[i]) == "string" and charSpecs[i] ~= "" then
+                if not HorizonDB.profiles[charSpecs[i]] or charSpecs[i] == "Default" then
+                    charSpecs[i] = activeKey
+                end
+            end
+        end
+        return
+    end
+
+    -- Migration: move legacy top-level settings into the character profile.
+    HorizonDB.profiles[charKey] = HorizonDB.profiles[charKey] or {}
+
+    -- Keep only options window geometry at root.
+    local keepRoot = {
+        optionsLeft = true,
+        optionsTop = true,
+        optionsPanelWidth = true,
+        optionsPanelHeight = true,
+        optionsGroupCollapsed = true,
+
+        modules = true,
+
+        profiles = true,
+        profileKey = true,
+        charProfileKeys = true,
+        charPerSpecKeys = true,
+        _profilesMigrated = true,
+
+        -- profile mode state
+        useGlobalProfile = true,
+        usePerSpecProfiles = true,
+        globalProfileKey = true,
+        perSpecProfileKeys = true,
+    }
+
+    for k, v in pairs(HorizonDB) do
+        if not keepRoot[k] then
+            HorizonDB.profiles[charKey][k] = v
+            HorizonDB[k] = nil
+        end
+    end
+
+    HorizonDB.charProfileKeys[charKey] = charKey
+    HorizonDB.profileKey = charKey
+    HorizonDB._profilesMigrated = true
+
+    -- Initialize derived selectors.
+    HorizonDB.globalProfileKey = HorizonDB.globalProfileKey or charKey
+    HorizonDB.charPerSpecKeys[charKey] = HorizonDB.charPerSpecKeys[charKey] or {}
+    for i = 1, 4 do
+        HorizonDB.charPerSpecKeys[charKey][i] = HorizonDB.charPerSpecKeys[charKey][i] or charKey
+    end
+end
+
+
+-- Ensure other files (and old saved snippets) calling the global name won't crash.
+_G.EnsureProfilesAndMigrateLegacy = EnsureProfilesAndMigrateLegacy
+
+-- ---------------------------------------------------------------------------
+-- Profile helpers: list, create, delete, sanitize
+-- ---------------------------------------------------------------------------
+
+local function SanitizeProfileKey(raw)
+    if type(raw) ~= "string" then return "" end
+    local trimmed = raw:match("^%s*(.-)%s*$") or ""
+    return trimmed
+end
+
+function addon.ListProfiles()
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    HorizonDB.profiles = HorizonDB.profiles or {}
+    local out = {}
+    for k in pairs(HorizonDB.profiles) do
+        out[#out + 1] = k
+    end
+    table.sort(out)
+    return out
+end
+
+function addon.CreateProfile(newKey, sourceKey)
+    if type(newKey) ~= "string" or newKey == "" then return false end
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    HorizonDB.profiles = HorizonDB.profiles or {}
+    if HorizonDB.profiles[newKey] then return false end
+    HorizonDB.profiles[newKey] = {}
+    if type(sourceKey) == "string" and sourceKey ~= "" and HorizonDB.profiles[sourceKey] then
+        for k, v in pairs(HorizonDB.profiles[sourceKey]) do
+            if type(v) == "table" then
+                local copy = {}
+                for kk, vv in pairs(v) do copy[kk] = vv end
+                HorizonDB.profiles[newKey][k] = copy
+            else
+                HorizonDB.profiles[newKey][k] = v
+            end
+        end
+    end
+    return true
+end
+
+function addon.DeleteProfile(key)
+    if type(key) ~= "string" or key == "" then return false end
+    if key == "Default" then return false end
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    HorizonDB.profiles = HorizonDB.profiles or {}
+    if not HorizonDB.profiles[key] then return false end
+    local activeKey = addon.GetActiveProfileKey()
+    if key == activeKey then return false end
+    HorizonDB.profiles[key] = nil
+    if HorizonDB.globalProfileKey == key then
+        HorizonDB.globalProfileKey = activeKey
+    end
+    -- Clean up per-character spec keys for all characters.
+    if HorizonDB.charPerSpecKeys then
+        for _, specMap in pairs(HorizonDB.charPerSpecKeys) do
+            if type(specMap) == "table" then
+                for i = 1, 4 do
+                    if specMap[i] == key then
+                        specMap[i] = activeKey
+                    end
+                end
+            end
+        end
+    end
+    -- Also clean up legacy global perSpecProfileKeys if still present.
+    if HorizonDB.perSpecProfileKeys then
+        for i = 1, 4 do
+            if HorizonDB.perSpecProfileKeys[i] == key then
+                HorizonDB.perSpecProfileKeys[i] = activeKey
+            end
+        end
+    end
+    if HorizonDB.charProfileKeys then
+        for ck, pk in pairs(HorizonDB.charProfileKeys) do
+            if pk == key then
+                HorizonDB.charProfileKeys[ck] = activeKey
+            end
+        end
+    end
+    return true
+end
+
+-- ---------------------------------------------------------------------------
+-- Profile creation & deletion popups (UI)
+-- ---------------------------------------------------------------------------
+
+function addon.TryCreateProfile(newKey, sourceKey)
+    newKey = SanitizeProfileKey(newKey)
+    if newKey == "" then return false, "empty" end
+
+    addon.EnsureDB()
+    HorizonDB.profiles = HorizonDB.profiles or {}
+    if HorizonDB.profiles[newKey] then return false, "exists" end
+
+    local ok = addon.CreateProfile(newKey, sourceKey)
+    if not ok then return false, "failed" end
+
+    addon.SetActiveProfileKey(newKey)
+    return true
+end
+
+function addon.ShowCreateProfilePopup(sourceKey)
+    addon._profilePopupSourceKey = sourceKey or (addon.GetActiveProfileKey and addon.GetActiveProfileKey())
+    if StaticPopup_Show then
+        StaticPopup_Show("HORIZONSUITE_CREATE_PROFILE")
+    end
+end
+
+function addon.TryDeleteProfileConfirmed(key)
+    if type(key) ~= "string" or key == "" then return false end
+    if addon.GetActiveProfileKey and addon.GetActiveProfileKey() == key then
+        return false
+    end
+    if addon.DeleteProfile and addon.DeleteProfile(key) then
+        addon._profileDeleteKey = nil
+        addon._profileCopyFrom = nil
+        if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+        if addon.OptionsData_NotifyMainAddon then addon.OptionsData_NotifyMainAddon() end
+        return true
+    end
+    return false
+end
+
+function addon.ShowDeleteProfilePopup(key)
+    addon._profilePopupDeleteKey = key
+    if StaticPopup_Show then
+        -- Pass profile key as arg1 so Blizzard can format dialogInfo.text safely.
+        StaticPopup_Show("HORIZONSUITE_DELETE_PROFILE", key)
+    end
+end
+
+if StaticPopupDialogs then
+    StaticPopupDialogs["HORIZONSUITE_CREATE_PROFILE"] = StaticPopupDialogs["HORIZONSUITE_CREATE_PROFILE"] or {
+        text = "Create profile",
+        button1 = (_G.CREATE or "Create"),
+        button2 = (_G.CANCEL or "Cancel"),
+        hasEditBox = true,
+        maxLetters = 32,
+        editBoxWidth = 180,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+        OnShow = function(self)
+            local eb = self.editBox or self.EditBox
+            if eb then
+                eb:SetText("")
+                eb:SetFocus()
+                eb:HighlightText()
+            end
+        end,
+        OnAccept = function(self)
+            local eb = self.editBox or self.EditBox
+            local name = eb and eb:GetText() or ""
+            local src = addon._profilePopupSourceKey or (addon.GetActiveProfileKey and addon.GetActiveProfileKey())
+            local ok, reason = addon.TryCreateProfile(name, src)
+            if not ok then
+                if addon.HSPrint then
+                    if reason == "exists" then addon.HSPrint("Profile already exists.")
+                    elseif reason == "reserved" then addon.HSPrint("That profile name is reserved.")
+                    else addon.HSPrint("Invalid profile name.") end
+                end
+                return
+            end
+            -- TryCreateProfile switches active profile already.
+            addon._profilePopupSourceKey = nil
+            if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+            if addon.OptionsData_NotifyMainAddon then addon.OptionsData_NotifyMainAddon() end
+        end,
+        EditBoxOnEnterPressed = function(self)
+            local parent = self:GetParent()
+            if parent then
+                local btn = parent.button1 or (parent.Buttons and parent.Buttons[1])
+                if btn then btn:Click() end
+            end
+        end,
+        EditBoxOnEscapePressed = function(self)
+            local parent = self:GetParent()
+            if parent then
+                local btn = parent.button2 or (parent.Buttons and parent.Buttons[2])
+                if btn then btn:Click() end
+            end
+        end,
+    }
+
+    StaticPopupDialogs["HORIZONSUITE_DELETE_PROFILE"] = StaticPopupDialogs["HORIZONSUITE_DELETE_PROFILE"] or {
+        text = "Delete profile '%s'?",
+        button1 = (_G.DELETE or "Delete"),
+        button2 = (_G.CANCEL or "Cancel"),
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+        OnAccept = function()
+            local key = addon._profilePopupDeleteKey
+            addon._profilePopupDeleteKey = nil
+            addon.TryDeleteProfileConfirmed(key)
+        end,
+        OnCancel = function()
+            addon._profilePopupDeleteKey = nil
+        end,
+    }
+
+    StaticPopupDialogs["HORIZONSUITE_IMPORT_PROFILE"] = StaticPopupDialogs["HORIZONSUITE_IMPORT_PROFILE"] or {
+        text = "Name for imported profile:",
+        button1 = (_G.OKAY or "Import"),
+        button2 = (_G.CANCEL or "Cancel"),
+        hasEditBox = true,
+        maxLetters = 32,
+        editBoxWidth = 180,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+        OnShow = function(self)
+            local eb = self.editBox or self.EditBox
+            if eb then
+                eb:SetText("")
+                eb:SetFocus()
+            end
+        end,
+        OnAccept = function(self)
+            local eb = self.editBox or self.EditBox
+            local name = eb and eb:GetText() or ""
+            name = name:trim()
+            if name == "" then
+                if addon.HSPrint then addon.HSPrint("Profile name cannot be empty.") end
+                return
+            end
+            local str = addon._profileImportSourceString
+            if not str or str == "" then
+                if addon.HSPrint then addon.HSPrint("No import data.") end
+                return
+            end
+            local ok, result = addon.ImportProfile(name, str)
+            if not ok then
+                if addon.HSPrint then addon.HSPrint("Import failed: " .. tostring(result)) end
+                return
+            end
+            addon._profileImportSourceString = nil
+            addon._profileImportString = nil
+            addon._profileImportValid = false
+            if addon.HSPrint then addon.HSPrint("Imported profile: " .. tostring(result)) end
+            if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+            if addon.OptionsData_NotifyMainAddon then addon.OptionsData_NotifyMainAddon() end
+        end,
+        EditBoxOnEnterPressed = function(self)
+            local parent = self:GetParent()
+            if parent then
+                local btn = parent.button1 or (parent.Buttons and parent.Buttons[1])
+                if btn then btn:Click() end
+            end
+        end,
+        EditBoxOnEscapePressed = function(self)
+            local parent = self:GetParent()
+            if parent then
+                local btn = parent.button2 or (parent.Buttons and parent.Buttons[2])
+                if btn then btn:Click() end
+            end
+        end,
+    }
+end
+
+
+-- ==========================================================================
+-- PROFILE EXPORT / IMPORT
+-- ==========================================================================
+
+local EXPORT_HEADER = "HSP2:"
+
+-- Base64 encode/decode (pure Lua, no dependencies)
+local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+local function b64encode(data)
+    local out = {}
+    for i = 1, #data, 3 do
+        local a, b, c = data:byte(i, i + 2)
+        b = b or 0; c = c or 0
+        local n = a * 65536 + b * 256 + c
+        local remain = #data - i + 1
+        out[#out + 1] = B64:sub(math.floor(n / 262144) % 64 + 1, math.floor(n / 262144) % 64 + 1)
+        out[#out + 1] = B64:sub(math.floor(n / 4096) % 64 + 1, math.floor(n / 4096) % 64 + 1)
+        out[#out + 1] = remain > 1 and B64:sub(math.floor(n / 64) % 64 + 1, math.floor(n / 64) % 64 + 1) or "="
+        out[#out + 1] = remain > 2 and B64:sub(n % 64 + 1, n % 64 + 1) or "="
+    end
+    return table.concat(out)
+end
+
+local B64INV = {}
+for i = 1, #B64 do B64INV[B64:byte(i)] = i - 1 end
+
+local function b64decode(data)
+    data = data:gsub("[^A-Za-z0-9%+/=]", "")
+    local out = {}
+    for i = 1, #data, 4 do
+        local a, b, c, d = data:byte(i, i + 3)
+        a = B64INV[a] or 0; b = B64INV[b] or 0
+        c = B64INV[c or 0] or 0; d = B64INV[d or 0] or 0
+        local n = a * 262144 + b * 4096 + c * 64 + d
+        out[#out + 1] = string.char(math.floor(n / 65536) % 256)
+        if data:sub(i + 2, i + 2) ~= "=" then out[#out + 1] = string.char(math.floor(n / 256) % 256) end
+        if data:sub(i + 3, i + 3) ~= "=" then out[#out + 1] = string.char(n % 256) end
+    end
+    return table.concat(out)
+end
+
+-- Compact Lua table serializer (supports string/number/boolean/nested table).
+-- Format per value: type tag + content. Pairs joined by \n, key\tvalue per pair.
+-- Nested tables are length-prefixed: "T" .. len .. ":" .. serialized_content
+local function SerializeValue(v)
+    local tv = type(v)
+    if tv == "string" then
+        return "s" .. v:gsub("\\", "\\\\"):gsub("\t", "\\t"):gsub("\n", "\\n")
+    elseif tv == "number" then return "n" .. tostring(v)
+    elseif tv == "boolean" then return v and "B1" or "B0"
+    elseif tv == "table" then
+        local parts = {}
+        for k, vv in pairs(v) do
+            local sk = SerializeValue(k)
+            local sv = SerializeValue(vv)
+            if sk and sv then parts[#parts + 1] = sk .. "\t" .. sv end
+        end
+        local body = table.concat(parts, "\n")
+        return "T" .. #body .. ":" .. body
+    end
+    return nil
+end
+
+local function DeserializeValue(str, pos)
+    if not str or not pos or pos > #str then return nil, pos end
+    local tag = str:sub(pos, pos)
+    if tag == "s" then
+        local nl = str:find("\t", pos + 1) or str:find("\n", pos + 1)
+        local raw
+        if not nl then raw = str:sub(pos + 1); nl = #str + 1
+        else raw = str:sub(pos + 1, nl - 1) end
+        return raw:gsub("\\n", "\n"):gsub("\\t", "\t"):gsub("\\\\", "\\"), nl
+    elseif tag == "n" then
+        local nl = str:find("[\t\n]", pos + 1)
+        if not nl then return tonumber(str:sub(pos + 1)), #str + 1 end
+        return tonumber(str:sub(pos + 1, nl - 1)), nl
+    elseif tag == "B" then
+        return str:sub(pos + 1, pos + 1) == "1", pos + 2
+    elseif tag == "T" then
+        local colon = str:find(":", pos + 1)
+        if not colon then return nil, pos end
+        local len = tonumber(str:sub(pos + 1, colon - 1))
+        if not len then return nil, pos end
+        local body = str:sub(colon + 1, colon + len)
+        local tbl = {}
+        local p = 1
+        while p <= #body do
+            local k, v
+            local tabPos = body:find("\t", p)
+            if not tabPos then break end
+            k = DeserializeValue(body, p)
+            p = tabPos + 1
+            local nlPos = nil
+            if body:sub(p, p) == "T" then
+                local innerColon = body:find(":", p + 1)
+                if innerColon then
+                    local innerLen = tonumber(body:sub(p + 1, innerColon - 1))
+                    if innerLen then nlPos = innerColon + innerLen + 1 end
+                end
+            end
+            if not nlPos then nlPos = body:find("\n", p) end
+            if nlPos then
+                v = DeserializeValue(body, p)
+                p = nlPos + 1
+            else
+                v = DeserializeValue(body, p)
+                p = #body + 1
+            end
+            if k ~= nil and v ~= nil then tbl[k] = v end
+        end
+        return tbl, colon + len + 1
+    end
+    return nil, pos + 1
+end
+
+
+function addon.ExportProfile(key)
+    if type(key) ~= "string" or key == "" then return nil end
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    HorizonDB.profiles = HorizonDB.profiles or {}
+    local profile
+    local activeKey = addon.GetEffectiveProfileKey()
+    if activeKey and activeKey == key then
+        profile = addon.GetActiveProfile()
+    else
+        profile = HorizonDB.profiles[key]
+    end
+    if not profile or type(profile) ~= "table" or next(profile) == nil then return nil end
+    local serialized = SerializeValue(profile)
+    if not serialized then return nil end
+    return EXPORT_HEADER .. b64encode(serialized)
+end
+
+function addon.ValidateProfileString(str)
+    if type(str) ~= "string" or str == "" then return false end
+    if str:sub(1, 5) ~= "HSP2:" then return false end
+    local payload = str:sub(6)
+    if payload == "" then return false end
+    local ok, decoded = pcall(b64decode, payload)
+    if not ok or type(decoded) ~= "string" or decoded == "" then return false end
+    if decoded:sub(1, 1) ~= "T" then return false end
+    local tbl = DeserializeValue(decoded, 1)
+    return type(tbl) == "table" and next(tbl) ~= nil
+end
+
+function addon.ImportProfile(name, dataString)
+    if type(name) ~= "string" or name == "" then return false, "invalid" end
+    if type(dataString) ~= "string" or dataString == "" then return false, "invalid" end
+    if dataString:sub(1, 5) ~= "HSP2:" then return false, "invalid" end
+
+    local payload = dataString:sub(6)
+    local ok, decoded = pcall(b64decode, payload)
+    if not ok or type(decoded) ~= "string" or decoded == "" then return false, "corrupt" end
+    local tbl = DeserializeValue(decoded, 1)
+    if type(tbl) ~= "table" or next(tbl) == nil then return false, "corrupt" end
+
+    addon.EnsureDB()
+    EnsureProfilesAndMigrateLegacy()
+    HorizonDB.profiles = HorizonDB.profiles or {}
+
+    local finalName = name
+    if HorizonDB.profiles[finalName] then
+        local base = finalName
+        local i = 2
+        while HorizonDB.profiles[base .. " " .. i] do i = i + 1 end
+        finalName = base .. " " .. i
+    end
+
+    HorizonDB.profiles[finalName] = tbl
+
+    local charKey = GetCurrentCharacterProfileKey()
+    if charKey and charKey ~= "" then
+        HorizonDB.charProfileKeys = HorizonDB.charProfileKeys or {}
+        HorizonDB.charProfileKeys[charKey] = finalName
+    end
+
+    return true, finalName
+end
+
+-- ==========================================================================
+-- SPEC CHANGE: apply per-spec profile when the player swaps specialization
+-- ==========================================================================
+
+local specChangeFrame = CreateFrame("Frame")
+specChangeFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+specChangeFrame:SetScript("OnEvent", function(_, event, unit)
+    if unit and unit ~= "player" then return end
+    if not HorizonDB then return end
+    if HorizonDB.useGlobalProfile == true then return end
+    if HorizonDB.usePerSpecProfiles ~= true then return end
+
+    local newKey = addon.GetEffectiveProfileKey and addon.GetEffectiveProfileKey()
+    if addon.HSPrint then
+        addon.HSPrint("Spec changed, switching to profile: " .. tostring(newKey))
+    end
+
+    C_Timer.After(0.1, function()
+        if addon.RestoreSavedPosition then addon.RestoreSavedPosition() end
+        if addon.UpdateResizeHandleVisibility then addon.UpdateResizeHandleVisibility() end
+        if addon.OptionsData_NotifyMainAddon then addon.OptionsData_NotifyMainAddon() end
+        if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+    end)
+end)
+
+-- ==========================================================================
+-- DB ACCESS
+-- ==========================================================================
+
 function addon.GetDB(key, default)
     if not HorizonDB then return default end
-    local v = HorizonDB[key]
+    EnsureProfilesAndMigrateLegacy()
+    local profile = addon.GetActiveProfile()
+    local v = profile[key]
     if v == nil then return default end
     return v
 end
 
 function addon.SetDB(key, value)
     addon.EnsureDB()
-    HorizonDB[key] = value
+    EnsureProfilesAndMigrateLegacy()
+    local profile = addon.GetActiveProfile()
+    profile[key] = value
 end
 
 --- Resolves combat visibility mode, migrating from legacy hideInCombat if needed.
@@ -147,95 +902,41 @@ end
 
 function addon.EnsureDB()
     if not HorizonDB then HorizonDB = {} end
+    if addon._ensureDBInProgress then return end
+    addon._ensureDBInProgress = true
     if addon.EnsureModulesDB then addon:EnsureModulesDB() end
+    EnsureProfilesAndMigrateLegacy()
     -- One-time migration from legacy hideInCombat toggle.
-    if HorizonDB.combatVisibility == nil and HorizonDB.hideInCombat ~= nil then
-        HorizonDB.combatVisibility = HorizonDB.hideInCombat and "hide" or "show"
-    end
-end
-
--- Persisted Focus category order (validated, fallback to addon.GROUP_ORDER).
-function addon.GetGroupOrder()
-    local default = addon.GROUP_ORDER
-    local saved = addon.GetDB("groupOrder", nil)
-    if not saved or type(saved) ~= "table" or #saved == 0 then
-        return default
-    end
-    local seen = {}
-    local result = {}
-    for _, key in ipairs(default) do
-        seen[key] = true
-    end
-    for _, key in ipairs(saved) do
-        if type(key) == "string" and seen[key] then
-            result[#result + 1] = key
-            seen[key] = nil
+    -- Check both the active profile and the root HorizonDB for the legacy key,
+    -- then write the migrated value into the active profile where GetDB reads it.
+    local profile = addon.GetActiveProfile()
+    if profile and profile.combatVisibility == nil then
+        local legacyHide = profile.hideInCombat
+        if legacyHide == nil then legacyHide = HorizonDB.hideInCombat end
+        if legacyHide ~= nil then
+            profile.combatVisibility = legacyHide and "hide" or "show"
         end
     end
-    for _, key in ipairs(default) do
-        if seen[key] then
-            result[#result + 1] = key
-        end
-    end
-    return result
+    addon._ensureDBInProgress = nil
 end
 
-function addon.SetGroupOrder(order)
-    if not order or type(order) ~= "table" then return end
-    addon.EnsureDB()
-    local default = addon.GROUP_ORDER
-    local seen = {}
-    for _, key in ipairs(default) do
-        seen[key] = true
-    end
-    local result = {}
-    for _, key in ipairs(order) do
-        if type(key) == "string" and seen[key] then
-            result[#result + 1] = key
-            seen[key] = nil
-        end
-    end
-    for _, key in ipairs(default) do
-        if seen[key] then
-            result[#result + 1] = key
-        end
-    end
-    HorizonDB.groupOrder = result
-end
-
--- Per-category collapse state ------------------------------------------------
-
-local function EnsureCollapsedCategories()
-    addon.EnsureDB()
-    if not HorizonDB.collapsedCategories then
-        HorizonDB.collapsedCategories = {}
-    end
-    return HorizonDB.collapsedCategories
-end
+-- ==========================================================================
+-- FOCUS CATEGORY COLLAPSE (per-profile)
+-- ==========================================================================
 
 function addon.IsCategoryCollapsed(groupKey)
-    if not HorizonDB or not HorizonDB.collapsedCategories then
-        return false
-    end
-    return HorizonDB.collapsedCategories[groupKey] == true
+    if type(groupKey) ~= "string" or groupKey == "" then return false end
+    local t = addon.GetDB("collapsedCategories", nil)
+    if type(t) ~= "table" then return false end
+    return t[groupKey] == true
 end
 
 function addon.SetCategoryCollapsed(groupKey, collapsed)
-    if not groupKey then return end
-    local tbl = EnsureCollapsedCategories()
-    if collapsed then
-        tbl[groupKey] = true
-    else
-        -- Missing/nil means expanded by default.
-        tbl[groupKey] = nil
-    end
-end
-
-function addon.ToggleCategoryCollapsed(groupKey)
-    if not groupKey then return false end
-    local newState = not addon.IsCategoryCollapsed(groupKey)
-    addon.SetCategoryCollapsed(groupKey, newState)
-    return newState
+    if type(groupKey) ~= "string" or groupKey == "" then return end
+    local t = addon.GetDB("collapsedCategories", nil)
+    if type(t) ~= "table" then t = {} end
+    t[groupKey] = collapsed and true or nil
+    addon.SetDB("collapsedCategories", t)
 end
 
 -- ============================================================================
@@ -270,8 +971,10 @@ addon.hsBorderL, addon.hsBorderR = hsBorderL, hsBorderR
 function addon.ApplyBackdropOpacity()
     if not addon.hsBg then return end
     local a = tonumber(addon.GetDB("backdropOpacity", 0)) or 0
-    local base = (addon.Design and addon.Design.BACKDROP_COLOR) or { 0.08, 0.08, 0.12, 0.90 }
-    addon.hsBg:SetColorTexture(base[1], base[2], base[3], math.max(0, math.min(1, a)))
+    local r = tonumber(addon.GetDB("backdropColorR", 0.08)) or 0.08
+    local g = tonumber(addon.GetDB("backdropColorG", 0.08)) or 0.08
+    local b = tonumber(addon.GetDB("backdropColorB", 0.12)) or 0.12
+    addon.hsBg:SetColorTexture(r, g, b, math.max(0, math.min(1, a)))
 end
 
 function addon.ApplyBorderVisibility()
@@ -416,7 +1119,7 @@ HS:EnableMouse(true)
 HS:RegisterForDrag("LeftButton")
 HS:SetScript("OnDragStart", function(self)
     if InCombatLockdown() then return end
-    if HorizonDB and HorizonDB.lockPosition then return end
+    if addon.GetDB("lockPosition", false) then return end
     self:StartMoving()
 end)
 
@@ -433,10 +1136,10 @@ local function SavePanelPosition()
         local x, y = right - uiRight, bottom - uiBottom
         HS:ClearAllPoints()
         HS:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", x, y)
-        HorizonDB.point    = "BOTTOMRIGHT"
-        HorizonDB.relPoint = "BOTTOMRIGHT"
-        HorizonDB.x        = x
-        HorizonDB.y        = y
+        addon.SetDB("point", "BOTTOMRIGHT")
+        addon.SetDB("relPoint", "BOTTOMRIGHT")
+        addon.SetDB("x", x)
+        addon.SetDB("y", y)
     else
         local top = HS:GetTop()
         local uiTop = UIParent:GetTop() or 0
@@ -444,10 +1147,10 @@ local function SavePanelPosition()
         local x, y = right - uiRight, top - uiTop
         HS:ClearAllPoints()
         HS:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", x, y)
-        HorizonDB.point    = "TOPRIGHT"
-        HorizonDB.relPoint = "TOPRIGHT"
-        HorizonDB.x        = x
-        HorizonDB.y        = y
+        addon.SetDB("point", "TOPRIGHT")
+        addon.SetDB("relPoint", "TOPRIGHT")
+        addon.SetDB("x", x)
+        addon.SetDB("y", y)
     end
 end
 
@@ -520,7 +1223,7 @@ local function ResizeOnUpdate(self, elapsed)
     if addon.ApplyDimensions then addon.ApplyDimensions(newWidth) end
 end
 resizeHandle:SetScript("OnDragStart", function(self)
-    if HorizonDB and HorizonDB.lockPosition then return end
+    if addon.GetDB("lockPosition", false) then return end
     if InCombatLockdown() then return end
     isResizing = true
     startWidth = HS:GetWidth()
@@ -535,11 +1238,11 @@ resizeHandle:SetScript("OnDragStop", function(self)
     isResizing = false
     self:SetScript("OnUpdate", nil)
     addon.EnsureDB()
-    HorizonDB.panelWidth = HS:GetWidth()
+    local newWidth = HS:GetWidth()
+    addon.SetDB("panelWidth", newWidth)
     local h = HS:GetHeight()
     local headerArea = addon.PADDING + addon.GetHeaderHeight() + addon.DIVIDER_HEIGHT + addon.GetHeaderToContentGap()
     local contentH = h - headerArea - addon.PADDING
-    -- M+ block at top: subtract its height so we persist only the scroll area.
     local mplus = addon.mplusBlock
     local hasMplus = mplus and mplus:IsShown()
     if hasMplus and addon.GetMplusBlockHeight then
@@ -547,9 +1250,9 @@ resizeHandle:SetScript("OnDragStop", function(self)
         contentH = contentH - (addon.GetMplusBlockHeight() + gap * 2)
     end
     contentH = math.max(RESIZE_CONTENT_HEIGHT_MIN, math.min(RESIZE_CONTENT_HEIGHT_MAX, contentH))
-    HorizonDB.maxContentHeight = contentH
+    addon.SetDB("maxContentHeight", contentH)
     if not (addon.IsInMythicDungeon and addon.IsInMythicDungeon()) then
-        HorizonDB.maxContentHeightOverworld = contentH
+        addon.SetDB("maxContentHeightOverworld", contentH)
     end
     if addon.ApplyDimensions then addon.ApplyDimensions() end
     if addon.FullLayout and not InCombatLockdown() then addon.FullLayout() end
@@ -567,7 +1270,7 @@ resizeLineV:SetPoint("BOTTOMRIGHT", resizeHandle, "BOTTOMRIGHT", 0, 0)
 resizeLineV:SetColorTexture(gripR, gripG, gripB, gripA)
 
 function addon.UpdateResizeHandleVisibility()
-    resizeHandle:SetShown(not (HorizonDB and HorizonDB.lockPosition))
+    resizeHandle:SetShown(not addon.GetDB("lockPosition", false))
 end
 -- Call on ADDON_LOADED to ensure it reflects current state
 local visUpdateFrame = CreateFrame("Frame")
@@ -581,10 +1284,14 @@ end)
 addon.UpdateResizeHandleVisibility()
 
 local function RestoreSavedPosition()
-    if not HorizonDB or not HorizonDB.point then return end
-    local db = HorizonDB
+    local pt = addon.GetDB("point", nil)
+    if not pt then return end
+    local relPt = addon.GetDB("relPoint", nil) or pt
+    local x = addon.GetDB("x", nil)
+    local y = addon.GetDB("y", nil)
+    if not x or not y then return end
     HS:ClearAllPoints()
-    HS:SetPoint(db.point, UIParent, db.relPoint or db.point, db.x, db.y)
+    HS:SetPoint(pt, UIParent, relPt, x, y)
 end
 
 local function ApplyGrowUpAnchor()
@@ -598,10 +1305,10 @@ local function ApplyGrowUpAnchor()
     HS:ClearAllPoints()
     HS:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", x, y)
     addon.EnsureDB()
-    HorizonDB.point    = "BOTTOMRIGHT"
-    HorizonDB.relPoint = "BOTTOMRIGHT"
-    HorizonDB.x        = x
-    HorizonDB.y        = y
+    addon.SetDB("point", "BOTTOMRIGHT")
+    addon.SetDB("relPoint", "BOTTOMRIGHT")
+    addon.SetDB("x", x)
+    addon.SetDB("y", y)
 end
 
 function addon.UpdateHeaderQuestCount(questCount, trackedInLogCount)
@@ -746,6 +1453,20 @@ do
     local f = CreateFrame("Frame")
     f:RegisterEvent("PLAYER_LOGIN")
     f:SetScript("OnEvent", function()
+        -- Flush any settings written during early load (before charKey was available)
+        -- into the real character profile now that realm info is resolved.
+        if addon._earlyLoadProfile and next(addon._earlyLoadProfile) then
+            local realProfile, realKey = addon.GetActiveProfile()
+            if realKey and realProfile then
+                for k, v in pairs(addon._earlyLoadProfile) do
+                    if realProfile[k] == nil then
+                        realProfile[k] = v
+                    end
+                end
+            end
+            addon._earlyLoadProfile = nil
+        end
+
         if addon.RefreshFontList then addon.RefreshFontList() end
 
         local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
@@ -773,6 +1494,8 @@ do
         C_Timer.After(1.5, function()
             if addon.ApplyTypography then addon.ApplyTypography() end
         end)
+
+        if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
 
         f:UnregisterEvent("PLAYER_LOGIN")
     end)

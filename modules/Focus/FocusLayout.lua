@@ -145,12 +145,12 @@ headerBtn:SetScript("OnLeave", function()
 end)
 headerBtn:RegisterForDrag("LeftButton")
 headerBtn:SetScript("OnDragStart", function()
-    if HorizonDB and HorizonDB.lockPosition then return end
+    if addon.GetDB("lockPosition", false) then return end
     if InCombatLockdown() then return end
     addon.HS:StartMoving()
 end)
 headerBtn:SetScript("OnDragStop", function()
-    if HorizonDB and HorizonDB.lockPosition then return end
+    if addon.GetDB("lockPosition", false) then return end
     addon.HS:StopMovingOrSizing()
     addon.HS:SetUserPlaced(false)
     if InCombatLockdown() then return end
@@ -642,7 +642,7 @@ local function FullLayout()
     local yOff = 0
     local entryIndex = 0
 
-    local showSections = #grouped > 1 and addon.GetDB("showSectionHeaders", true)
+    local showSections = addon.GetDB("showSectionHeaders", true)
     local focusedGroupKey = addon.GetFocusedGroupKey(grouped)
 
     -- Offset quest entries so their text starts under the section header label
@@ -671,7 +671,10 @@ local function FullLayout()
     addon.focus.layout.sectionLabelX = sectionLabelX
 
     for gi, grp in ipairs(grouped) do
-        local isCollapsed = showSections and addon.IsCategoryCollapsed(grp.key)
+        local isCollapsed = false
+        if showSections and addon.IsCategoryCollapsed then
+            isCollapsed = addon.IsCategoryCollapsed(grp.key)
+        end
 
         if showSections then
             if gi > 1 then
@@ -813,6 +816,34 @@ local function FullLayout()
     end
 
     if addon.EnsureFocusUpdateRunning then addon.EnsureFocusUpdateRunning() end
+end
+
+--- Lightweight color refresh: updates section headers and entry title colors without FullLayout.
+--- Used during live color picker drag for responsive feedback.
+function addon.ApplyFocusColors()
+    if not addon.focus or not addon.focus.enabled then return end
+    local focusedGroupKey = addon.GetFocusedGroupKey and addon.GetFocusedGroupKey()
+    for i = 1, addon.SECTION_POOL_SIZE do
+        local s = sectionPool[i]
+        if s and s.groupKey and s:IsShown() then
+            local color = addon.GetSectionColor and addon.GetSectionColor(s.groupKey)
+            if color and type(color) == "table" and color[1] and color[2] and color[3] then
+                if addon.GetDB("dimNonSuperTracked", false) and focusedGroupKey and s.groupKey ~= focusedGroupKey then
+                    color = { color[1] * 0.60, color[2] * 0.60, color[3] * 0.60 }
+                end
+                s.text:SetTextColor(color[1], color[2], color[3], addon.SECTION_COLOR_A or 1)
+            end
+        end
+    end
+    for key, entry in pairs(activeMap) do
+        if entry and (entry.questID or entry.entryKey) and entry.titleText then
+            local effectiveCat = (addon.GetEffectiveColorCategory and addon.GetEffectiveColorCategory(entry.category, entry.groupKey, nil)) or entry.category
+            local c = (addon.GetTitleColor and addon.GetTitleColor(effectiveCat)) or addon.QUEST_COLORS and addon.QUEST_COLORS.DEFAULT
+            if c and type(c) == "table" and c[1] and c[2] and c[3] then
+                entry.titleText:SetTextColor(c[1], c[2], c[3], 1)
+            end
+        end
+    end
 end
 
 addon.GetPlayerCurrentZoneName = GetPlayerCurrentZoneName

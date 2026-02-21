@@ -25,7 +25,7 @@ end
 -- Category order for questType sort (lower = earlier)
 local CATEGORY_SORT_ORDER = {
     COMPLETE = 1, CAMPAIGN = 2, IMPORTANT = 3, LEGENDARY = 4,
-    DELVES = 5, SCENARIO = 5, ACHIEVEMENT = 5, DUNGEON = 5, WORLD = 6, WEEKLY = 7, DAILY = 8, CALLING = 9, RARE = 10, DEFAULT = 11,
+    DELVES = 5, SCENARIO = 5, ACHIEVEMENT = 5, DUNGEON = 5, RAID = 5, WORLD = 6, WEEKLY = 7, DAILY = 8, CALLING = 9, RARE = 10, DEFAULT = 11,
 }
 
 local function CompareEntriesBySortMode(a, b)
@@ -67,7 +67,17 @@ end
 --- @return table Array of { key = string, quests = table }
 local function SortAndGroupQuests(quests)
     local groups = {}
-    for _, key in ipairs(addon.GetGroupOrder()) do
+    local order = (addon.GetGroupOrder and addon.GetGroupOrder()) or addon.GROUP_ORDER or {}
+    if type(order) ~= "table" then order = {} end
+
+    -- Load-order safety: config tables should come from core/Config.lua, but never hard-crash if missing.
+    local categoryToGroup = addon.CATEGORY_TO_GROUP
+    if type(categoryToGroup) ~= "table" then
+        categoryToGroup = {}
+        addon.CATEGORY_TO_GROUP = categoryToGroup
+    end
+
+    for _, key in ipairs(order) do
         groups[key] = {}
     end
     for _, q in ipairs(quests) do
@@ -75,6 +85,8 @@ local function SortAndGroupQuests(quests)
             groups["RARES"][#groups["RARES"] + 1] = q
         elseif q.isDungeonQuest or q.category == "DUNGEON" then
             groups["DUNGEON"][#groups["DUNGEON"] + 1] = q
+        elseif q.isRaidQuest or q.category == "RAID" then
+            groups["RAID"][#groups["RAID"] + 1] = q
         elseif q.category == "DELVES" then
             groups["DELVES"][#groups["DELVES"] + 1] = q
         elseif q.category == "SCENARIO" then
@@ -93,16 +105,16 @@ local function SortAndGroupQuests(quests)
             if addon.GetDB("showNearbyGroup", true) or q.category == "COMPLETE" then
                 groups["NEARBY"][#groups["NEARBY"] + 1] = q
             else
-                local grp = addon.CATEGORY_TO_GROUP[q.category] or DEFAULT_GROUP
+                local grp = categoryToGroup[q.category] or DEFAULT_GROUP
                 groups[grp][#groups[grp] + 1] = q
             end
         else
-            local grp = addon.CATEGORY_TO_GROUP[q.category] or DEFAULT_GROUP
+            local grp = categoryToGroup[q.category] or DEFAULT_GROUP
             groups[grp][#groups[grp] + 1] = q
         end
     end
 
-    for _, key in ipairs(addon.GetGroupOrder()) do
+    for _, key in ipairs(order) do
         if #groups[key] > 0 then
             table.sort(groups[key], CompareEntriesBySortMode)
             -- Always assign numbering at the source of truth so renderers can rely on it.
@@ -113,7 +125,7 @@ local function SortAndGroupQuests(quests)
     end
 
     local result = {}
-    for _, key in ipairs(addon.GetGroupOrder()) do
+    for _, key in ipairs(order) do
         if #groups[key] > 0 then
             result[#result + 1] = { key = key, quests = groups[key] }
         end
@@ -222,14 +234,16 @@ local function ReadTrackedQuests()
 
         -- Always exclude cross-zone map-scoped content that is not in the player's log.
         -- This is separate from the user-facing filterByZone option.
+        -- Exception: explicitly tracked (manual watch list, WQT, supertracked) quests bypass the zone gate.
         local logIndex = C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(questID) or nil
         local isAccepted = (logIndex ~= nil)
+        local isExplicitlyTracked = (opts.isTracked == true) or (superTracked and questID == superTracked)
         local category = opts.forceCategory or addon.GetQuestCategory(questID)
-        if not isAccepted and (category == "WORLD" or category == "CALLING" or category == "WEEKLY" or category == "DAILY") then
+        if not isAccepted and not isExplicitlyTracked and (category == "WORLD" or category == "CALLING" or category == "WEEKLY" or category == "DAILY") then
             if not IsQuestOnPlayerZoneMap(questID) then return end
         end
 
-        if not questMapMatchesPlayer(questID) then return end
+        if not isExplicitlyTracked and not questMapMatchesPlayer(questID) then return end
         seen[questID] = true
 
         local baseCategory = (category == "COMPLETE") and addon.GetQuestBaseCategory(questID) or nil
@@ -254,6 +268,7 @@ local function ReadTrackedQuests()
         local zoneName = addon.GetQuestZoneName(questID)
         local isNearby = (nearbySet[questID] or false) and (not filterByZone or questMapMatchesPlayer(questID))
         local isDungeonQuest = opts.isDungeonQuest or (addon.IsInPartyDungeon and addon.IsInPartyDungeon() and isNearby)
+        local isRaidQuest = opts.isRaidQuest or (category == "RAID")
         local isTracked = opts.isTracked ~= false
         local isAutoAdded = opts.isAutoAdded and true or false
         local isInQuestArea = opts.isInQuestArea and true or false
@@ -289,7 +304,7 @@ local function ReadTrackedQuests()
             color = color, category = category, baseCategory = baseCategory,
             isComplete = isComplete, isSuperTracked = isSuper, isNearby = isNearby,
             isAccepted = isAccepted, zoneName = zoneName, itemLink = itemLink, itemTexture = itemTexture,
-            questTypeAtlas = questTypeAtlas, isDungeonQuest = isDungeonQuest, isTracked = isTracked, level = questLevel,
+            questTypeAtlas = questTypeAtlas, isDungeonQuest = isDungeonQuest, isRaidQuest = isRaidQuest, isTracked = isTracked, level = questLevel,
             isAutoComplete = isAutoComplete,
             isAutoAdded = isAutoAdded,
             isInQuestArea = isInQuestArea,
@@ -317,7 +332,7 @@ local function ReadTrackedQuests()
     end
 
     -- 2. World quests and callings (with blacklist)
-    local permanentBlacklist = (HorizonDB and HorizonDB.permanentQuestBlacklist) or {}
+    local permanentBlacklist = addon.GetDB("permanentQuestBlacklist", {}) or {}
     local usePermanent = addon.GetDB("permanentlySuppressUntracked", false)
     local recentlyUntrackedWQ = addon.focus.recentlyUntrackedWorldQuests
     local wqEntries = {}
@@ -332,11 +347,10 @@ local function ReadTrackedQuests()
         local isCompleted = C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(e.questID)
 
         -- If the toggle is OFF: only keep WORLD/CALLING items that are explicitly tracked
-        -- (manual watch list, WQT's tracked set), the current supertracked quest,
-        -- or in quest-area proximity (Blizzard default).
+        -- (manual watch list, WQT's tracked set), or the current supertracked quest.
+        -- Proximity alone is not enough to override the user's toggle.
         local explicitlyKept = (opts.isTracked == true) or (opts.isAutoAdded == false)
             or (superTracked and e.questID == superTracked)
-            or (opts.isInQuestArea == true)
 
         if not seen[e.questID]
             and not isBlacklisted

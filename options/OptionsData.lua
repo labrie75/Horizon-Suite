@@ -63,6 +63,24 @@ local MPLUS_TYPOGRAPHY_KEYS = {
     mplusBarDoneColorR = true, mplusBarDoneColorG = true, mplusBarDoneColorB = true,
 }
 
+-- Keys written by color pickers during drag. When _colorPickerLive is true and key is in this list,
+-- we skip NotifyMainAddon to avoid FullLayout spam; key-specific handlers (e.g. ApplyBackdropOpacity) still run.
+local COLOR_LIVE_KEYS = {
+    backdropOpacity = true, backdropColorR = true, backdropColorG = true, backdropColorB = true,
+    headerColor = true,
+    colorMatrix = true,
+    highlightColor = true, completedObjectiveColor = true, sectionColors = true,
+    objectiveProgressFlashColor = true, presenceBossEmoteColor = true, presenceDiscoveryColor = true,
+    mplusDungeonColorR = true, mplusDungeonColorG = true, mplusDungeonColorB = true,
+    mplusTimerColorR = true, mplusTimerColorG = true, mplusTimerColorB = true,
+    mplusTimerOvertimeColorR = true, mplusTimerOvertimeColorG = true, mplusTimerOvertimeColorB = true,
+    mplusProgressColorR = true, mplusProgressColorG = true, mplusProgressColorB = true,
+    mplusBarColorR = true, mplusBarColorG = true, mplusBarColorB = true,
+    mplusBarDoneColorR = true, mplusBarDoneColorG = true, mplusBarDoneColorB = true,
+    mplusAffixColorR = true, mplusAffixColorG = true, mplusAffixColorB = true,
+    mplusBossColorR = true, mplusBossColorG = true, mplusBossColorB = true,
+}
+
 function OptionsData_GetDB(key, default)
     return addon.GetDB(key, default)
 end
@@ -96,7 +114,23 @@ function OptionsData_SetDB(key, value)
     if key == "lockPosition" and addon.UpdateResizeHandleVisibility then
         addon.UpdateResizeHandleVisibility()
     end
+    if (key == "backdropOpacity" or key == "backdropColorR" or key == "backdropColorG" or key == "backdropColorB") and addon.ApplyBackdropOpacity then
+        addon.ApplyBackdropOpacity()
+    end
+    if addon._colorPickerLive and COLOR_LIVE_KEYS[key] then
+        OptionsData_NotifyMainAddon_Live()
+        return
+    end
     OptionsData_NotifyMainAddon()
+end
+
+--- Lightweight notify for live color picker: updates visuals without FullLayout.
+function OptionsData_NotifyMainAddon_Live()
+    local applyTy = _G.HorizonSuite_ApplyTypography or addon.ApplyTypography
+    if applyTy then applyTy() end
+    if addon.ApplyBackdropOpacity then addon.ApplyBackdropOpacity() end
+    if addon.ApplyBorderVisibility then addon.ApplyBorderVisibility() end
+    if addon.ApplyFocusColors then addon.ApplyFocusColors() end
 end
 
 function OptionsData_NotifyMainAddon()
@@ -177,7 +211,7 @@ local TEXT_CASE_OPTIONS = {
     { L["Proper"], "proper" },
 }
 -- Use addon.QUEST_COLORS from Config as single source for quest type colors.
-local COLOR_KEYS_ORDER = { "DEFAULT", "CAMPAIGN", "IMPORTANT", "LEGENDARY", "WORLD", "DELVES", "SCENARIO", "ACHIEVEMENT", "WEEKLY", "DAILY", "COMPLETE", "RARE" }
+local COLOR_KEYS_ORDER = { "DEFAULT", "CAMPAIGN", "IMPORTANT", "LEGENDARY", "WORLD", "DELVES", "SCENARIO", "RAID", "ACHIEVEMENT", "WEEKLY", "DAILY", "COMPLETE", "RARE" }
 local ZONE_COLOR_DEFAULT = { 0.55, 0.65, 0.75 }
 local OBJ_COLOR_DEFAULT = { 0.78, 0.78, 0.78 }
 local OBJ_DONE_COLOR_DEFAULT = { 0.30, 0.80, 0.30 }
@@ -198,6 +232,379 @@ end
 -- ---------------------------------------------------------------------------
 
 local OptionCategories = {
+    {
+        key = "Profiles",
+        name = L["Profiles"] or "Profiles",
+        moduleKey = nil,
+        options = function()
+            local opts = {}
+
+            local function profileDropdownOptions()
+                local list = addon.ListProfiles and addon.ListProfiles() or {}
+                local out = {}
+                for _, k in ipairs(list) do
+                    if k ~= "Default" then
+                        out[#out + 1] = { k, k }
+                    end
+                end
+                return out
+            end
+
+            -- Section A: Global switch + current profile
+            opts[#opts + 1] = { type = "section", name = L["Profiles"] or "Profiles" }
+
+            opts[#opts + 1] = {
+                type = "toggle",
+                name = L["Use global profile (account-wide)"] or "Use global profile (account-wide)",
+                desc = L["All characters use the same profile."] or "All characters use the same profile.",
+                dbKey = "_profiles_useGlobal",
+                get = function()
+                    local useGlobal = addon.GetProfileModeState and select(1, addon.GetProfileModeState())
+                    return useGlobal == true
+                end,
+                set = function(v)
+                    local currentKey = addon.GetActiveProfileKey and addon.GetActiveProfileKey()
+                    if addon.SetUseGlobalProfile then addon.SetUseGlobalProfile(v) end
+                    if v and currentKey and addon.SetGlobalProfileKey then
+                        addon.SetGlobalProfileKey(currentKey)
+                    end
+                    OptionsData_NotifyMainAddon()
+                    if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+                end,
+            }
+
+                opts[#opts + 1] = {
+                    type = "dropdown",
+                    name = L["Current profile"] or "Current profile",
+                    desc = L["Select the profile currently in use."] or "Select the profile currently in use.",
+                    dbKey = "_profiles_current",
+                    options = profileDropdownOptions,
+                    disabled = function()
+                        if not addon.GetProfileModeState then return false end
+                        local useGlobal, usePerSpec = addon.GetProfileModeState()
+                        return (useGlobal ~= true) and (usePerSpec == true)
+                    end,
+                    get = function() return (addon.GetActiveProfileKey and addon.GetActiveProfileKey()) end,
+                    set = function(v)
+                        if addon.SetActiveProfileKey then addon.SetActiveProfileKey(v) end
+                        addon._profileCopyFrom = nil
+                        OptionsData_NotifyMainAddon()
+                        if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+                    end,
+                }
+
+                -- Section B: Per-spec switch + spec dropdowns
+                opts[#opts + 1] = { type = "section", name = L["Specialization"] or "Specialization" }
+
+                opts[#opts + 1] = {
+                    type = "toggle",
+                    name = L["Enable per specialization profiles"] or "Enable per specialization profiles",
+                    desc = L["Pick different profiles per spec."] or "Pick different profiles per spec.",
+                    dbKey = "_profiles_usePerSpec",
+                    disabled = function()
+                        local useGlobal = addon.GetProfileModeState and select(1, addon.GetProfileModeState())
+                        return useGlobal == true
+                    end,
+                    get = function()
+                        if not addon.GetProfileModeState then return false end
+                        local useGlobal, usePerSpec = addon.GetProfileModeState()
+                        return (useGlobal ~= true) and (usePerSpec == true)
+                    end,
+                    set = function(v)
+                        if v and addon.GetActiveProfileKey and addon.SetPerSpecProfileKey then
+                            local baseKey = addon.GetActiveProfileKey()
+                            if baseKey then
+                                local currentSpec = GetSpecialization and GetSpecialization() or nil
+                                for si = 1, 4 do
+                                    if si == currentSpec then
+                                        addon.SetPerSpecProfileKey(si, baseKey)
+                                    else
+                                        local _, _, _, perSpec = addon.GetProfileModeState()
+                                        if not (type(perSpec) == "table" and type(perSpec[si]) == "string" and perSpec[si] ~= "") then
+                                            addon.SetPerSpecProfileKey(si, baseKey)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        if addon.SetUsePerSpecProfiles then addon.SetUsePerSpecProfiles(v) end
+                        OptionsData_NotifyMainAddon()
+                        if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+                    end,
+                }
+
+                local function specProfileOptions()
+                    local list = addon.ListProfiles and addon.ListProfiles() or {}
+                    local out = {}
+                    for _, k in ipairs(list) do
+                        if k ~= "Default" then
+                            out[#out + 1] = { k, k }
+                        end
+                    end
+                    return out
+                end
+
+                for specIndex = 1, 4 do
+                    local function specNameFn()
+                        if addon.ListSpecOptions then
+                            local specOpts = addon.ListSpecOptions()
+                            for _, pair in ipairs(specOpts) do
+                                if tonumber(pair[1]) == specIndex then
+                                    return pair[2]
+                                end
+                            end
+                        end
+                        return ("Spec %d"):format(specIndex)
+                    end
+                    local function specHiddenFn()
+                        local numSpecs = _G.GetNumSpecializations and _G.GetNumSpecializations() or 0
+                        if numSpecs < 1 then return false end
+                        return specIndex > numSpecs
+                    end
+                    opts[#opts + 1] = {
+                        type = "dropdown",
+                        name = specNameFn,
+                        dbKey = "_profiles_spec_" .. tostring(specIndex),
+                        options = specProfileOptions,
+                        hidden = specHiddenFn,
+                        disabled = function()
+                            if not addon.GetProfileModeState then return true end
+                            local useGlobal, usePerSpec = addon.GetProfileModeState()
+                            return (useGlobal == true) or (usePerSpec ~= true)
+                        end,
+                        get = function()
+                            if not addon.GetProfileModeState then
+                                return (addon.GetActiveProfileKey and addon.GetActiveProfileKey())
+                            end
+                            local useGlobal, usePerSpec, _, perSpec = addon.GetProfileModeState()
+                            if useGlobal ~= true and usePerSpec == true then
+                                if type(perSpec) == "table" and type(perSpec[specIndex]) == "string" and perSpec[specIndex] ~= "" then
+                                    return perSpec[specIndex]
+                                end
+                            end
+                            return (addon.GetActiveProfileKey and addon.GetActiveProfileKey())
+                        end,
+                        set = function(v)
+                            if addon.SetPerSpecProfileKey then addon.SetPerSpecProfileKey(specIndex, v) end
+                            OptionsData_NotifyMainAddon()
+                            if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+                        end,
+                    }
+                end
+
+                -- Section C: Create / Copy profile
+                opts[#opts + 1] = { type = "section", name = L["Create"] or "Create" }
+
+                opts[#opts + 1] = {
+                    type = "button",
+                    name = L["Create new profile from Default template"] or "Create new profile from Default template",
+                    desc = L["Creates a new profile with all default settings."] or "Creates a new profile with all default settings.",
+                    dbKey = "_profiles_create_new",
+                    onClick = function()
+                        if addon.ShowCreateProfilePopup then addon.ShowCreateProfilePopup("Default") end
+                    end,
+                }
+
+                opts[#opts + 1] = {
+                    type = "dropdown",
+                    name = L["Copy from profile"] or "Copy from profile",
+                    desc = L["Source profile for copying."] or "Source profile for copying.",
+                    dbKey = "_profiles_copyFrom",
+                    options = profileDropdownOptions,
+                    get = function()
+                        local current = addon.GetActiveProfileKey and addon.GetActiveProfileKey() or nil
+                        local list = addon.ListProfiles and addon.ListProfiles() or {}
+                        if addon._profileCopyFrom and addon._profileCopyFrom ~= "" then
+                            for _, k in ipairs(list) do
+                                if k == addon._profileCopyFrom then return addon._profileCopyFrom end
+                            end
+                        end
+                        addon._profileCopyFrom = current
+                        return current
+                    end,
+                    set = function(v) addon._profileCopyFrom = v end,
+                }
+
+                opts[#opts + 1] = {
+                    type = "button",
+                    name = L["Copy from selected"] or "Copy from selected",
+                    desc = L["Creates a new profile copied from the selected source profile."] or "Creates a new profile copied from the selected source profile.",
+                    dbKey = "_profiles_copy_selected",
+                    onClick = function()
+                        local src = addon._profileCopyFrom or (addon.GetActiveProfileKey and addon.GetActiveProfileKey())
+                        if addon.ShowCreateProfilePopup then addon.ShowCreateProfilePopup(src) end
+                    end,
+                }
+
+                -- Section D: Delete profile
+                opts[#opts + 1] = { type = "section", name = L["Delete"] or "Delete" }
+
+                opts[#opts + 1] = {
+                    type = "dropdown",
+                    name = L["Delete profile"] or "Delete profile",
+                    desc = L["Select a profile to delete (current and Default not shown)."] or "Select a profile to delete (current and Default not shown).",
+                    dbKey = "_profiles_delete",
+                    options = function()
+                        local current = addon.GetActiveProfileKey and addon.GetActiveProfileKey() or nil
+                        local list = addon.ListProfiles and addon.ListProfiles() or {}
+                        local out = {}
+                        for _, k in ipairs(list) do
+                            if k ~= current and k ~= "Default" then out[#out + 1] = { k, k } end
+                        end
+                        return out
+                    end,
+                    get = function()
+                        local current = addon.GetActiveProfileKey and addon.GetActiveProfileKey() or nil
+                        local list = addon.ListProfiles and addon.ListProfiles() or {}
+                        local function exists(k)
+                            if not k or k == "" then return false end
+                            for _, kk in ipairs(list) do if kk == k then return true end end
+                            return false
+                        end
+                        if exists(addon._profileDeleteKey) and addon._profileDeleteKey ~= current and addon._profileDeleteKey ~= "Default" then
+                            return addon._profileDeleteKey
+                        end
+                        for _, k in ipairs(list) do
+                            if k ~= current and k ~= "Default" then
+                                addon._profileDeleteKey = k
+                                return k
+                            end
+                        end
+                        addon._profileDeleteKey = nil
+                        return ""
+                    end,
+                    set = function(v) addon._profileDeleteKey = v end,
+                }
+
+                opts[#opts + 1] = {
+                    type = "button",
+                    name = L["Delete selected"] or "Delete selected",
+                    desc = L["Deletes the selected profile."] or "Deletes the selected profile.",
+                    dbKey = "_profiles_delete_btn",
+                    onClick = function()
+                        local k = addon._profileDeleteKey
+                        if not k or k == "" then
+                            local current = addon.GetActiveProfileKey and addon.GetActiveProfileKey() or nil
+                            local list = addon.ListProfiles and addon.ListProfiles() or {}
+                            for _, kk in ipairs(list) do
+                                if kk ~= current then k = kk; addon._profileDeleteKey = kk; break end
+                            end
+                        end
+                        if not k or k == "" then return end
+                        if addon.ShowDeleteProfilePopup then
+                            addon.ShowDeleteProfilePopup(k)
+                            return
+                        end
+                        if addon.DeleteProfile and addon.DeleteProfile(k) then
+                            addon._profileDeleteKey = nil
+                            OptionsData_NotifyMainAddon()
+                            if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+                        end
+                    end,
+                }
+
+                opts[#opts + 1] = { type = "section", name = L["Sharing"] or "Sharing" }
+
+                opts[#opts + 1] = {
+                    type = "dropdown",
+                    name = L["Export profile"] or "Export profile",
+                    desc = L["Select a profile to export."] or "Select a profile to export.",
+                    dbKey = "_profiles_export_select",
+                    options = function()
+                        local list = addon.ListProfiles and addon.ListProfiles() or {}
+                        local out = {}
+                        for _, k in ipairs(list) do
+                            if k ~= "Default" then out[#out + 1] = { k, k } end
+                        end
+                        return out
+                    end,
+                    get = function()
+                        local list = addon.ListProfiles and addon.ListProfiles() or {}
+                        if addon._profileExportKey then
+                            for _, k in ipairs(list) do
+                                if k == addon._profileExportKey and k ~= "Default" then return k end
+                            end
+                        end
+                        local current = addon.GetActiveProfileKey and addon.GetActiveProfileKey() or nil
+                        if current and current ~= "Default" then
+                            addon._profileExportKey = current
+                            return current
+                        end
+                        for _, k in ipairs(list) do
+                            if k ~= "Default" then addon._profileExportKey = k; return k end
+                        end
+                        return ""
+                    end,
+                    set = function(v)
+                        addon._profileExportKey = v
+                        if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
+                    end,
+                }
+
+                opts[#opts + 1] = {
+                    type = "editbox",
+                    labelText = L["Export string"] or "Export string",
+                    dbKey = "_profiles_export_box",
+                    height = 60,
+                    readonly = true,
+                    storeRef = "_profileExportEditBox",
+                    get = function()
+                        local key = addon._profileExportKey
+                        if not key or key == "" then
+                            local current = addon.GetActiveProfileKey and addon.GetActiveProfileKey() or nil
+                            if current and current ~= "Default" then
+                                key = current
+                                addon._profileExportKey = key
+                            else
+                                local list = addon.ListProfiles and addon.ListProfiles() or {}
+                                for _, k in ipairs(list) do
+                                    if k ~= "Default" then key = k; addon._profileExportKey = k; break end
+                                end
+                            end
+                        end
+                        if not key or key == "" then return "" end
+                        return (addon.ExportProfile and addon.ExportProfile(key)) or ""
+                    end,
+                }
+
+                opts[#opts + 1] = {
+                    type = "editbox",
+                    labelText = L["Import string"] or "Import string",
+                    dbKey = "_profiles_import_box",
+                    height = 60,
+                    readonly = false,
+                    get = function() return addon._profileImportString or "" end,
+                    set = function(v)
+                        addon._profileImportString = v
+                        local valid = addon.ValidateProfileString and addon.ValidateProfileString(v) or false
+                        addon._profileImportValid = valid
+                    end,
+                }
+
+                opts[#opts + 1] = {
+                    type = "button",
+                    name = L["Import profile"] or "Import profile",
+                    dbKey = "_profiles_import_btn",
+                    onClick = function()
+                        local str = addon._profileImportString
+                        if not str or str == "" then
+                            if addon.HSPrint then addon.HSPrint("No import string provided.") end
+                            return
+                        end
+                        if not (addon.ValidateProfileString and addon.ValidateProfileString(str)) then
+                            if addon.HSPrint then addon.HSPrint("Invalid profile string.") end
+                            return
+                        end
+                        addon._profileImportSourceString = str
+                        if StaticPopup_Show then
+                            StaticPopup_Show("HORIZONSUITE_IMPORT_PROFILE")
+                        end
+                    end,
+                }
+
+                return opts
+        end,
+    },
     {
         key = "Modules",
         name = L["Modules"],
@@ -220,9 +627,9 @@ local OptionCategories = {
         moduleKey = "focus",
         options = {
             { type = "section", name = L["Panel behaviour"] },
-            { type = "toggle", name = L["Lock position"], desc = L["Prevent dragging the tracker."], dbKey = "lockPosition", get = function() return (HorizonDB and HorizonDB.lockPosition) == true end, set = function(v) setDB("lockPosition", v) end },
+            { type = "toggle", name = L["Lock position"], desc = L["Prevent dragging the tracker."], dbKey = "lockPosition", get = function() return getDB("lockPosition", false) end, set = function(v) setDB("lockPosition", v) end },
             { type = "toggle", name = L["Grow upward"], desc = L["Anchor at bottom so the list grows upward."], dbKey = "growUp", get = function() return getDB("growUp", false) end, set = function(v) setDB("growUp", v) end },
-            { type = "toggle", name = L["Start collapsed"], desc = L["Start with only the header shown until you expand."], dbKey = "collapsed", get = function() return (HorizonDB and HorizonDB.collapsed) == true end, set = function(v) setDB("collapsed", v) end },
+            { type = "toggle", name = L["Start collapsed"], desc = L["Start with only the header shown until you expand."], dbKey = "collapsed", get = function() return getDB("collapsed", false) end, set = function(v) setDB("collapsed", v) end },
             { type = "section", name = L["Dimensions"] },
             { type = "slider", name = L["Panel width"], desc = L["Tracker width in pixels."], dbKey = "panelWidth", min = 180, max = 800, get = function() return getDB("panelWidth", 260) end, set = function(v) setDB("panelWidth", math.max(180, math.min(800, v))) end },
             { type = "slider", name = L["Max content height"], desc = L["Max height of the scrollable list (pixels)."], dbKey = "maxContentHeight", min = 200, max = 1000, get = function() return getDB("maxContentHeight", 480) end, set = function(v) setDB("maxContentHeight", math.max(200, math.min(1000, v))) end },
@@ -275,7 +682,8 @@ local OptionCategories = {
             { type = "dropdown", name = L["Completed objectives"], desc = L["For multi-objective quests, how to display objectives you've completed (e.g. 1/1)."], dbKey = "questCompletedObjectiveDisplay", options = { { L["Show all"], "off" }, { L["Fade completed"], "fade" }, { L["Hide completed"], "hide" } }, get = function() return getDB("questCompletedObjectiveDisplay", "off") end, set = function(v) setDB("questCompletedObjectiveDisplay", v) end },
             { type = "toggle", name = L["Use tick for completed objectives"], desc = L["When on, completed objectives show a checkmark (✓) instead of green color."], dbKey = "useTickForCompletedObjectives", get = function() return getDB("useTickForCompletedObjectives", false) end, set = function(v) setDB("useTickForCompletedObjectives", v) end },
             { type = "toggle", name = L["Show quest type icons"], desc = L["Show quest type icon in the Focus tracker (quest accept/complete, world quest, quest update)."], dbKey = "showQuestTypeIcons", get = function() return getDB("showQuestTypeIcons", false) end, set = function(v) setDB("showQuestTypeIcons", v) end },
-            { type = "toggle", name = L["Show '**' in-zone suffix"], desc = L["Append ** to world quests and weeklies/dailies that are not yet in your quest log (in-zone only)."], dbKey = "showInZoneSuffix", get = function() return getDB("showInZoneSuffix", true) end, set = function(v) setDB("showInZoneSuffix", v) end },
+            { type = "toggle", name = L["Show icon for in-zone auto-tracking"], desc = L["Display an icon next to auto-tracked world quests and weeklies/dailies that are not yet in your quest log (in-zone only)."], dbKey = "showInZoneSuffix", get = function() return getDB("showInZoneSuffix", true) end, set = function(v) setDB("showInZoneSuffix", v) end },
+            { type = "dropdown", name = L["Auto-track icon"], desc = L["Choose which icon to display next to auto-tracked in-zone entries."], dbKey = "autoTrackIcon", options = addon.GetRadarIconOptions and addon.GetRadarIconOptions() or {}, get = function() return getDB("autoTrackIcon", "radar1") end, set = function(v) setDB("autoTrackIcon", v) end, disabled = function() return not getDB("showInZoneSuffix", true) end },
             { type = "section", name = L["Spacing"] },
             { type = "toggle", name = L["Compact mode"], desc = L["Preset: sets entry and objective spacing to 4 and 1 px."], dbKey = "compactMode", get = function() return getDB("compactMode", false) end, set = function(v) setDB("compactMode", v); if v then setDB("titleSpacing", 4); setDB("objSpacing", 1) end end },
             { type = "slider", name = L["Spacing between quest entries (px)"], desc = L["Vertical gap between quest entries."], dbKey = "titleSpacing", min = 2, max = 20, get = function() return math.max(2, math.min(20, tonumber(getDB("titleSpacing", 8)) or 8)) end, set = function(v) setDB("titleSpacing", math.max(2, math.min(20, v))) end },
@@ -349,8 +757,8 @@ local OptionCategories = {
             { type = "slider", name = L["Section size"], desc = L["Section header font size."], dbKey = "sectionFontSize", min = 8, max = 18, get = function() return getDB("sectionFontSize", 10) end, set = function(v) setDB("sectionFontSize", v) end },
             { type = "dropdown", name = L["Outline"], desc = L["Font outline style."], dbKey = "fontOutline", options = OUTLINE_OPTIONS, get = function() return getDB("fontOutline", "OUTLINE") end, set = function(v) setDB("fontOutline", v) end },
             { type = "section", name = L["Text case"] },
-            { type = "dropdown", name = L["Header text case"], desc = L["Display case for header."], dbKey = "headerTextCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("headerTextCase", "upper"); return (v == "default") and "upper" or v end, set = function(v) setDB("headerTextCase", v) end },
-            { type = "dropdown", name = L["Section header case"], desc = L["Display case for category labels."], dbKey = "sectionHeaderTextCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("sectionHeaderTextCase", "upper"); return (v == "default") and "upper" or v end, set = function(v) setDB("sectionHeaderTextCase", v) end },
+            { type = "dropdown", name = L["Header text case"], desc = L["Display case for header."], dbKey = "headerTextCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("headerTextCase", "proper"); return (v == "default") and "proper" or v end, set = function(v) setDB("headerTextCase", v) end },
+            { type = "dropdown", name = L["Section header case"], desc = L["Display case for category labels."], dbKey = "sectionHeaderTextCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("sectionHeaderTextCase", "proper"); return (v == "default") and "proper" or v end, set = function(v) setDB("sectionHeaderTextCase", v) end },
             { type = "dropdown", name = L["Quest title case"], desc = L["Display case for quest titles."], dbKey = "questTitleCase", options = TEXT_CASE_OPTIONS, get = function() local v = getDB("questTitleCase", "proper"); return (v == "default") and "proper" or v end, set = function(v) setDB("questTitleCase", v) end },
             { type = "section", name = L["Shadow"] },
             { type = "toggle", name = L["Show text shadow"], desc = L["Enable drop shadow on text."], dbKey = "showTextShadow", get = function() return getDB("showTextShadow", true) end, set = function(v) setDB("showTextShadow", v) end },
@@ -395,6 +803,7 @@ local OptionCategories = {
         options = {
             { type = "section", name = L["Panel"] },
             { type = "slider", name = L["Backdrop opacity"], desc = L["Panel background opacity (0–1)."], dbKey = "backdropOpacity", min = 0, max = 1, get = function() return tonumber(getDB("backdropOpacity", 0)) or 0 end, set = function(v) setDB("backdropOpacity", v) end },
+            { type = "color", name = L["Backdrop color"], desc = L["Panel background color."], dbKey = "backdropColor", get = function() return getDB("backdropColorR", 0.08), getDB("backdropColorG", 0.08), getDB("backdropColorB", 0.12) end, set = function(r, g, b) setDB("backdropColorR", r); setDB("backdropColorG", g); setDB("backdropColorB", b) end },
             { type = "toggle", name = L["Show border"], desc = L["Show border around the tracker."], dbKey = "showBorder", get = function() return getDB("showBorder", false) end, set = function(v) setDB("showBorder", v) end },
             { type = "section", name = L["Highlight"] },
             { type = "slider", name = L["Highlight alpha"], desc = L["Opacity of focused quest highlight (0–1)."], dbKey = "highlightAlpha", min = 0, max = 1, get = function() return tonumber(getDB("highlightAlpha", 0.25)) or 0.25 end, set = function(v) setDB("highlightAlpha", v) end },
@@ -522,15 +931,17 @@ function OptionsData_BuildSearchIndex()
         local currentSection = ""
         local moduleKey = cat.moduleKey
         local moduleLabel = (moduleKey == "focus" and L["Focus"]) or (moduleKey == "presence" and L["Presence"]) or (moduleKey == "yield" and L["Yield"]) or L["Modules"]
-        for _, opt in ipairs(cat.options) do
+        local catOpts = type(cat.options) == "function" and cat.options() or cat.options
+        for _, opt in ipairs(catOpts) do
             if opt.type == "section" then
-                currentSection = opt.name or ""
+                currentSection = type(opt.name) == "function" and opt.name() or opt.name or ""
             elseif opt.type ~= "section" then
-                local name = (opt.name or ""):lower()
+                local rawName = type(opt.name) == "function" and opt.name() or opt.name
+                local name = (rawName or ""):lower()
                 local desc = (opt.desc or opt.tooltip or ""):lower()
                 local sectionLower = (currentSection or ""):lower()
                 local searchText = name .. " " .. desc .. " " .. sectionLower .. " " .. (moduleLabel or ""):lower()
-                local optionId = opt.dbKey or (cat.key .. "_" .. (opt.name or ""):gsub("%s+", "_"))
+                local optionId = opt.dbKey or (cat.key .. "_" .. (rawName or ""):gsub("%s+", "_"))
                 index[#index + 1] = {
                     categoryKey = cat.key,
                     categoryName = cat.name,

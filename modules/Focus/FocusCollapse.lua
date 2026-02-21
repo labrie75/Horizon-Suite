@@ -112,7 +112,7 @@ local function ToggleCollapse()
         addon.FullLayout()
     end
     addon.EnsureDB()
-    HorizonDB.collapsed = addon.focus.collapsed
+    addon.SetDB("collapsed", addon.focus.collapsed)
 end
 
 --- Initiates category collapse for a group. Animates entries collapsing, then runs FullLayout.
@@ -341,12 +341,15 @@ local function RefreshContentInCombat()
                 if showInZoneSuffix then
                     local needSuffix = false
                     if questData.category == "WORLD" then
-                        -- WORLD quests: show '**' only when HorizonSuite auto-added it. Exclude proximity-based (Blizzard default).
-                        needSuffix = (questData.isAutoAdded == true) and (questData.isSuperTracked ~= true) and (questData.isInQuestArea ~= true)
+                        needSuffix = (questData.isAutoAdded == true) and (questData.isSuperTracked ~= true)
                     elseif questData.category == "WEEKLY" or questData.category == "DAILY" then
                         needSuffix = (questData.isAccepted == false)
                     end
-                    if needSuffix then displayTitle = displayTitle .. " **" end
+                    if needSuffix then
+                        local iconKey = addon.GetDB("autoTrackIcon", "radar1")
+                        local iconPath = addon.GetRadarIconPath and addon.GetRadarIconPath(iconKey) or ("Interface\\AddOns\\HorizonSuite\\media\\" .. iconKey .. ".blp")
+                        displayTitle = displayTitle .. " |T" .. iconPath .. ":0|t"
+                    end
                 end
                 displayTitle = addon.ApplyTextCase and addon.ApplyTextCase(displayTitle, "questTitleCase", "proper") or displayTitle
                 if addon.GetDB("showCategoryEntryNumbers", true) and questData.categoryIndex and type(questData.categoryIndex) == "number" then
