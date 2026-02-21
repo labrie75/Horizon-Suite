@@ -6,11 +6,19 @@ All notable changes to Horizon Suite are documented here.
 
 ## [Unreleased]
 
+<!-- Changelog entries are generated from closed GitHub Issues at release time. -->
+
+---
+
+## [2.0.2] – 2026-02-21
+
 ### New Features
 
 - **(Yield) Cinematic loot notifications module** — Items, money, currency, and reputation gains appear as styled toasts with quality-based colours and smooth animations. Epic and legendary loot get extra flair. Enable in options; use `/horizon yield` for test commands.
 
-<!-- Changelog entries are generated from closed GitHub Issues at release time. -->
+### Fixes
+
+- **(Core)** Font selection now persists after reload, log out, or game exit.
 
 ---
 
