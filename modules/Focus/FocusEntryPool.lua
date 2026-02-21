@@ -380,12 +380,23 @@ local function UpdateFontObjectsFromDB()
     local zoneSz     = tonumber(addon.GetDB("zoneFontSize", 10)) or 10
     local sectionSz  = tonumber(addon.GetDB("sectionFontSize", 10)) or 10
 
+    local GLOBAL_SENTINEL = "__global__"
+    local titleFontRaw   = addon.GetDB("titleFontPath", GLOBAL_SENTINEL)
+    local zoneFontRaw    = addon.GetDB("zoneFontPath", GLOBAL_SENTINEL)
+    local objFontRaw     = addon.GetDB("objectiveFontPath", GLOBAL_SENTINEL)
+    local sectionFontRaw = addon.GetDB("sectionFontPath", GLOBAL_SENTINEL)
+
+    local titleFont   = (titleFontRaw and titleFontRaw ~= GLOBAL_SENTINEL) and (addon.ResolveFontPath and addon.ResolveFontPath(titleFontRaw) or titleFontRaw) or fontPath
+    local zoneFont    = (zoneFontRaw and zoneFontRaw ~= GLOBAL_SENTINEL) and (addon.ResolveFontPath and addon.ResolveFontPath(zoneFontRaw) or zoneFontRaw) or fontPath
+    local objFont     = (objFontRaw and objFontRaw ~= GLOBAL_SENTINEL) and (addon.ResolveFontPath and addon.ResolveFontPath(objFontRaw) or objFontRaw) or fontPath
+    local sectionFont = (sectionFontRaw and sectionFontRaw ~= GLOBAL_SENTINEL) and (addon.ResolveFontPath and addon.ResolveFontPath(sectionFontRaw) or sectionFontRaw) or fontPath
+
     addon.FONT_PATH = fontPath
     addon.HeaderFont:SetFont(fontPath, headerSz, outline)
-    addon.TitleFont:SetFont(fontPath, titleSz, outline)
-    addon.ObjFont:SetFont(fontPath, objSz, outline)
-    addon.ZoneFont:SetFont(fontPath, zoneSz, outline)
-    addon.SectionFont:SetFont(fontPath, sectionSz, outline)
+    addon.TitleFont:SetFont(titleFont, titleSz, outline)
+    addon.ObjFont:SetFont(objFont, objSz, outline)
+    addon.ZoneFont:SetFont(zoneFont, zoneSz, outline)
+    addon.SectionFont:SetFont(sectionFont, sectionSz, outline)
 end
 
 local function ApplyTypography()
