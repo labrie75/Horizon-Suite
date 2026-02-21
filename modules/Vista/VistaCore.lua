@@ -139,18 +139,12 @@ local zoomStarted, zoomCurrent = 0, 0
 local hookedButtons = {}
 local setParentHook
 
-local function GetDB()
-    if not HorizonDB or not HorizonDB.modules or not HorizonDB.modules.vista then
-        return {}
-    end
-    return HorizonDB.modules.vista
-end
-
 local function ScheduleAutoZoom()
-    local db = GetDB()
-    if db and db.autoZoom and db.autoZoom > 0 then
+    if not addon.GetDB then return end
+    local autoZoom = addon.GetDB("vistaAutoZoom", 5)
+    if autoZoom and autoZoom > 0 then
         zoomStarted = zoomStarted + 1
-        C_Timer.After(db.autoZoom, function()
+        C_Timer.After(autoZoom, function()
             zoomCurrent = zoomCurrent + 1
             if zoomStarted == zoomCurrent then
                 for i = 1, Minimap:GetZoom() or 0 do
@@ -167,14 +161,19 @@ local function ScheduleAutoZoom()
 end
 
 local function SetupMinimap()
-    local db = GetDB()
+    if not addon.GetDB then return end
+    local pt = addon.GetDB("vistaPoint", nil)
+    local rp = addon.GetDB("vistaRelPoint", nil)
+    local vx = addon.GetDB("vistaX", nil)
+    local vy = addon.GetDB("vistaY", nil)
+    local scale = addon.GetDB("vistaScale", 1.0)
 
     Minimap:SetSize(MAP_SIZE, MAP_SIZE)
     Minimap:SetMaskTexture("Interface\\ChatFrame\\ChatFrameBackground")
 
-    if db and db.point then
+    if pt then
         proxy.ClearAllPoints(Minimap)
-        proxy.SetPoint(Minimap, db.point, UIParent, db.relpoint or db.point, db.x or 0, db.y or 0)
+        proxy.SetPoint(Minimap, pt, UIParent, rp or pt, vx or 0, vy or 0)
     else
         proxy.ClearAllPoints(Minimap)
         proxy.SetPoint(Minimap, DEFAULT_POINT, UIParent, DEFAULT_RELPOINT, DEFAULT_X, DEFAULT_Y)
@@ -184,15 +183,16 @@ local function SetupMinimap()
         Vista._setPointHooked = true
         hooksecurefunc(Minimap, "SetPoint", function()
             if not addon:IsModuleEnabled("vista") then return end
-            local d = GetDB()
-            if d and d.point then
+            if not addon.GetDB then return end
+            local dpt = addon.GetDB("vistaPoint", nil)
+            if dpt then
                 proxy.ClearAllPoints(Minimap)
-                proxy.SetPoint(Minimap, d.point, UIParent, d.relpoint or d.point, d.x or 0, d.y or 0)
+                proxy.SetPoint(Minimap, dpt, UIParent, addon.GetDB("vistaRelPoint", dpt) or dpt, addon.GetDB("vistaX", 0) or 0, addon.GetDB("vistaY", 0) or 0)
             end
         end)
     end
 
-    proxy.SetScale(Minimap, db and db.scale or 1.0)
+    proxy.SetScale(Minimap, scale or 1.0)
 
     Minimap:Show()
     Minimap:SetAlpha(1)
@@ -232,8 +232,9 @@ local function CreateDecor()
     Minimap:RegisterForDrag("LeftButton")
 
     Minimap:SetScript("OnDragStart", function(self)
-        local db = GetDB()
-        if not db.lock and self:IsMovable() then
+        if not addon.GetDB then return end
+        local lock = addon.GetDB("vistaLock", false)
+        if not lock and self:IsMovable() then
             if not InCombatLockdown() then self:StartMoving() end
         end
     end)
@@ -241,15 +242,12 @@ local function CreateDecor()
     Minimap:SetScript("OnDragStop", function(self)
         if InCombatLockdown() then return end
         self:StopMovingOrSizing()
+        if not addon.SetDB then return end
         local p, _, rp, x, y = self:GetPoint()
-        if not HorizonDB then HorizonDB = {} end
-        if not HorizonDB.modules then HorizonDB.modules = {} end
-        if not HorizonDB.modules.vista then HorizonDB.modules.vista = {} end
-        local d = HorizonDB.modules.vista
-        d.point = p
-        d.relpoint = rp
-        d.x = x
-        d.y = y
+        addon.SetDB("vistaPoint", p)
+        addon.SetDB("vistaRelPoint", rp)
+        addon.SetDB("vistaX", x)
+        addon.SetDB("vistaY", y)
     end)
 
     Minimap:EnableMouseWheel(true)
@@ -704,8 +702,8 @@ function Vista.Init()
         end
     end)
 
-    local db = GetDB()
-    if db.enabled ~= false then
+    local showMinimap = addon.GetDB and addon.GetDB("vistaShowMinimap", true)
+    if showMinimap ~= false then
         Minimap:Show()
     else
         Minimap:Hide()
@@ -747,21 +745,19 @@ SlashCmdList["HORIZONSUITEVISTA"] = function(msg)
         print("|cFF00CCFFHorizon Suite:|r Vista module is disabled. Enable it in Horizon Suite options.")
         return
     end
+    if not addon.GetDB or not addon.SetDB then return end
 
     local cmd = (msg or ""):trim():lower()
-    local db = GetDB()
 
     if cmd == "reset" then
         if not InCombatLockdown() then
             proxy.ClearAllPoints(Minimap)
             proxy.SetPoint(Minimap, DEFAULT_POINT, UIParent, DEFAULT_RELPOINT, DEFAULT_X, DEFAULT_Y)
         end
-        if db then
-            db.point = nil
-            db.relpoint = nil
-            db.x = nil
-            db.y = nil
-        end
+        addon.SetDB("vistaPoint", nil)
+        addon.SetDB("vistaRelPoint", nil)
+        addon.SetDB("vistaX", nil)
+        addon.SetDB("vistaY", nil)
         print("|cFF00CCFFHorizon Suite Vista:|r Position reset to default.")
 
     elseif cmd == "toggle" then
@@ -769,12 +765,9 @@ SlashCmdList["HORIZONSUITEVISTA"] = function(msg)
             print("|cFF00CCFFHorizon Suite Vista:|r |cFFFF0000Cannot toggle during combat.|r")
             return
         end
-        if not HorizonDB then HorizonDB = {} end
-        if not HorizonDB.modules then HorizonDB.modules = {} end
-        if not HorizonDB.modules.vista then HorizonDB.modules.vista = {} end
-        local d = HorizonDB.modules.vista
-        d.enabled = not (d.enabled ~= false)
-        if d.enabled then
+        local show = not (addon.GetDB("vistaShowMinimap", true) ~= false)
+        addon.SetDB("vistaShowMinimap", show)
+        if show then
             Minimap:Show()
             print("|cFF00CCFFHorizon Suite Vista:|r |cFF00FF00Enabled|r")
         else
@@ -783,13 +776,10 @@ SlashCmdList["HORIZONSUITEVISTA"] = function(msg)
         end
 
     elseif cmd == "lock" then
-        if not HorizonDB then HorizonDB = {} end
-        if not HorizonDB.modules then HorizonDB.modules = {} end
-        if not HorizonDB.modules.vista then HorizonDB.modules.vista = {} end
-        local d = HorizonDB.modules.vista
-        d.lock = not d.lock
-        Minimap:SetMovable(not d.lock)
-        if d.lock then
+        local lock = not addon.GetDB("vistaLock", false)
+        addon.SetDB("vistaLock", lock)
+        Minimap:SetMovable(not lock)
+        if lock then
             print("|cFF00CCFFHorizon Suite Vista:|r Minimap |cFFFF8800locked|r. Dragging disabled.")
         else
             print("|cFF00CCFFHorizon Suite Vista:|r Minimap |cFF00FF00unlocked|r. Drag to reposition.")
@@ -797,35 +787,28 @@ SlashCmdList["HORIZONSUITEVISTA"] = function(msg)
 
     elseif cmd:find("^scale") then
         local val = tonumber(cmd:match("scale%s+(.+)"))
-        if not HorizonDB then HorizonDB = {} end
-        if not HorizonDB.modules then HorizonDB.modules = {} end
-        if not HorizonDB.modules.vista then HorizonDB.modules.vista = {} end
-        local d = HorizonDB.modules.vista
         if val then
             val = math.max(0.5, math.min(2.0, val))
-            d.scale = val
+            addon.SetDB("vistaScale", val)
             proxy.SetScale(Minimap, val)
             print("|cFF00CCFFHorizon Suite Vista:|r Scale set to " .. format("%.2f", val))
         else
-            print("|cFF00CCFFHorizon Suite Vista:|r Current scale: " .. format("%.2f", d.scale or 1) .. "  (usage: /mmm scale 0.5-2.0)")
+            local cur = addon.GetDB("vistaScale", 1)
+            print("|cFF00CCFFHorizon Suite Vista:|r Current scale: " .. format("%.2f", cur or 1) .. "  (usage: /mmm scale 0.5-2.0)")
         end
 
     elseif cmd:find("^autozoom") then
         local val = tonumber(cmd:match("autozoom%s+(.+)"))
-        if not HorizonDB then HorizonDB = {} end
-        if not HorizonDB.modules then HorizonDB.modules = {} end
-        if not HorizonDB.modules.vista then HorizonDB.modules.vista = {} end
-        local d = HorizonDB.modules.vista
         if val then
             val = math.max(0, math.min(30, math.floor(val)))
-            d.autoZoom = val
+            addon.SetDB("vistaAutoZoom", val)
             if val == 0 then
                 print("|cFF00CCFFHorizon Suite Vista:|r Auto zoom-out |cFFFF0000disabled|r.")
             else
                 print("|cFF00CCFFHorizon Suite Vista:|r Auto zoom-out set to " .. val .. "s.")
             end
         else
-            local cur = d.autoZoom or 5
+            local cur = addon.GetDB("vistaAutoZoom", 5)
             if cur == 0 then
                 print("|cFF00CCFFHorizon Suite Vista:|r Auto zoom-out: disabled  (usage: /mmm autozoom 0-30)")
             else

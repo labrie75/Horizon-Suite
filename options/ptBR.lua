@@ -120,6 +120,7 @@ L["Enable Yield module"]                                = "Ativar Módulo de Ren
 L["Cinematic loot notifications (items, money, currency, reputation)."] = "Notificações cinematográficas de saque (itens, dinheiro, moedas, reputação)."
 L["Enable Vista module"]                                = "Ativar Módulo Vista"
 L["Cinematic square minimap with zone text, coordinates, and button collector."] = "Minimapa quadrado cinematográfico com texto de zona, coordenadas e coletor de botões."
+L["Beta"]                                               = "Beta"
 L["Enable Horizon Insight module"]                      = "Ativar Módulo Horizon Insight"
 L["Cinematic tooltips with class colors, spec display, and faction icons."] = "Tooltips cinematográficos com cores de classe, exibição de especialização e ícones de facção."
 L["Horizon Insight"]                                    = "Horizon Insight"

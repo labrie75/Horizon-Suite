@@ -145,10 +145,31 @@ end
 local function OnAddonLoaded(addonName)
     if addonName == "HorizonSuite" then
         addon:EnsureModulesDB()
+        local dev = _G.HorizonSuiteDevOverride
         for key in pairs(addon.modules or {}) do
-            local modDb = HorizonDB and HorizonDB.modules and HorizonDB.modules[key]
-            if modDb and modDb.enabled ~= false then
-                addon:EnableModule(key)
+            -- Beta modules (Insight, Yield, Vista): only enable when dev addon shows their toggle
+            if key == "insight" or key == "yield" or key == "vista" then
+                local showToggle = (key == "insight" and dev and dev.showInsightToggle)
+                    or (key == "yield" and dev and dev.showYieldToggle)
+                    or (key == "vista" and dev and dev.showVistaToggle)
+                if not showToggle then
+                    if HorizonDB and HorizonDB.modules and HorizonDB.modules[key] then
+                        HorizonDB.modules[key].enabled = false
+                    end
+                    if addon.modules[key] and addon.modules[key].enabled then
+                        addon:DisableModule(key)
+                    end
+                else
+                    local modDb = HorizonDB and HorizonDB.modules and HorizonDB.modules[key]
+                    if modDb and modDb.enabled ~= false then
+                        addon:EnableModule(key)
+                    end
+                end
+            else
+                local modDb = HorizonDB and HorizonDB.modules and HorizonDB.modules[key]
+                if modDb and modDb.enabled ~= false then
+                    addon:EnableModule(key)
+                end
             end
         end
     elseif addonName == "Blizzard_WorldMap" then

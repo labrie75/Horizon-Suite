@@ -13,33 +13,31 @@ addon:RegisterModule("vista", {
     order       = 25,
 
     OnInit = function()
-        -- Migrate from standalone ModernMinimapDB to HorizonDB.modules.vista
-        if _G.ModernMinimapDB and HorizonDB and HorizonDB.modules and HorizonDB.modules.vista then
-            local src = _G.ModernMinimapDB
-            local dst = HorizonDB.modules.vista
-            -- Only migrate if we have no position data (fresh Vista or old vista was Presence)
-            local hasPosition = dst.point or dst.x or dst.y
-            if not hasPosition and (src.point or src.x or src.y or src.scale or src.lock ~= nil or src.autoZoom ~= nil) then
-                dst.point = src.point
-                dst.relpoint = src.relpoint
-                dst.x = src.x
-                dst.y = src.y
-                dst.scale = src.scale
-                dst.lock = src.lock
-                dst.autoZoom = src.autoZoom
-                if src.enabled ~= nil then
-                    dst.enabled = src.enabled
-                end
-            end
-        end
+        addon.EnsureDB()
+        if not addon.GetActiveProfile or not addon.SetDB then return end
 
-        -- Ensure defaults for Vista-specific fields
-        if HorizonDB and HorizonDB.modules and HorizonDB.modules.vista then
-            local d = HorizonDB.modules.vista
-            if d.enabled == nil then d.enabled = true end
-            if d.lock == nil then d.lock = false end
-            if d.autoZoom == nil then d.autoZoom = 5 end
-            if d.scale == nil then d.scale = 1.0 end
+        -- One-time migration: HorizonDB.modules.vista and ModernMinimapDB -> profile
+        if not HorizonDB then HorizonDB = {} end
+        if not HorizonDB.modules then HorizonDB.modules = {} end
+        if not HorizonDB.modules.vista then HorizonDB.modules.vista = {} end
+        local modDb = HorizonDB.modules.vista
+        if not modDb.migratedToProfile then
+            modDb.migratedToProfile = true
+            local hasProfileData = addon.GetDB("vistaPoint", nil) or addon.GetDB("vistaX", nil) or addon.GetDB("vistaY", nil)
+            if not hasProfileData then
+                local src = modDb
+                if _G.ModernMinimapDB and type(_G.ModernMinimapDB) == "table" and (not src.point and not src.x and not src.y) then
+                    src = _G.ModernMinimapDB
+                end
+                if src.point then addon.SetDB("vistaPoint", src.point) end
+                if src.relpoint then addon.SetDB("vistaRelPoint", src.relpoint) end
+                if src.x ~= nil then addon.SetDB("vistaX", src.x) end
+                if src.y ~= nil then addon.SetDB("vistaY", src.y) end
+                if src.scale ~= nil then addon.SetDB("vistaScale", src.scale) end
+                if src.lock ~= nil then addon.SetDB("vistaLock", src.lock) end
+                if src.autoZoom ~= nil then addon.SetDB("vistaAutoZoom", src.autoZoom) end
+                if src.enabled ~= nil then addon.SetDB("vistaShowMinimap", src.enabled) end
+            end
         end
     end,
 

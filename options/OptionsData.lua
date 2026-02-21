@@ -621,17 +621,21 @@ local OptionCategories = {
         name = L["Modules"],
         moduleKey = nil,
         options = (function()
+            local dev = _G.HorizonSuiteDevOverride
+            local betaSuffix = dev and (" (" .. (L["Beta"] or "Beta") .. ")") or ""
             local opts = {
                 { type = "section", name = "" },
                 { type = "toggle", name = L["Enable Focus module"], desc = L["Show the objective tracker for quests, world quests, rares, achievements, and scenarios."], dbKey = "_module_focus", get = function() return addon:IsModuleEnabled("focus") end, set = function(v) addon:SetModuleEnabled("focus", v) end },
                 { type = "toggle", name = L["Enable Presence module"], desc = L["Cinematic zone text and notifications (zone changes, level up, boss emotes, achievements, quest updates)."], dbKey = "_module_presence", get = function() return addon:IsModuleEnabled("presence") end, set = function(v) addon:SetModuleEnabled("presence", v) end },
-                { type = "toggle", name = L["Enable Horizon Insight module"], desc = L["Cinematic tooltips with class colors, spec display, and faction icons."], dbKey = "_module_insight", get = function() return addon:IsModuleEnabled("insight") end, set = function(v) addon:SetModuleEnabled("insight", v) end },
             }
-            if _G.HorizonSuiteDevOverride and _G.HorizonSuiteDevOverride.showYieldToggle then
-                opts[#opts + 1] = { type = "toggle", name = L["Enable Yield module"], desc = L["Cinematic loot notifications (items, money, currency, reputation)."], dbKey = "_module_yield", get = function() return addon:IsModuleEnabled("yield") end, set = function(v) addon:SetModuleEnabled("yield", v) end }
+            if dev and dev.showInsightToggle then
+                opts[#opts + 1] = { type = "toggle", name = L["Enable Horizon Insight module"] .. betaSuffix, desc = L["Cinematic tooltips with class colors, spec display, and faction icons."], dbKey = "_module_insight", get = function() return addon:IsModuleEnabled("insight") end, set = function(v) addon:SetModuleEnabled("insight", v) end }
             end
-            if _G.HorizonSuiteDevOverride and _G.HorizonSuiteDevOverride.showVistaToggle then
-                opts[#opts + 1] = { type = "toggle", name = L["Enable Vista module"], desc = L["Cinematic square minimap with zone text, coordinates, and button collector."], dbKey = "_module_vista", get = function() return addon:IsModuleEnabled("vista") end, set = function(v) addon:SetModuleEnabled("vista", v) end }
+            if dev and dev.showYieldToggle then
+                opts[#opts + 1] = { type = "toggle", name = L["Enable Yield module"] .. betaSuffix, desc = L["Cinematic loot notifications (items, money, currency, reputation)."], dbKey = "_module_yield", get = function() return addon:IsModuleEnabled("yield") end, set = function(v) addon:SetModuleEnabled("yield", v) end }
+            end
+            if dev and dev.showVistaToggle then
+                opts[#opts + 1] = { type = "toggle", name = L["Enable Vista module"] .. betaSuffix, desc = L["Cinematic square minimap with zone text, coordinates, and button collector."], dbKey = "_module_vista", get = function() return addon:IsModuleEnabled("vista") end, set = function(v) addon:SetModuleEnabled("vista", v) end }
             end
             return opts
         end)(),

@@ -120,6 +120,7 @@ L["Enable Yield module"]                                = "Yield 모듈 활성�
 L["Cinematic loot notifications (items, money, currency, reputation)."] = "시네마틱 전리품 알림 (아이템, 금화, 통화, 평판)."
 L["Enable Vista module"]                                = "Vista 모듈 활성화"
 L["Cinematic square minimap with zone text, coordinates, and button collector."] = "지역 텍스트, 좌표, 버튼 수집기가 있는 시네마틱 사각형 미니맵."
+L["Beta"]                                               = "Beta"
 L["Enable Horizon Insight module"]                      = "Horizon Insight 모듈 활성화"
 L["Cinematic tooltips with class colors, spec display, and faction icons."] = "직업 색상, 전문화 표시, 진영 아이콘이 있는 시네마틱 툴팁."
 L["Horizon Insight"]                                    = "Horizon Insight"
