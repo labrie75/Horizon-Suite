@@ -474,6 +474,71 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
             HSPrint("DebugHeaderCount not available.")
         end
 
+    elseif cmd == "achievementdebug" then
+        HSPrint("|cFF00CCFF--- Achievement Tracking Debug ---|r")
+        local TRACKING_TYPE_ACHIEVEMENT = (Enum and Enum.ContentTrackingType and Enum.ContentTrackingType.Achievement) or 2
+        local idList = {}
+        if C_ContentTracking and C_ContentTracking.GetTrackedIDs then
+            local ids = C_ContentTracking.GetTrackedIDs(TRACKING_TYPE_ACHIEVEMENT)
+            if ids and type(ids) == "table" then
+                for _, id in ipairs(ids) do
+                    if type(id) == "number" and id > 0 then idList[#idList + 1] = id end
+                end
+            end
+        elseif GetTrackedAchievements then
+            for i = 1, 10 do
+                local id = select(i, GetTrackedAchievements())
+                if type(id) == "number" and id > 0 then idList[#idList + 1] = id end
+            end
+        end
+        HSPrint("Tracked achievement IDs: " .. (#idList > 0 and table.concat(idList, ", ") or "none"))
+        for _, achID in ipairs(idList) do
+            HSPrint("|cFFFFCC00Achievement " .. tostring(achID) .. ":|r")
+            -- GetAchievementInfo
+            if GetAchievementInfo then
+                local aOk, id, name, points, completed, month, day, year, description, flags, icon = pcall(GetAchievementInfo, achID)
+                if aOk then
+                    HSPrint("  name=" .. tostring(name) .. "  completed=" .. tostring(completed) .. "  points=" .. tostring(points))
+                    HSPrint("  description=" .. tostring(description))
+                else
+                    HSPrint("  GetAchievementInfo FAILED: " .. tostring(id))
+                end
+            end
+            -- NumCriteria
+            local numCriteria = 0
+            if GetAchievementNumCriteria then
+                local nOk, n = pcall(GetAchievementNumCriteria, achID)
+                if nOk and type(n) == "number" then numCriteria = n end
+                HSPrint("  numCriteria=" .. tostring(nOk and n or "error"))
+            end
+            -- Each criterion
+            if GetAchievementCriteriaInfo and numCriteria > 0 then
+                for ci = 1, math.min(numCriteria, 15) do
+                    local cOk, criteriaString, criteriaType, completedCrit, quantity, reqQuantity, charName, cflags, assetID, quantityString, criteriaID =
+                        pcall(GetAchievementCriteriaInfo, achID, ci)
+                    if cOk then
+                        HSPrint(("  [%d] str=%q type=%s done=%s qty=%s/%s qtyStr=%q criteriaID=%s"):format(
+                            ci,
+                            tostring(criteriaString or ""),
+                            tostring(criteriaType),
+                            tostring(completedCrit),
+                            tostring(quantity),
+                            tostring(reqQuantity),
+                            tostring(quantityString or ""),
+                            tostring(criteriaID or "?")))
+                    else
+                        HSPrint(("  [%d] GetAchievementCriteriaInfo FAILED: %s"):format(ci, tostring(criteriaString)))
+                    end
+                end
+                if numCriteria > 15 then
+                    HSPrint("  ... (" .. tostring(numCriteria - 15) .. " more criteria)")
+                end
+            elseif numCriteria == 0 then
+                HSPrint("  (no criteria)")
+            end
+        end
+        HSPrint("|cFF00CCFF--- End Achievement Debug ---|r")
+
     elseif cmd == "endeavordebug" then
         HSPrint("|cFF00CCFF--- Endeavor API debug ---|r")
         HSPrint("C_ContentTracking: " .. (C_ContentTracking and "yes" or "no"))
@@ -811,6 +876,7 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
         HSPrint("  /horizon delvedebug      - Dump Delve/tier APIs (run inside a Delve to find tier number)")
         HSPrint("  /horizon mplusaffixdebug - Dump M+ affix APIs (run in M+ dungeon with key inserted)")
         HSPrint("  /horizon endeavordebug   - Dump Endeavor APIs + GetInitiativeTaskInfo fields (for tooltip/rewards)")
+        HSPrint("  /horizon achievementdebug - Dump tracked achievement criteria/progress (diagnose missing progress)")
         HSPrint("  /horizon unaccepted      - Show popup of unaccepted quests in current zone with type labels (test)")
         HSPrint("  /horizon clicktodebug    - Debug: list tracked quests and which are eligible for click-to-complete")
         HSPrint("  /horizon profiledebug    - Dump profile routing: char key, effective key, global/perSpec state")

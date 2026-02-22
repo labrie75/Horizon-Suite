@@ -327,7 +327,18 @@ local function RefreshContentInCombat()
                 local effectiveDoneColor = doneColor
 
                 local displayTitle = questData.title or ""
-                if (addon.GetDB("showCompletedCount", false) or questData.isAchievement or questData.isEndeavor) then
+                -- Determine if progress bar is active (suppress title X/Y to avoid duplication)
+                local progressBarActiveForTitle = false
+                if addon.GetDB("showObjectiveProgressBar", false) and questData.objectives then
+                    local ac = 0
+                    for _, o in ipairs(questData.objectives) do
+                        if o.numFulfilled ~= nil and o.numRequired ~= nil and type(o.numFulfilled) == "number" and type(o.numRequired) == "number" and o.numRequired > 1 then
+                            ac = ac + 1
+                        end
+                    end
+                    if ac == 1 then progressBarActiveForTitle = true end
+                end
+                if not progressBarActiveForTitle and (addon.GetDB("showCompletedCount", false) or questData.isAchievement or questData.isEndeavor) then
                     local done, total
                     if questData.numericQuantity ~= nil and questData.numericRequired and type(questData.numericRequired) == "number" and questData.numericRequired > 1 then
                         done, total = questData.numericQuantity, questData.numericRequired
@@ -397,25 +408,46 @@ local function RefreshContentInCombat()
                 end
 
                 local objectives = questData.objectives or {}
-                local showEllipsis = (questData.isAchievement or questData.isEndeavor) and #objectives > 4
+                local maxObjs = addon.MAX_OBJECTIVES
+                local showEllipsis = (questData.isAchievement or questData.isEndeavor) and #objectives > maxObjs
+
+                -- Progress bar: determine if the entry has exactly 1 arithmetic objective with numRequired > 1
+                local showProgressBarOpt = addon.GetDB("showObjectiveProgressBar", false)
+                local progressBarObjIdx = nil
+                if showProgressBarOpt and #objectives > 0 then
+                    local arithmeticCount = 0
+                    local arithmeticIdx = nil
+                    for idx, o in ipairs(objectives) do
+                        if o.numFulfilled ~= nil and o.numRequired ~= nil and type(o.numFulfilled) == "number" and type(o.numRequired) == "number" and o.numRequired > 1 then
+                            arithmeticCount = arithmeticCount + 1
+                            arithmeticIdx = idx
+                        end
+                    end
+                    if arithmeticCount == 1 then
+                        progressBarObjIdx = arithmeticIdx
+                    end
+                end
+
                 for j = 1, addon.MAX_OBJECTIVES do
                     local obj = entry.objectives[j]
                     if not obj then break end
 
                     local oData = objectives[j]
                     if showEllipsis then
-                        if j == 5 then oData = { text = "...", finished = false }
-                        elseif j > 4 then oData = nil
+                        if j == maxObjs then oData = { text = "...", finished = false }
+                        elseif j > maxObjs then oData = nil
                         end
                     end
 
                     if oData and oData.text then
                         local objText = oData.text or ""
                         local nf, nr = oData.numFulfilled, oData.numRequired
+                        local thisObjHasBar = (progressBarObjIdx == j)
                         -- Skip appending (X/Y) when the title already shows it (single-criterion numeric achievement).
+                        -- Also skip when a progress bar is shown for this objective.
                         local titleShowsNumeric = questData.numericQuantity ~= nil and questData.numericRequired and type(questData.numericRequired) == "number" and questData.numericRequired > 1
                         local singleObjective = #objectives == 1
-                        if nf ~= nil and nr ~= nil and type(nf) == "number" and type(nr) == "number" and nr > 1 and not (titleShowsNumeric and singleObjective) then
+                        if not thisObjHasBar and nf ~= nil and nr ~= nil and type(nf) == "number" and type(nr) == "number" and nr > 1 and not (titleShowsNumeric and singleObjective) then
                             local pattern = tostring(nf) .. "/" .. tostring(nr)
                             if not objText:find(pattern, 1, true) then
                                 objText = objText .. (" (%d/%d)"):format(nf, nr)
@@ -446,6 +478,27 @@ local function RefreshContentInCombat()
                             end
                         else
                             obj.text:SetTextColor(objColor[1], objColor[2], objColor[3], alpha)
+                        end
+
+                        -- Update progress bar fill and label during combat refresh
+                        if thisObjHasBar and nf and nr and type(nf) == "number" and type(nr) == "number" and nr > 0 and obj.progressBarFill then
+                            local fraction = math.min(nf / nr, 1)
+                            local barW = obj.progressBarBg and obj.progressBarBg:GetWidth() or 100
+                            obj.progressBarFill:SetWidth(math.max(1, barW * fraction))
+                            if obj.progressBarLabel then
+                                local pct = math.floor(100 * fraction)
+                                obj.progressBarLabel:SetText(("%d/%d (%d%%)"):format(nf, nr, pct))
+                            end
+                            local barFillColor
+                            if addon.GetDB("progressBarUseCategoryColor", true) then
+                                barFillColor = titleColor
+                            else
+                                barFillColor = addon.GetDB("progressBarFillColor", nil)
+                                if not barFillColor or type(barFillColor) ~= "table" then barFillColor = { 0.40, 0.65, 0.90 } end
+                            end
+                            if barFillColor and barFillColor[1] and barFillColor[2] and barFillColor[3] then
+                                obj.progressBarFill:SetColorTexture(barFillColor[1], barFillColor[2], barFillColor[3], 0.85)
+                            end
                         end
                     end
                 end
