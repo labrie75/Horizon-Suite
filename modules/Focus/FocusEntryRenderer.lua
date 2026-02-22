@@ -441,16 +441,23 @@ local function PopulateEntry(entry, questData, groupKey)
     local textWidth = addon.GetPanelWidth() - addon.PADDING - leftOffset - (addon.CONTENT_RIGHT_PADDING or 0)
     local titleLeftOffset = 0
 
-    -- Reserve space on the right for the Join Group button column when this entry
-    -- is a group quest.  All group-quest entries get the same column width so the
-    -- buttons are horizontally aligned.
-    local showLfgBtn = questData.isGroupQuest and entry.lfgBtn and true or false
-    local lfgColumnW = 0
-    if showLfgBtn then
-        local btnSize = addon.LFG_BTN_SIZE or 26
-        local btnGap  = addon.LFG_BTN_GAP or 4
-        lfgColumnW = btnSize + btnGap
-        textWidth = textWidth - lfgColumnW
+    -- Right-side gutter: auto-adjusting column that holds the LFG group button
+    -- and/or the quest item button.  The gutter width adapts to whichever
+    -- combination is needed so everything is right-aligned.
+    local showLfgBtn  = questData.isGroupQuest and entry.lfgBtn and true or false
+    local lfgBtnSize  = addon.LFG_BTN_SIZE or 26
+    local itemBtnSize = addon.ITEM_BTN_SIZE or 26
+    local gutterGap   = addon.LFG_BTN_GAP or 4  -- gap between text and gutter, and between buttons
+    local gutterW     = 0
+    if showItemBtn and showLfgBtn then
+        gutterW = itemBtnSize + gutterGap + lfgBtnSize + gutterGap
+    elseif showItemBtn then
+        gutterW = itemBtnSize + gutterGap
+    elseif showLfgBtn then
+        gutterW = lfgBtnSize + gutterGap
+    end
+    if gutterW > 0 then
+        textWidth = textWidth - gutterW
     end
 
     -- Extra spacing between icon column and title when icons are enabled.
@@ -580,6 +587,10 @@ local function PopulateEntry(entry, questData, groupKey)
     -- Re-apply icon-mode title offset because ApplyHighlightStyle resets the anchor.
     ApplyIconModeTitleOffset()
 
+    -- Right-side gutter: position item button and/or LFG button.
+    -- Both are anchored from the entry's TOPRIGHT, right-aligned.
+    -- Layout (right to left): [entry TOPRIGHT] [LFG btn] [gap] [item btn] [gap] [text]
+    -- When only one is present, it sits at the rightmost position.
     if showItemBtn then
         entry.itemLink = questData.itemLink
         entry.itemBtn.icon:SetTexture(questData.itemTexture)
@@ -587,27 +598,30 @@ local function PopulateEntry(entry, questData, groupKey)
             entry.itemBtn:SetAttribute("type", "item")
             entry.itemBtn:SetAttribute("item", questData.itemLink)
         end
+        entry.itemBtn:SetSize(itemBtnSize, itemBtnSize)
+        entry.itemBtn:ClearAllPoints()
+        if showLfgBtn then
+            -- Item button sits to the left of the LFG button.
+            entry.itemBtn:SetPoint("TOPRIGHT", entry, "TOPRIGHT", -(lfgBtnSize + gutterGap), 2)
+        else
+            -- Item button is the only gutter element, sits at the right edge.
+            entry.itemBtn:SetPoint("TOPRIGHT", entry, "TOPRIGHT", 0, 2)
+        end
         entry.itemBtn:Show()
         addon.ApplyItemCooldown(entry.itemBtn.cooldown, questData.itemLink)
-        local leftExtend = (addon.BAR_LEFT_OFFSET or 12) + 2 + addon.QUEST_TYPE_ICON_SIZE + 10 + addon.ITEM_BTN_SIZE
-        entry:SetHitRectInsets(-leftExtend, 0, 0, 0)
     else
         entry.itemLink = nil
         entry.itemBtn:Hide()
         if not InCombatLockdown() then
             entry.itemBtn:SetAttribute("item", nil)
         end
-        entry:SetHitRectInsets(0, 0, 0, 0)
     end
+    entry:SetHitRectInsets(0, 0, 0, 0)
 
-    -- Join Group (LFG) button: right-side column, vertically centred on the
-    -- title line.  textWidth was already shrunk above to make room.
     if showLfgBtn then
-        local btnSize = addon.LFG_BTN_SIZE or 26
         entry.lfgBtn:ClearAllPoints()
-        entry.lfgBtn:SetSize(btnSize, btnSize)
-        -- Anchor to top-right of the entry frame; nudge up slightly so it
-        -- visually centres on the title text.
+        entry.lfgBtn:SetSize(lfgBtnSize, lfgBtnSize)
+        -- LFG button is always the rightmost element in the gutter.
         entry.lfgBtn:SetPoint("TOPRIGHT", entry, "TOPRIGHT", 0, 3)
         entry.lfgBtn:Show()
     elseif entry.lfgBtn then

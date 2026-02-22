@@ -242,7 +242,8 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
             { questID = 90001, title = "The Fate of the Horde",
               color = addon.QUEST_COLORS.CAMPAIGN, category = "CAMPAIGN",
               questTypeAtlas = "Quest-Campaign-Available",
-              isComplete = false, isSuperTracked = false, isNearby = true, isAccepted = true,
+              isComplete = false, isSuperTracked = true, isNearby = true, isAccepted = true,
+              isGroupQuest = true,
               zoneName = "Valdrakken",
               itemLink = "item:12345:0:0:0:0:0:0:0", itemTexture = "Interface\\Icons\\INV_Misc_Rune_01",
               objectives = {
@@ -259,7 +260,7 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
               }},
             { questID = 90007, title = "Scales of War",
               color = addon.QUEST_COLORS.DEFAULT, category = "DEFAULT",
-              isComplete = false, isSuperTracked = true, isNearby = true, isAccepted = true,
+              isComplete = false, isSuperTracked = false, isNearby = true, isAccepted = true,
               isGroupQuest = true,
               zoneName = "Valdrakken",
               objectives = {

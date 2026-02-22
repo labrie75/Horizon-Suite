@@ -64,13 +64,12 @@ local function CreateQuestEntry(parent, index)
     e.highlightBorderR:SetColorTexture(0.40, 0.70, 1.00, 0.6)
     e.highlightBorderR:Hide()
 
-    -- Left of the active-quest bar: icon right edge at (BAR_LEFT_OFFSET + 2) px left of entry (shared for quest type icon and item btn)
-    local iconRight = (addon.BAR_LEFT_OFFSET or 12) + 2
-
+    -- Quest item button: lives in the right-side gutter alongside the LFG button.
+    -- Anchor is set dynamically by the renderer; default to top-right of entry.
     local btnName = "HSItemBtn" .. index
     e.itemBtn = CreateFrame("Button", btnName, e, "SecureActionButtonTemplate")
     e.itemBtn:SetSize(addon.ITEM_BTN_SIZE, addon.ITEM_BTN_SIZE)
-    e.itemBtn:SetPoint("TOPRIGHT", e, "TOPLEFT", -(iconRight + addon.QUEST_TYPE_ICON_SIZE + 4), 2)
+    e.itemBtn:SetPoint("TOPRIGHT", e, "TOPRIGHT", 0, 2)
     e.itemBtn:SetAttribute("type", "item")
     e.itemBtn:RegisterForClicks("AnyDown")
 
@@ -104,6 +103,7 @@ local function CreateQuestEntry(parent, index)
 
     e.questTypeIcon = e:CreateTexture(nil, "ARTWORK")
     e.questTypeIcon:SetSize(addon.QUEST_TYPE_ICON_SIZE, addon.QUEST_TYPE_ICON_SIZE)
+    local iconRight = (addon.BAR_LEFT_OFFSET or 12) + 2
     e.questTypeIcon:SetPoint("TOPRIGHT", e, "TOPLEFT", -iconRight, 0)
     e.questTypeIcon:Hide()
 
