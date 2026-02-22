@@ -27,8 +27,21 @@ local function GetAchievementCriteria(achievementID)
         local nOk, n = pcall(GetAchievementNumCriteria, achievementID)
         if nOk and type(n) == "number" then numCriteria = n end
     end
-    for criteriaIndex = 1, math.max(numCriteria, 1) do
-        local cOk, criteriaString, criteriaType, completedCrit, quantity, reqQuantity = pcall(GetAchievementCriteriaInfo, achievementID, criteriaIndex)
+
+    if numCriteria == 0 then
+        -- No criteria exposed. Check if the achievement itself carries overall progress
+        -- via GetAchievementInfo (some meta achievements and progress-bar achievements).
+        -- GetAchievementInfo returns: id, name, points, completed, month, day, year, description, flags, icon, rewardText, isGuild, wasEarnedByMe, earnedBy, isStatistic
+        -- We can't get numeric progress from GetAchievementInfo alone, but we can still
+        -- indicate progress via description text if present.
+        return objectives, criteriaDone, criteriaTotal
+    end
+
+    for criteriaIndex = 1, numCriteria do
+        -- GetAchievementCriteriaInfo returns:
+        -- criteriaString, criteriaType, completed, quantity, reqQuantity, charName, flags, assetID, quantityString, criteriaID, eligible, duration, elapsed
+        local cOk, criteriaString, criteriaType, completedCrit, quantity, reqQuantity, charName, flags, assetID, quantityString =
+            pcall(GetAchievementCriteriaInfo, achievementID, criteriaIndex)
         if cOk and criteriaString and criteriaString ~= "" then
             local finished = (completedCrit == true) or (completedCrit == 1)
             criteriaTotal = criteriaTotal + 1
@@ -37,13 +50,53 @@ local function GetAchievementCriteria(achievementID)
             if include then
                 local percent = nil
                 local numFulfilled, numRequired = nil, nil
+
+                -- Ensure quantity and reqQuantity are numbers
+                quantity = tonumber(quantity)
+                reqQuantity = tonumber(reqQuantity)
+
                 if quantity and reqQuantity and reqQuantity > 0 then
                     percent = math.floor(100 * math.min(quantity, reqQuantity) / reqQuantity)
                     numFulfilled = quantity
                     numRequired = reqQuantity
+                elseif quantityString and type(quantityString) == "string" and quantityString ~= "" then
+                    -- Some criteria report progress only via quantityString (e.g. "3 / 10").
+                    -- Try to parse "X / Y" or "X/Y" from it.
+                    local qsCur, qsMax = quantityString:match("^%s*(%d+)%s*/%s*(%d+)%s*$")
+                    if qsCur and qsMax then
+                        numFulfilled = tonumber(qsCur)
+                        numRequired  = tonumber(qsMax)
+                        if numFulfilled and numRequired and numRequired > 0 then
+                            percent = math.floor(100 * math.min(numFulfilled, numRequired) / numRequired)
+                        end
+                    end
                 end
+
                 objectives[#objectives + 1] = {
                     text = criteriaString,
+                    finished = finished,
+                    percent = percent,
+                    numFulfilled = numFulfilled,
+                    numRequired = numRequired,
+                }
+            end
+        elseif cOk and (not criteriaString or criteriaString == "") and quantityString and type(quantityString) == "string" and quantityString ~= "" then
+            -- Criteria has no name but has a quantity string — use it as the text.
+            local finished = (completedCrit == true) or (completedCrit == 1)
+            criteriaTotal = criteriaTotal + 1
+            if finished then criteriaDone = criteriaDone + 1 end
+            local include = not onlyMissing or not finished
+            if include then
+                quantity = tonumber(quantity)
+                reqQuantity = tonumber(reqQuantity)
+                local numFulfilled, numRequired, percent = nil, nil, nil
+                if quantity and reqQuantity and reqQuantity > 0 then
+                    numFulfilled = quantity
+                    numRequired = reqQuantity
+                    percent = math.floor(100 * math.min(quantity, reqQuantity) / reqQuantity)
+                end
+                objectives[#objectives + 1] = {
+                    text = quantityString,
                     finished = finished,
                     percent = percent,
                     numFulfilled = numFulfilled,
@@ -105,6 +158,21 @@ local function ReadTrackedAchievements()
                     if o.numFulfilled ~= nil and o.numRequired ~= nil and type(o.numRequired) == "number" and o.numRequired > 1 then
                         numericQuantity = o.numFulfilled
                         numericRequired = o.numRequired
+                        -- Check if the single objective's text is purely a restatement of the
+                        -- progress (e.g. "3 / 250", "3/250", or just the achievement name).
+                        -- If so, replace with the achievement description to avoid showing
+                        -- progress twice (title already shows "Name (3/250)").
+                        local oText = (o.text or ""):gsub("%s+", "")
+                        local progressStr = tostring(o.numFulfilled) .. "/" .. tostring(o.numRequired)
+                        local achName = (name or ""):gsub("%s+", "")
+                        if oText == "" or oText == progressStr or oText:lower() == achName:lower() then
+                            -- Use the achievement description as the objective text if available
+                            if description and type(description) == "string" and description ~= "" then
+                                objectives = { { text = description, finished = o.finished, percent = o.percent, numFulfilled = nil, numRequired = nil } }
+                            else
+                                objectives = {}
+                            end
+                        end
                     end
                 end
                 out[#out + 1] = {

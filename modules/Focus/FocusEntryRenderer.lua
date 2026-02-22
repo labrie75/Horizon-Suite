@@ -98,15 +98,16 @@ local function ApplyObjectives(entry, questData, textWidth, prevAnchor, totalH, 
     end
     local effectiveDoneColor = doneColor
 
-    local showEllipsis = (questData.isAchievement or questData.isEndeavor) and questData.objectives and #questData.objectives > 4
+    local maxObjs = addon.MAX_OBJECTIVES
+    local showEllipsis = (questData.isAchievement or questData.isEndeavor) and questData.objectives and #questData.objectives > maxObjs
     local shownObjs = 0
     for j = 1, addon.MAX_OBJECTIVES do
         local obj = entry.objectives[j]
         local oData = questData.objectives[j]
         if showEllipsis then
-            if j == 5 then
+            if j == maxObjs then
                 oData = { text = "...", finished = false }
-            elseif j > 4 then
+            elseif j > maxObjs then
                 oData = nil
             end
         end

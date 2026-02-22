@@ -397,15 +397,16 @@ local function RefreshContentInCombat()
                 end
 
                 local objectives = questData.objectives or {}
-                local showEllipsis = (questData.isAchievement or questData.isEndeavor) and #objectives > 4
+                local maxObjs = addon.MAX_OBJECTIVES
+                local showEllipsis = (questData.isAchievement or questData.isEndeavor) and #objectives > maxObjs
                 for j = 1, addon.MAX_OBJECTIVES do
                     local obj = entry.objectives[j]
                     if not obj then break end
 
                     local oData = objectives[j]
                     if showEllipsis then
-                        if j == 5 then oData = { text = "...", finished = false }
-                        elseif j > 4 then oData = nil
+                        if j == maxObjs then oData = { text = "...", finished = false }
+                        elseif j > maxObjs then oData = nil
                         end
                     end
 
