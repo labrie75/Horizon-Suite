@@ -173,9 +173,67 @@ local function GetQuestZoneName(questID)
      return nil
  end
 
+--- Returns true when the quest is group-oriented content where a "Find Group"
+--- button is useful.  This includes explicit Group quests, World Bosses,
+--- Elite World Quests, and Raid quests.
+--- @param questID number
+--- @return boolean
+local function IsGroupQuest(questID)
+    if not questID or questID <= 0 then return false end
+
+    -- tagID values that indicate group-oriented content:
+    --   1   = Group
+    --   111 = Elite World Quest (dragon-framed, group recommended)
+    --   289 = World Boss
+    local GROUP_TAG_IDS = { [1] = true, [111] = true, [289] = true }
+
+    -- worldQuestType values that indicate group content:
+    --   1  = Enum.QuestTagType.Group
+    --   18 = Threat / World Boss
+    local GROUP_WQ_TYPES = { [1] = true, [18] = true }
+
+    -- 1) C_QuestLog.GetQuestTagInfo — works for quests in the log AND world quests.
+    if C_QuestLog and C_QuestLog.GetQuestTagInfo then
+        local ok, tagInfo = pcall(C_QuestLog.GetQuestTagInfo, questID)
+        if ok and tagInfo then
+            if tagInfo.tagID and GROUP_TAG_IDS[tagInfo.tagID] then return true end
+            if tagInfo.worldQuestType and GROUP_WQ_TYPES[tagInfo.worldQuestType] then return true end
+        end
+    end
+
+    -- 2) C_TaskQuest.GetQuestInfoByQuestID — for world/task quests not in the log.
+    --    NOTE: In modern WoW this may return a string (quest name) instead of a table.
+    if C_TaskQuest and C_TaskQuest.GetQuestInfoByQuestID then
+        local ok, info = pcall(C_TaskQuest.GetQuestInfoByQuestID, questID)
+        if ok and info and type(info) == "table" then
+            if info.tagID and GROUP_TAG_IDS[info.tagID] then return true end
+            if info.worldQuestType and GROUP_WQ_TYPES[info.worldQuestType] then return true end
+        end
+    end
+
+    -- 3) GetQuestTagInfo global (legacy, pre-C_QuestLog wrapper).
+    if _G.GetQuestTagInfo and type(_G.GetQuestTagInfo) == "function" then
+        local ok, tagID = pcall(_G.GetQuestTagInfo, questID)
+        if ok and tagID and GROUP_TAG_IDS[tagID] then return true end
+    end
+
+    -- 4) suggestedGroup from quest log info (>1 means group content).
+    --    Only works for quests that are in the player's quest log.
+    if C_QuestLog and C_QuestLog.GetLogIndexForQuestID then
+        local logIndex = C_QuestLog.GetLogIndexForQuestID(questID)
+        if logIndex and C_QuestLog.GetInfo then
+            local ok, info = pcall(C_QuestLog.GetInfo, logIndex)
+            if ok and info and info.suggestedGroup and info.suggestedGroup > 1 then return true end
+        end
+    end
+
+    return false
+end
+
 addon.IsQuestWorldQuest    = IsQuestWorldQuest
 addon.GetQuestFrequency   = GetQuestFrequency
 addon.GetQuestCategory     = GetQuestCategory
 addon.GetQuestBaseCategory = GetQuestBaseCategory
 addon.GetQuestTypeAtlas    = GetQuestTypeAtlas
 addon.GetQuestZoneName     = GetQuestZoneName
+addon.IsGroupQuest         = IsGroupQuest

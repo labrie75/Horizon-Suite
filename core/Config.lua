@@ -51,6 +51,8 @@ addon.BAR_LEFT_OFFSET      = 9
 addon.TRACKED_OTHER_ZONE_ICON_SIZE = 12
 addon.WQ_TIMER_BAR_HEIGHT = 6
 addon.SCENARIO_TIMER_BAR_SLOTS = 5
+addon.LFG_BTN_SIZE        = 26   -- Join Group button size (right-side column for group quests)
+addon.LFG_BTN_GAP         = 4    -- gap between text content and LFG button column
 addon.DELVE_TIER_ATLAS = "delves-scenario-flag"  -- Blizzard atlas for Delve tier/flag (TierFrame.Flag)
 
 addon.SHADOW_OX       = 2

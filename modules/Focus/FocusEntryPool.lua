@@ -64,13 +64,12 @@ local function CreateQuestEntry(parent, index)
     e.highlightBorderR:SetColorTexture(0.40, 0.70, 1.00, 0.6)
     e.highlightBorderR:Hide()
 
-    -- Left of the active-quest bar: icon right edge at (BAR_LEFT_OFFSET + 2) px left of entry (shared for quest type icon and item btn)
-    local iconRight = (addon.BAR_LEFT_OFFSET or 12) + 2
-
+    -- Quest item button: lives in the right-side gutter alongside the LFG button.
+    -- Anchor is set dynamically by the renderer; default to top-right of entry.
     local btnName = "HSItemBtn" .. index
     e.itemBtn = CreateFrame("Button", btnName, e, "SecureActionButtonTemplate")
     e.itemBtn:SetSize(addon.ITEM_BTN_SIZE, addon.ITEM_BTN_SIZE)
-    e.itemBtn:SetPoint("TOPRIGHT", e, "TOPLEFT", -(iconRight + addon.QUEST_TYPE_ICON_SIZE + 4), 2)
+    e.itemBtn:SetPoint("TOPRIGHT", e, "TOPRIGHT", 0, 2)
     e.itemBtn:SetAttribute("type", "item")
     e.itemBtn:RegisterForClicks("AnyDown")
 
@@ -104,8 +103,52 @@ local function CreateQuestEntry(parent, index)
 
     e.questTypeIcon = e:CreateTexture(nil, "ARTWORK")
     e.questTypeIcon:SetSize(addon.QUEST_TYPE_ICON_SIZE, addon.QUEST_TYPE_ICON_SIZE)
+    local iconRight = (addon.BAR_LEFT_OFFSET or 12) + 2
     e.questTypeIcon:SetPoint("TOPRIGHT", e, "TOPLEFT", -iconRight, 0)
     e.questTypeIcon:Hide()
+
+    -- Join Group (LFG) button: shown for group-type quests.
+    -- Positioned on the RIGHT side of the entry in its own column so it never
+    -- overlaps the supertrack bar or gets clipped by the scroll frame.
+    local lfgBtnSize = addon.LFG_BTN_SIZE or 26
+    e.lfgBtn = CreateFrame("Button", nil, e)
+    e.lfgBtn:SetSize(lfgBtnSize, lfgBtnSize)
+    -- Anchor is set dynamically by the renderer; default to top-right of entry.
+    e.lfgBtn:SetPoint("TOPRIGHT", e, "TOPRIGHT", 0, 2)
+    e.lfgBtn:RegisterForClicks("AnyDown")
+
+    e.lfgBtn.icon = e.lfgBtn:CreateTexture(nil, "ARTWORK")
+    e.lfgBtn.icon:SetAllPoints()
+    -- Static group finder eye icon (the LFG eye frame from Blizzard's UI).
+    e.lfgBtn.icon:SetAtlas("groupfinder-eye-frame")
+
+    e.lfgBtn:SetScript("OnClick", function(self)
+        local entry = self:GetParent()
+        local questID = entry and entry.questID
+        if not questID or questID <= 0 then return end
+        -- Open the LFG tool and search for this quest
+        if LFGListUtil_FindQuestGroup then
+            pcall(LFGListUtil_FindQuestGroup, questID)
+        elseif C_LFGList and C_LFGList.Search then
+            -- Fallback: open premade groups panel and search for the quest
+            if PVEFrame_ShowFrame then pcall(PVEFrame_ShowFrame, "GroupFinderFrame", "LFGListPVEStub") end
+        end
+    end)
+    e.lfgBtn:SetScript("OnEnter", function(self)
+        self.icon:SetAlpha(1)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Find a Group", 1, 1, 1)
+        GameTooltip:AddLine("Click to search for a group for this quest.", 0.7, 0.7, 0.7, true)
+        GameTooltip:Show()
+    end)
+    e.lfgBtn:SetScript("OnLeave", function(self)
+        self.icon:SetAlpha(0.8)
+        if GameTooltip:GetOwner() == self then
+            GameTooltip:Hide()
+        end
+    end)
+    e.lfgBtn.icon:SetAlpha(0.8)
+    e.lfgBtn:Hide()
 
     -- Small icon for "tracked from other zone" (world quest on watch list but not on current map).
     local iconSz = addon.TRACKED_OTHER_ZONE_ICON_SIZE or 12
@@ -380,12 +423,23 @@ local function UpdateFontObjectsFromDB()
     local zoneSz     = tonumber(addon.GetDB("zoneFontSize", 10)) or 10
     local sectionSz  = tonumber(addon.GetDB("sectionFontSize", 10)) or 10
 
+    local GLOBAL_SENTINEL = "__global__"
+    local titleFontRaw   = addon.GetDB("titleFontPath", GLOBAL_SENTINEL)
+    local zoneFontRaw    = addon.GetDB("zoneFontPath", GLOBAL_SENTINEL)
+    local objFontRaw     = addon.GetDB("objectiveFontPath", GLOBAL_SENTINEL)
+    local sectionFontRaw = addon.GetDB("sectionFontPath", GLOBAL_SENTINEL)
+
+    local titleFont   = (titleFontRaw and titleFontRaw ~= GLOBAL_SENTINEL) and (addon.ResolveFontPath and addon.ResolveFontPath(titleFontRaw) or titleFontRaw) or fontPath
+    local zoneFont    = (zoneFontRaw and zoneFontRaw ~= GLOBAL_SENTINEL) and (addon.ResolveFontPath and addon.ResolveFontPath(zoneFontRaw) or zoneFontRaw) or fontPath
+    local objFont     = (objFontRaw and objFontRaw ~= GLOBAL_SENTINEL) and (addon.ResolveFontPath and addon.ResolveFontPath(objFontRaw) or objFontRaw) or fontPath
+    local sectionFont = (sectionFontRaw and sectionFontRaw ~= GLOBAL_SENTINEL) and (addon.ResolveFontPath and addon.ResolveFontPath(sectionFontRaw) or sectionFontRaw) or fontPath
+
     addon.FONT_PATH = fontPath
     addon.HeaderFont:SetFont(fontPath, headerSz, outline)
-    addon.TitleFont:SetFont(fontPath, titleSz, outline)
-    addon.ObjFont:SetFont(fontPath, objSz, outline)
-    addon.ZoneFont:SetFont(fontPath, zoneSz, outline)
-    addon.SectionFont:SetFont(fontPath, sectionSz, outline)
+    addon.TitleFont:SetFont(titleFont, titleSz, outline)
+    addon.ObjFont:SetFont(objFont, objSz, outline)
+    addon.ZoneFont:SetFont(zoneFont, zoneSz, outline)
+    addon.SectionFont:SetFont(sectionFont, sectionSz, outline)
 end
 
 local function ApplyTypography()
@@ -482,6 +536,7 @@ local function ClearEntry(entry, full)
     entry.isComplete = nil
     entry.isSuperTracked = nil
     entry.isDungeonQuest = nil
+    entry.isGroupQuest   = nil
     if full ~= false then
         entry:SetAlpha(0)
         entry:SetHitRectInsets(0, 0, 0, 0)
@@ -495,6 +550,7 @@ local function ClearEntry(entry, full)
         if not InCombatLockdown() then
             entry:Hide()
             if entry.itemBtn then entry.itemBtn:Hide() end
+            if entry.lfgBtn then entry.lfgBtn:Hide() end
             if entry.trackBar then entry.trackBar:Hide() end
             if entry.affixText then entry.affixText:Hide() end
             if entry.affixShadow then entry.affixShadow:Hide() end

@@ -540,6 +540,10 @@ function OptionsWidgets_CreateCustomDropdown(parent, labelText, description, opt
             end
         end
         table.sort(out, function(a, b)
+            local aVal = a and a[2]
+            local bVal = b and b[2]
+            if aVal == "__global__" then return true end
+            if bVal == "__global__" then return false end
             return tostring(a and a[1] or "") < tostring(b and b[1] or "")
         end)
         return out

@@ -15,6 +15,10 @@ local L = addon.L
 
 local TYPOGRAPHY_KEYS = {
     fontPath = true,
+    titleFontPath = true,
+    zoneFontPath = true,
+    objectiveFontPath = true,
+    sectionFontPath = true,
     headerFontSize = true,
     titleFontSize = true,
     objectiveFontSize = true,
@@ -107,7 +111,7 @@ function OptionsData_SetDB(key, value)
             addon.focus.collapse.pendingWQExpand = true
         end
     end
-    if key == "fontPath" and updateOptionsPanelFontsRef then
+    if (key == "fontPath" or key == "titleFontPath" or key == "zoneFontPath" or key == "objectiveFontPath" or key == "sectionFontPath") and updateOptionsPanelFontsRef then
         updateOptionsPanelFontsRef()
     end
     if TYPOGRAPHY_KEYS[key] and addon.UpdateFontObjectsFromDB then
@@ -188,6 +192,28 @@ local function GetFontDropdownOptions()
     -- If it's not one of our known choices, keep it selectable as "Custom".
     out[#out + 1] = { L["Custom"], saved }
     return out
+end
+
+local FONT_USE_GLOBAL = "__global__"
+
+local function GetPerElementFontDropdownOptions(dbKey)
+    if addon.RefreshFontList then addon.RefreshFontList() end
+    local list = (addon.GetFontList and addon.GetFontList()) or {}
+    local out = { { L["Use global font"], FONT_USE_GLOBAL } }
+    for i = 1, #list do out[#out + 1] = list[i] end
+    local saved = getDB(dbKey, FONT_USE_GLOBAL)
+    if saved == FONT_USE_GLOBAL then return out end
+    for _, o in ipairs(out) do
+        if o[2] == saved then return out end
+    end
+    out[#out + 1] = { L["Custom"], saved }
+    return out
+end
+
+local function DisplayPerElementFont(value)
+    if value == FONT_USE_GLOBAL then return L["Use global font"] end
+    if addon.GetFontNameForPath then return addon.GetFontNameForPath(value) end
+    return value
 end
 
 local OUTLINE_OPTIONS = {
@@ -728,6 +754,10 @@ local OptionCategories = {
         options = {
             { type = "section", name = L["Font"] },
             { type = "dropdown", name = L["Font"], desc = L["Font family."], dbKey = "fontPath", options = GetFontDropdownOptions, get = function() return getDB("fontPath", defaultFontPath) end, set = function(v) setDB("fontPath", v) end, displayFn = addon.GetFontNameForPath },
+            { type = "dropdown", name = L["Title font"], desc = L["Font family for quest titles."], dbKey = "titleFontPath", searchable = true, options = function() return GetPerElementFontDropdownOptions("titleFontPath") end, get = function() return getDB("titleFontPath", FONT_USE_GLOBAL) end, set = function(v) setDB("titleFontPath", v) end, displayFn = DisplayPerElementFont },
+            { type = "dropdown", name = L["Zone font"], desc = L["Font family for zone labels."], dbKey = "zoneFontPath", searchable = true, options = function() return GetPerElementFontDropdownOptions("zoneFontPath") end, get = function() return getDB("zoneFontPath", FONT_USE_GLOBAL) end, set = function(v) setDB("zoneFontPath", v) end, displayFn = DisplayPerElementFont },
+            { type = "dropdown", name = L["Objective font"], desc = L["Font family for objective text."], dbKey = "objectiveFontPath", searchable = true, options = function() return GetPerElementFontDropdownOptions("objectiveFontPath") end, get = function() return getDB("objectiveFontPath", FONT_USE_GLOBAL) end, set = function(v) setDB("objectiveFontPath", v) end, displayFn = DisplayPerElementFont },
+            { type = "dropdown", name = L["Section font"], desc = L["Font family for section headers."], dbKey = "sectionFontPath", searchable = true, options = function() return GetPerElementFontDropdownOptions("sectionFontPath") end, get = function() return getDB("sectionFontPath", FONT_USE_GLOBAL) end, set = function(v) setDB("sectionFontPath", v) end, displayFn = DisplayPerElementFont },
             { type = "slider", name = L["Header size"], desc = L["Header font size."], dbKey = "headerFontSize", min = 8, max = 32, get = function() return getDB("headerFontSize", 16) end, set = function(v) setDB("headerFontSize", v) end },
             { type = "slider", name = L["Title size"], desc = L["Quest title font size."], dbKey = "titleFontSize", min = 8, max = 24, get = function() return getDB("titleFontSize", 13) end, set = function(v) setDB("titleFontSize", v) end },
             { type = "slider", name = L["Objective size"], desc = L["Objective text font size."], dbKey = "objectiveFontSize", min = 8, max = 20, get = function() return getDB("objectiveFontSize", 11) end, set = function(v) setDB("objectiveFontSize", v) end },

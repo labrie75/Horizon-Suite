@@ -243,6 +243,7 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
               color = addon.QUEST_COLORS.CAMPAIGN, category = "CAMPAIGN",
               questTypeAtlas = "Quest-Campaign-Available",
               isComplete = false, isSuperTracked = true, isNearby = true, isAccepted = true,
+              isGroupQuest = true,
               zoneName = "Valdrakken",
               itemLink = "item:12345:0:0:0:0:0:0:0", itemTexture = "Interface\\Icons\\INV_Misc_Rune_01",
               objectives = {
@@ -260,6 +261,7 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
             { questID = 90007, title = "Scales of War",
               color = addon.QUEST_COLORS.DEFAULT, category = "DEFAULT",
               isComplete = false, isSuperTracked = false, isNearby = true, isAccepted = true,
+              isGroupQuest = true,
               zoneName = "Valdrakken",
               objectives = {
                   { text = "War Scales collected: 14/20", finished = false },
@@ -284,6 +286,7 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
               color = addon.QUEST_COLORS.WORLD, category = "WORLD",
               questTypeAtlas = "quest-recurring-available",
               isComplete = false, isSuperTracked = false, isNearby = false, isAccepted = true,
+              isGroupQuest = true,
               zoneName = "Thaldraszus",
               objectives = {
                   { text = "Slay Doomwalker", finished = false },
@@ -394,6 +397,65 @@ SlashCmdList["MODERNQUESTTRACKER"] = function(msg)
         if addon.SetDB then addon.SetDB("scenarioDebug", v) end
         HSPrint("Scenario debug logging: " .. (v and "on" or "off"))
         if addon.ScheduleRefresh then addon.ScheduleRefresh() end
+
+    elseif cmd == "groupdebug" then
+        HSPrint("|cFF00CCFF--- Group Quest Debug ---|r")
+        -- Dump tag info for every quest currently visible in the tracker.
+        local pool = addon.pool
+        if pool then
+            for i = 1, addon.POOL_SIZE do
+                local e = pool[i]
+                if e and e.questID and e.questID > 0 and e:IsShown() then
+                    local qid = e.questID
+                    local title = (e.titleText and e.titleText:GetText()) or tostring(qid)
+                    local parts = { ("|cFFFFFF00%s|r (ID %d):"):format(title, qid) }
+                    -- C_QuestLog.GetQuestTagInfo
+                    if C_QuestLog and C_QuestLog.GetQuestTagInfo then
+                        local ok, ti = pcall(C_QuestLog.GetQuestTagInfo, qid)
+                        if ok and ti then
+                            parts[#parts+1] = ("  tagID=%s worldQuestType=%s tagName=%s"):format(
+                                tostring(ti.tagID), tostring(ti.worldQuestType), tostring(ti.tagName))
+                        else
+                            parts[#parts+1] = "  GetQuestTagInfo: nil"
+                        end
+                    end
+                    -- C_TaskQuest.GetQuestInfoByQuestID
+                    if C_TaskQuest and C_TaskQuest.GetQuestInfoByQuestID then
+                        local ok, info = pcall(C_TaskQuest.GetQuestInfoByQuestID, qid)
+                        if ok and info then
+                            if type(info) == "table" then
+                                local keys = {}
+                                for k, v in pairs(info) do keys[#keys+1] = k .. "=" .. tostring(v) end
+                                parts[#parts+1] = "  TaskQuestInfo: " .. table.concat(keys, ", ")
+                            else
+                                parts[#parts+1] = "  TaskQuestInfo: " .. tostring(info) .. " (type=" .. type(info) .. ")"
+                            end
+                        else
+                            parts[#parts+1] = "  TaskQuestInfo: nil"
+                        end
+                    end
+                    -- suggestedGroup
+                    if C_QuestLog and C_QuestLog.GetLogIndexForQuestID then
+                        local logIdx = C_QuestLog.GetLogIndexForQuestID(qid)
+                        if logIdx and C_QuestLog.GetInfo then
+                            local ok, info = pcall(C_QuestLog.GetInfo, logIdx)
+                            if ok and info then
+                                parts[#parts+1] = ("  suggestedGroup=%s"):format(tostring(info.suggestedGroup))
+                            end
+                        else
+                            parts[#parts+1] = "  Not in quest log"
+                        end
+                    end
+                    -- Final result
+                    local isGroup = addon.IsGroupQuest and addon.IsGroupQuest(qid) or false
+                    parts[#parts+1] = ("  |cFF00FF00IsGroupQuest = %s|r"):format(tostring(isGroup))
+                    for _, line in ipairs(parts) do
+                        HSPrint(line)
+                    end
+                end
+            end
+        end
+        HSPrint("|cFF00CCFF--- End Group Quest Debug ---|r")
 
     elseif cmd == "nearbydebug" or cmd == "zonedebug" then
         if addon.GetNearbyDebugInfo then
