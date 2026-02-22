@@ -667,11 +667,8 @@ local OptionCategories = {
                 opts[#opts + 1] = { type = "toggle", name = L["Enable Vista module"] .. betaSuffix, desc = L["Cinematic square minimap with zone text, coordinates, and button collector."], dbKey = "_module_vista", get = function() return addon:IsModuleEnabled("vista") end, set = function(v) addon:SetModuleEnabled("vista", v) end }
             end
             opts[#opts + 1] = { type = "section", name = L["Scaling"] }
-            opts[#opts + 1] = { type = "slider", name = L["Global UI scale"], desc = L["Scale all sizes, spacings, and fonts by this factor (50–200%). Does not change your configured values."], dbKey = "globalUIScale_pct", min = 50, max = 200, get = function()
-                return math.floor((tonumber(getDB("globalUIScale", 1)) or 1) * 100 + 0.5)
-            end, set = function(v)
-                local scale = math.max(50, math.min(200, v)) / 100
-                setDB("globalUIScale", scale)
+            -- helper: refresh all modules after any scale change
+            local function refreshAllScaling()
                 if addon.ApplyTypography then addon.ApplyTypography() end
                 if addon.ApplyDimensions then addon.ApplyDimensions() end
                 if addon.ApplyMplusTypography then addon.ApplyMplusTypography() end
@@ -679,7 +676,63 @@ local OptionCategories = {
                 if addon.Vista and addon.Vista.ApplyScale then addon.Vista.ApplyScale() end
                 if addon.Yield and addon.Yield.ApplyScale then addon.Yield.ApplyScale() end
                 if _G.HorizonSuite_FullLayout and not InCombatLockdown() then _G.HorizonSuite_FullLayout() end
+            end
+            local function isPerModule() return getDB("perModuleScaling", false) end
+            local function isNotPerModule() return not isPerModule() end
+            opts[#opts + 1] = { type = "slider", name = L["Global UI scale"], desc = L["Scale all sizes, spacings, and fonts by this factor (50–200%). Does not change your configured values."], dbKey = "globalUIScale_pct", min = 50, max = 200,
+                disabled = isPerModule,
+                get = function()
+                    return math.floor((tonumber(getDB("globalUIScale", 1)) or 1) * 100 + 0.5)
+                end, set = function(v)
+                    local scale = math.max(50, math.min(200, v)) / 100
+                    setDB("globalUIScale", scale)
+                    refreshAllScaling()
+                end }
+            opts[#opts + 1] = { type = "toggle", name = L["Per-module scaling"], desc = L["Override the global scale with individual sliders for each module."], dbKey = "perModuleScaling", get = function() return isPerModule() end, set = function(v)
+                setDB("perModuleScaling", v)
+                refreshAllScaling()
+                if addon.OptionsPanel_Refresh then addon.OptionsPanel_Refresh() end
             end }
+            -- Per-module sliders (visible always, but only active when per-module scaling is on)
+            opts[#opts + 1] = { type = "slider", name = L["Focus scale"], desc = L["Scale for the Focus objective tracker (50–200%)."], dbKey = "focusUIScale_pct", min = 50, max = 200,
+                disabled = isNotPerModule,
+                get = function()
+                    return math.floor((tonumber(getDB("focusUIScale", 1)) or 1) * 100 + 0.5)
+                end, set = function(v)
+                    setDB("focusUIScale", math.max(50, math.min(200, v)) / 100)
+                    refreshAllScaling()
+                end }
+            opts[#opts + 1] = { type = "slider", name = L["Presence scale"], desc = L["Scale for the Presence cinematic text (50–200%)."], dbKey = "presenceUIScale_pct", min = 50, max = 200,
+                disabled = isNotPerModule,
+                get = function()
+                    return math.floor((tonumber(getDB("presenceUIScale", 1)) or 1) * 100 + 0.5)
+                end, set = function(v)
+                    setDB("presenceUIScale", math.max(50, math.min(200, v)) / 100)
+                    if addon.Presence and addon.Presence.ApplyPresenceOptions then addon.Presence.ApplyPresenceOptions() end
+                end }
+            opts[#opts + 1] = { type = "slider", name = L["Vista scale"], desc = L["Scale for the Vista minimap module (50–200%)."], dbKey = "vistaUIScale_pct", min = 50, max = 200,
+                disabled = isNotPerModule,
+                get = function()
+                    return math.floor((tonumber(getDB("vistaUIScale", 1)) or 1) * 100 + 0.5)
+                end, set = function(v)
+                    setDB("vistaUIScale", math.max(50, math.min(200, v)) / 100)
+                    if addon.Vista and addon.Vista.ApplyScale then addon.Vista.ApplyScale() end
+                end }
+            opts[#opts + 1] = { type = "slider", name = L["Insight scale"], desc = L["Scale for the Insight tooltip module (50–200%)."], dbKey = "insightUIScale_pct", min = 50, max = 200,
+                disabled = isNotPerModule,
+                get = function()
+                    return math.floor((tonumber(getDB("insightUIScale", 1)) or 1) * 100 + 0.5)
+                end, set = function(v)
+                    setDB("insightUIScale", math.max(50, math.min(200, v)) / 100)
+                end }
+            opts[#opts + 1] = { type = "slider", name = L["Yield scale"], desc = L["Scale for the Yield loot toast module (50–200%)."], dbKey = "yieldUIScale_pct", min = 50, max = 200,
+                disabled = isNotPerModule,
+                get = function()
+                    return math.floor((tonumber(getDB("yieldUIScale", 1)) or 1) * 100 + 0.5)
+                end, set = function(v)
+                    setDB("yieldUIScale", math.max(50, math.min(200, v)) / 100)
+                    if addon.Yield and addon.Yield.ApplyScale then addon.Yield.ApplyScale() end
+                end }
             return opts
         end)(),
     },

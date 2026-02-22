@@ -22,7 +22,7 @@ end
 
 local Frame = CreateFrame("Frame", nil, UIParent)
 do
-    local S = addon.Scaled or function(v) return v end
+    local S = function(v) return (addon.ScaledForModule or addon.Scaled or function(x) return x end)(v, "yield") end
     Frame:SetSize(S(Y.TOTAL_WIDTH), S(Y.LINE_HEIGHT) * Y.POOL_SIZE)
 end
 Frame:SetPoint(Y.DEFAULT_ANCHOR, UIParent, Y.DEFAULT_ANCHOR, Y.DEFAULT_X, Y.DEFAULT_Y)
@@ -72,13 +72,13 @@ editOverlay:SetFrameLevel(Frame:GetFrameLevel() + 10)
 editOverlay:EnableMouse(false)
 
 local editTitle = editOverlay:CreateFontString(nil, "OVERLAY")
-editTitle:SetFont(Y.FONT_PATH, (addon.Scaled or function(v) return v end)(14), "OUTLINE")
+editTitle:SetFont(Y.FONT_PATH, (addon.ScaledForModule or addon.Scaled or function(v) return v end)(14, "yield"), "OUTLINE")
 editTitle:SetTextColor(0.4, 0.8, 1.0, 1)
 editTitle:SetPoint("CENTER", editOverlay, "CENTER", 0, 10)
 editTitle:SetText("LOOT TOAST AREA")
 
 local editHint = editOverlay:CreateFontString(nil, "OVERLAY")
-editHint:SetFont(Y.FONT_PATH, (addon.Scaled or function(v) return v end)(10), "OUTLINE")
+editHint:SetFont(Y.FONT_PATH, (addon.ScaledForModule or addon.Scaled or function(v) return v end)(10, "yield"), "OUTLINE")
 editHint:SetTextColor(0.7, 0.7, 0.7, 1)
 editHint:SetPoint("CENTER", editOverlay, "CENTER", 0, -8)
 editHint:SetText("Drag to reposition  |  /horizon yield edit to hide")
@@ -86,7 +86,7 @@ editHint:SetText("Drag to reposition  |  /horizon yield edit to hide")
 editOverlay:Hide()
 
 local function CreateToastEntry(parent)
-    local S = addon.Scaled or function(v) return v end
+    local S = function(v) return (addon.ScaledForModule or addon.Scaled or function(x) return x end)(v, "yield") end
     local f = CreateFrame("Frame", nil, parent)
     f:SetSize(S(Y.TOTAL_WIDTH), S(Y.ENTRY_HEIGHT))
 
@@ -283,7 +283,7 @@ function Y.ShowToast(data)
 
     local entry = AcquireEntry()
 
-    local S = addon.Scaled or function(v) return v end
+    local S = function(v) return (addon.ScaledForModule or addon.Scaled or function(x) return x end)(v, "yield") end
     for i = 1, Y.POOL_SIZE do
         if y.pool[i].active then
             y.pool[i].stackY = y.pool[i].stackY + S(Y.LINE_HEIGHT)
@@ -380,7 +380,7 @@ end
 
 --- Re-apply scale to frame and pool entries (call when global UI scale changes).
 function Y.ApplyScale()
-    local S = addon.Scaled or function(v) return v end
+    local S = function(v) return (addon.ScaledForModule or addon.Scaled or function(x) return x end)(v, "yield") end
     Frame:SetSize(S(Y.TOTAL_WIDTH), S(Y.LINE_HEIGHT) * Y.POOL_SIZE)
     for i = 1, Y.POOL_SIZE do
         local entry = y.pool[i]

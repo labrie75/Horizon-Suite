@@ -225,7 +225,7 @@ end
 local SLIDER_TRACK_HEIGHT = 6
 local SLIDER_THUMB_SIZE = 14
 local SLIDER_TRACK_INSET = 2
-function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, minVal, maxVal)
+function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, minVal, maxVal, disabledFn)
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(40)
     local searchText = (labelText or "") .. " " .. (description or "")
@@ -289,9 +289,13 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
     local tc = Def.TextColorLabel
     edit:SetTextColor(tc[1], tc[2], tc[3], tc[4] or 1)
     edit:SetScript("OnEscapePressed", function() edit:ClearFocus() end)
-    edit:SetScript("OnEditFocusGained", function() setEditBorderColor(Def.AccentColor) end)
+    edit:SetScript("OnEditFocusGained", function()
+        if disabledFn and disabledFn() == true then edit:ClearFocus(); return end
+        setEditBorderColor(Def.AccentColor)
+    end)
     edit:SetScript("OnEditFocusLost", function() setEditBorderColor(Def.InputBorder) end)
     edit:SetScript("OnEnterPressed", function()
+        if disabledFn and disabledFn() == true then edit:ClearFocus(); return end
         local v = tonumber(edit:GetText())
         if v ~= nil then
             v = math.max(minVal, math.min(maxVal, v))
@@ -302,6 +306,7 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
     end)
     edit:SetScript("OnTextChanged", function(self, userInput)
         if not userInput then return end
+        if disabledFn and disabledFn() == true then return end
         local v = tonumber(self:GetText())
         if v ~= nil then
             v = math.max(minVal, math.min(maxVal, v))
@@ -332,6 +337,7 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
     local startNorm, startX
     thumb:SetScript("OnMouseDown", function(_, btn)
         if btn ~= "LeftButton" then return end
+        if disabledFn and disabledFn() == true then return end
         dragging = true
         startNorm = valueToNorm(get())
         local scale = track:GetEffectiveScale()
@@ -353,8 +359,23 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
         end)
     end)
 
+    local function applyDisabledVisual()
+        local dis = disabledFn and disabledFn() == true
+        local alpha = dis and 0.35 or 1
+        label:SetAlpha(alpha)
+        desc:SetAlpha(alpha)
+        track:SetAlpha(alpha)
+        editWrap:SetAlpha(alpha)
+        if dis then
+            edit:EnableMouse(false)
+        else
+            edit:EnableMouse(true)
+        end
+    end
+
     function row:Refresh()
         updateFromValue(get())
+        applyDisabledVisual()
     end
 
     row:Refresh()

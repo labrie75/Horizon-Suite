@@ -69,8 +69,8 @@ end
 local function getFrameScale()
     local v = addon.GetDB and tonumber(addon.GetDB("presenceFrameScale", 1)) or 1
     local base = math.max(0.5, math.min(1.5, v))
-    local globalScale = (addon.GetUIScale and addon.GetUIScale()) or 1
-    return base * globalScale
+    local moduleScale = (addon.GetModuleScale and addon.GetModuleScale("presence")) or 1
+    return base * moduleScale
 end
 
 local function getEntranceDur()

@@ -25,12 +25,40 @@ function addon.GetUIScale()
     return math.max(0.5, math.min(2, v))
 end
 
+--- Returns true when per-module scaling is enabled (overrides global scale).
+--- @return boolean
+function addon.IsPerModuleScaling()
+    return addon.GetDB and addon.GetDB("perModuleScaling", false) or false
+end
+
+--- Returns the scale factor for a specific module.
+--- When per-module scaling is on, reads the module-specific key; otherwise returns global scale.
+--- @param moduleName string  "focus"|"presence"|"vista"|"insight"|"yield"
+--- @return number
+function addon.GetModuleScale(moduleName)
+    if addon.IsPerModuleScaling() then
+        local key = moduleName .. "UIScale"
+        local v = tonumber(addon.GetDB and addon.GetDB(key, 1) or 1) or 1
+        return math.max(0.5, math.min(2, v))
+    end
+    return addon.GetUIScale()
+end
+
 --- Scale a value by the global UI scale factor.
 --- @param value number The base value (user-configured or constant).
 --- @return number
 function addon.Scaled(value)
     if not value then return 0 end
-    return value * addon.GetUIScale()
+    return value * addon.GetModuleScale("focus")
+end
+
+--- Scale a value by a specific module's scale factor.
+--- @param value number
+--- @param moduleName string  "focus"|"presence"|"vista"|"insight"|"yield"
+--- @return number
+function addon.ScaledForModule(value, moduleName)
+    if not value then return 0 end
+    return value * addon.GetModuleScale(moduleName)
 end
 
 --- Scale and floor a value (pixel-snapping for frame sizes).
