@@ -41,6 +41,10 @@ eventFrame:RegisterEvent("TRACKED_ACHIEVEMENT_UPDATE")
 eventFrame:RegisterEvent("CRITERIA_UPDATE")
 eventFrame:RegisterEvent("ACHIEVEMENT_EARNED")
 eventFrame:RegisterEvent("CONTENT_TRACKING_UPDATE")
+pcall(function() eventFrame:RegisterEvent("CONTENT_TRACKING_LIST_UPDATE") end)
+pcall(function() eventFrame:RegisterEvent("PERKS_ACTIVITIES_TRACKED_UPDATED") end)
+pcall(function() eventFrame:RegisterEvent("PERKS_ACTIVITY_COMPLETED") end)
+pcall(function() eventFrame:RegisterEvent("PERKS_ACTIVITIES_TRACKED_LIST_CHANGED") end)
 pcall(function() eventFrame:RegisterEvent("ACTIVE_DELVE_DATA_UPDATE") end)
 pcall(function() eventFrame:RegisterEvent("WALK_IN_DATA_UPDATE") end)
 pcall(function() eventFrame:RegisterEvent("UPDATE_UI_WIDGET") end)
@@ -441,12 +445,16 @@ local eventHandlers = {
     CRITERIA_UPDATE          = function() ScheduleRefresh() end,
     ACHIEVEMENT_EARNED       = function() ScheduleRefresh() end,
     CONTENT_TRACKING_UPDATE  = function(_, trackableType)
-        local achType = (Enum and Enum.ContentTrackingType and Enum.ContentTrackingType.Achievement) or 2
+        local achType  = (Enum and Enum.ContentTrackingType and Enum.ContentTrackingType.Achievement) or 2
         local decorType = (Enum and Enum.ContentTrackingType and Enum.ContentTrackingType.Decor) or 3
         if trackableType == achType or trackableType == decorType then
             ScheduleRefresh()
         end
     end,
+    CONTENT_TRACKING_LIST_UPDATE = function() ScheduleRefresh() end,
+    PERKS_ACTIVITIES_TRACKED_UPDATED = function() ScheduleRefresh() end,
+    PERKS_ACTIVITY_COMPLETED = function() ScheduleRefresh() end,
+    PERKS_ACTIVITIES_TRACKED_LIST_CHANGED = function() ScheduleRefresh() end,
     ACTIVE_DELVE_DATA_UPDATE = function() ScheduleRefresh() end,
     WALK_IN_DATA_UPDATE      = function() ScheduleRefresh() end,
     UPDATE_UI_WIDGET         = function() if addon.IsDelveActive and addon.IsDelveActive() then ScheduleRefresh() end end,

@@ -97,6 +97,8 @@ local function SortAndGroupQuests(quests)
             groups["ENDEAVORS"][#groups["ENDEAVORS"] + 1] = q
         elseif q.category == "DECOR" or q.isDecor then
             groups["DECOR"][#groups["DECOR"] + 1] = q
+        elseif q.category == "ADVENTURE" or q.isAdventureGuide then
+            groups["ADVENTURE"][#groups["ADVENTURE"] + 1] = q
         elseif q.category == "WORLD" or q.category == "CALLING" then
             groups["WORLD"][#groups["WORLD"] + 1] = q
         elseif q.isNearby and not q.isAccepted then

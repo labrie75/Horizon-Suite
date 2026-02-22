@@ -361,6 +361,9 @@ local function FullLayout()
         if addon.ReadTrackedDecor then
             for _, d in ipairs(addon.ReadTrackedDecor()) do quests[#quests + 1] = d end
         end
+        if addon.ReadTrackedAdventureGuide then
+            for _, ag in ipairs(addon.ReadTrackedAdventureGuide()) do quests[#quests + 1] = ag end
+        end
         SchedulePlaceholderRefreshes(quests)
         addon.UpdateFloatingQuestItem(quests)
         addon.UpdateHeaderQuestCount(#quests, addon.CountTrackedInLog(quests))
@@ -435,6 +438,9 @@ local function FullLayout()
     end
     if addon.ReadTrackedDecor then
         for _, d in ipairs(addon.ReadTrackedDecor()) do quests[#quests + 1] = d end
+    end
+    if addon.ReadTrackedAdventureGuide then
+        for _, ag in ipairs(addon.ReadTrackedAdventureGuide()) do quests[#quests + 1] = ag end
     end
     SchedulePlaceholderRefreshes(quests)
     addon.UpdateFloatingQuestItem(quests)

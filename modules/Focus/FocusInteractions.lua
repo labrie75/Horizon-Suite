@@ -190,6 +190,16 @@ for i = 1, addon.POOL_SIZE do
                     end
                     return
                 end
+                local advMatch = self.entryKey:match("^advguide:")
+                if advMatch and self.adventureGuideID then
+                    local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
+                    if requireCtrl and not IsControlKeyDown() then return end
+                    -- Open the Adventure Guide / Encounter Journal to the Traveler's Log tab
+                    if ToggleEncounterJournal then
+                        ToggleEncounterJournal()
+                    end
+                    return
+                end
                 local vignetteGUID = self.entryKey:match("^vignette:(.+)$")
                 if vignetteGUID and C_SuperTrack and C_SuperTrack.SetSuperTrackedVignette then
                     C_SuperTrack.SetSuperTrackedVignette(vignetteGUID)
@@ -309,6 +319,16 @@ for i = 1, addon.POOL_SIZE do
                     local stopType = (Enum and Enum.ContentTrackingStopType and Enum.ContentTrackingStopType.Manual) or 0
                     if C_ContentTracking and C_ContentTracking.StopTracking then
                         pcall(C_ContentTracking.StopTracking, trackTypeDecor, self.decorID, stopType)
+                    end
+                    addon.ScheduleRefresh()
+                    return
+                end
+                local advMatch = self.entryKey:match("^advguide:")
+                if advMatch and self.adventureGuideID then
+                    local requireCtrl = addon.GetDB("requireCtrlForQuestClicks", false)
+                    if requireCtrl and not IsControlKeyDown() then return end
+                    if C_PerksActivities and C_PerksActivities.RemoveTrackedPerksActivity then
+                        pcall(C_PerksActivities.RemoveTrackedPerksActivity, self.adventureGuideID)
                     end
                     addon.ScheduleRefresh()
                     return
