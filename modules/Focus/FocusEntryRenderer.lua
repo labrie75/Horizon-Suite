@@ -441,6 +441,18 @@ local function PopulateEntry(entry, questData, groupKey)
     local textWidth = addon.GetPanelWidth() - addon.PADDING - leftOffset - (addon.CONTENT_RIGHT_PADDING or 0)
     local titleLeftOffset = 0
 
+    -- Reserve space on the right for the Join Group button column when this entry
+    -- is a group quest.  All group-quest entries get the same column width so the
+    -- buttons are horizontally aligned.
+    local showLfgBtn = questData.isGroupQuest and entry.lfgBtn and true or false
+    local lfgColumnW = 0
+    if showLfgBtn then
+        local btnSize = addon.LFG_BTN_SIZE or 26
+        local btnGap  = addon.LFG_BTN_GAP or 4
+        lfgColumnW = btnSize + btnGap
+        textWidth = textWidth - lfgColumnW
+    end
+
     -- Extra spacing between icon column and title when icons are enabled.
     -- Keep icons-off layout exactly as-is.
     -- NOTE: ApplyHighlightStyle() resets title anchors, so we apply the final title X *after* highlight styling.
@@ -588,6 +600,20 @@ local function PopulateEntry(entry, questData, groupKey)
         entry:SetHitRectInsets(0, 0, 0, 0)
     end
 
+    -- Join Group (LFG) button: right-side column, vertically centred on the
+    -- title line.  textWidth was already shrunk above to make room.
+    if showLfgBtn then
+        local btnSize = addon.LFG_BTN_SIZE or 26
+        entry.lfgBtn:ClearAllPoints()
+        entry.lfgBtn:SetSize(btnSize, btnSize)
+        -- Anchor to top-right of the entry frame; nudge up slightly so it
+        -- visually centres on the title text.
+        entry.lfgBtn:SetPoint("TOPRIGHT", entry, "TOPRIGHT", 0, 3)
+        entry.lfgBtn:Show()
+    elseif entry.lfgBtn then
+        entry.lfgBtn:Hide()
+    end
+
     local titleH = entry.titleText:GetStringHeight()
     if not titleH or titleH < 1 then titleH = addon.TITLE_SIZE + 4 end
     local totalH = titleH
@@ -698,6 +724,7 @@ local function PopulateEntry(entry, questData, groupKey)
     entry.isComplete = questData.isComplete and true or false
     entry.isSuperTracked = questData.isSuperTracked and true or false
     entry.isDungeonQuest = questData.isDungeonQuest and true or false
+    entry.isGroupQuest = questData.isGroupQuest and true or false
 
     if questData.isRare then
         entry.questID    = nil

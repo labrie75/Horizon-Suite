@@ -298,6 +298,7 @@ local function ReadTrackedQuests()
         end
 
         local questTypeAtlas = addon.GetQuestTypeAtlas(questID, category)
+        local isGroupQuest = addon.IsGroupQuest and addon.IsGroupQuest(questID) or false
 
         local entry = {
             entryKey = questID, questID = questID, title = title, objectives = objectives,
@@ -308,6 +309,7 @@ local function ReadTrackedQuests()
             isAutoComplete = isAutoComplete,
             isAutoAdded = isAutoAdded,
             isInQuestArea = isInQuestArea,
+            isGroupQuest = isGroupQuest,
         }
         if objectivesDoneCount and objectivesTotalCount then
             entry.objectivesDoneCount = objectivesDoneCount
