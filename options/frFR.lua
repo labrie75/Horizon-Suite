@@ -336,6 +336,15 @@ L["Show decor icons"]                                   = "Afficher les icônes 
 L["Show each decor item's icon next to the title. Requires 'Show quest type icons' in Display."] = "Affiche l'icône de chaque décoration à côté du titre. Nécessite « Afficher les icônes de type de quête » dans Affichage."
 
 -- =====================================================================
+-- OptionsData.lua Features — Adventure Guide
+-- =====================================================================
+L["Adventure Guide"]                                    = "Guide d'aventure"
+L["Show Traveler's Log"]                                = "Afficher le Journal du voyageur"
+L["Show tracked Traveler's Log objectives (Shift+click in Adventure Guide) in the list."] = "Affiche les objectifs suivis du Journal du voyageur (Maj+clic dans le Guide d'aventure) dans la liste."
+L["Auto-remove completed activities"]                   = "Retirer automatiquement les activités terminées"
+L["Automatically stop tracking Traveler's Log activities once they have been completed."] = "Arrête automatiquement le suivi des activités du Journal du voyageur une fois terminées."
+
+-- =====================================================================
 -- OptionsData.lua Features — Scenario & Delve
 -- =====================================================================
 L["Show scenario events"]                               = "Afficher les événements de scénario"

@@ -775,6 +775,19 @@ local function PopulateEntry(entry, questData, groupKey)
         entry.achievementID = nil
         entry.endeavorID = nil
         entry.decorID    = questData.decorID
+        entry.adventureGuideID   = nil
+        entry.adventureGuideType = nil
+        entry.isTracked  = true
+    elseif questData.isAdventureGuide or questData.category == "ADVENTURE" then
+        entry.questID    = nil
+        entry.entryKey   = questData.entryKey
+        entry.category   = questData.category
+        entry.creatureID = nil
+        entry.achievementID = nil
+        entry.endeavorID = nil
+        entry.decorID    = nil
+        entry.adventureGuideID   = questData.adventureGuideID
+        entry.adventureGuideType = questData.adventureGuideType
         entry.isTracked  = true
     elseif questData.isScenarioMain or questData.isScenarioBonus then
         entry.questID    = questData.questID

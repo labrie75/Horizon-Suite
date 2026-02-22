@@ -336,6 +336,15 @@ L["Show decor icons"]                                   = "장식 아이콘 표�
 L["Show each decor item's icon next to the title. Requires 'Show quest type icons' in Display."] = "각 장식 아이템의 아이콘을 제목 옆에 표시합니다. '퀘스트 유형 아이콘 표시' 옵션이 필요합니다."
 
 -- =====================================================================
+-- OptionsData.lua Features — Adventure Guide
+-- =====================================================================
+L["Adventure Guide"]                                    = "모험 안내서"
+L["Show Traveler's Log"]                                = "여행자의 기록 표시"
+L["Show tracked Traveler's Log objectives (Shift+click in Adventure Guide) in the list."] = "추적 중인 여행자의 기록 목표(모험 안내서에서 Shift+클릭)를 목록에 표시합니다."
+L["Auto-remove completed activities"]                   = "완료된 활동 자동 제거"
+L["Automatically stop tracking Traveler's Log activities once they have been completed."] = "완료된 여행자의 기록 활동의 추적을 자동으로 중지합니다."
+
+-- =====================================================================
 -- OptionsData.lua Features — Scenario & Delve
 -- =====================================================================
 L["Show scenario events"]                               = "시나리오 이벤트 표시"
