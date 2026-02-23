@@ -1,8 +1,8 @@
 # 🌌 Horizon Suite
 
-[Release](https://github.com/Crystilac93/Horizon-Suite/releases) [Release Date](https://github.com/Crystilac93/Horizon-Suite/releases) [Beta](https://github.com/Crystilac93/Horizon-Suite/releases/tag/beta)
+[![Release](https://img.shields.io/github/v/release/Crystilac93/Horizon-Suite?display_name=release)](https://github.com/Crystilac93/Horizon-Suite/releases) [![Release Date](https://img.shields.io/github/release-date-pre/Crystilac93/Horizon-Suite)](https://github.com/Crystilac93/Horizon-Suite/releases) [![Beta](https://img.shields.io/github/release-date-pre/Crystilac93/Horizon-Suite?label=beta&color=orange)](https://github.com/Crystilac93/Horizon-Suite/releases/tag/beta)
 
-[Discord](https://discord.gg/MndCSYQ2ra) [Patreon](https://www.patreon.com/c/HorizonSuite) [Ko-fi](https://ko-fi.com/horizonsuite) 
+[![Discord](https://img.shields.io/discord/1471477531805749412?label=Discord&labelColor=%237289da)](https://discord.gg/MndCSYQ2ra) [![Patreon](https://img.shields.io/badge/build-donate-orange?label=patreon)](https://www.patreon.com/c/HorizonSuite) [![Ko-fi](https://img.shields.io/badge/build-tip-purple?label=Ko-fi)](https://ko-fi.com/horizonsuite) 
 
 **Horizon Suite** is a core addon with pluggable modules: **Focus** (objective tracker), **Presence** (zone text & notifications), **Insight** (cinematic tooltips), **Vista** (minimap), and **Yield** (loot toasts). Designed for the Midnight era—clean, cinematic, player-in-control. It replaces static, cluttered lists with a fluid interface that grants you total agency over your goals. Additional suites will appear as modules in the same options panel.
 
@@ -10,7 +10,7 @@
 
 ## 🎯 Focus (Objective Tracker)
 
-Focus - Objective Tracker
+![Focus - Objective Tracker](https://raw.githubusercontent.com/Crystilac93/Horizon-Suite/main/docs/Focus.gif)
 
 - **Smart zone tracking** – Nearby quests float to the top; list updates as you move. Delves, scenarios, raids, and world events get their own sections with progress bars and timers.
 - **Track what matters** – Achievements, Endeavors (housing), Decor, and Traveler's Log objectives appear in the tracker. Full achievement progress tracking with criteria parsing and quantity strings. One-click to open achievement panel, housing dashboard, decor catalog, or Adventure Guide.
@@ -24,7 +24,7 @@ Focus - Objective Tracker
 
 ## 🎬 Presence (Zone Text & Notifications)
 
-Presence - Zone Text & Notifications
+![Presence - Zone Text & Notifications](https://raw.githubusercontent.com/Crystilac93/Horizon-Suite/main/docs/Presence.gif)
 
 - **Cinematic notifications** – Replaces Blizzard's default zone text, level-up banner, boss emote frame, and achievement alerts with styled toasts: smooth entrance and exit animations, a dividing line between title and subtitle, and an optional "Discovered!" third line on first visits.
 - **Full notification coverage** – Zone entry, subzone changes, level-up, boss emotes, achievements, quest accepted/complete/progress, world quest accepted/complete, scenario start, and scenario or delve objective updates — 12 types in total.
@@ -34,7 +34,7 @@ Presence - Zone Text & Notifications
 
 ## 🗺️ Vista (Minimap)
 
-Vista - Minimap
+![Vista - Minimap](https://raw.githubusercontent.com/Crystilac93/Horizon-Suite/main/docs/Vista.gif)
 
 - **Square or circular minimap** – Choose a square or circular mask. Adjust size (100–400px), lock position, or drag to relocate. Optional auto zoom-out after zooming.
 - **Zone text, coordinates, and time** – Zone name, player coordinates, and game time below the minimap. Each element has its own font, size, and colour; show or hide individually. Click the time to open the stopwatch.
@@ -47,7 +47,7 @@ Vista - Minimap
 
 ## 💎 Yield (Loot Toasts) - BETA
 
-Yield - Loot Toasts
+![Yield - Loot Toasts](https://raw.githubusercontent.com/Crystilac93/Horizon-Suite/main/docs/Yield.gif)
 
 - **Cinematic loot notifications** – Items, money, currency, and reputation gains appear as styled toasts with quality-based colours and smooth slide-in animations.
 - **Epic and legendary flair** – Extra entrance time, shine effects, and optional sounds for high-value loot.
