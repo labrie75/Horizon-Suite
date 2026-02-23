@@ -225,7 +225,26 @@ end
 local SLIDER_TRACK_HEIGHT = 6
 local SLIDER_THUMB_SIZE = 14
 local SLIDER_TRACK_INSET = 2
-function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, minVal, maxVal, disabledFn)
+function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, minVal, maxVal, disabledFn, step)
+    -- step: snapping increment (default 1 = integer). Use e.g. 0.1 for one decimal place.
+    step = step or 1
+    local decimals = 0
+    if step < 1 then
+        -- Determine display decimal places from step (e.g. 0.1 → 1, 0.05 → 2)
+        local s = tostring(step)
+        local dot = s:find("%.")
+        decimals = dot and (#s - dot) or 0
+    end
+    local function snapToStep(v)
+        if step <= 0 then return v end
+        return math.floor(v / step + 0.5) * step
+    end
+    local function formatValue(v)
+        if decimals > 0 then
+            return string.format("%." .. decimals .. "f", v)
+        end
+        return tostring((v >= 0) and math.floor(v + 0.5) or -math.floor(-v + 0.5))
+    end
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(40)
     local searchText = (labelText or "") .. " " .. (description or "")
@@ -285,8 +304,9 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
     local edit = CreateFrame("EditBox", nil, editWrap)
     edit:SetPoint("TOPLEFT", editWrap, "TOPLEFT", 4, 0)
     edit:SetPoint("BOTTOMRIGHT", editWrap, "BOTTOMRIGHT", -4, 0)
-    edit:SetMaxLetters(6)
-    edit:SetNumeric(true)
+    edit:SetMaxLetters(7)   -- allow e.g. "-200" (4 chars) plus some headroom
+    -- Do NOT use SetNumeric(true) — it blocks negative numbers.
+    -- We validate manually in OnEnterPressed / OnEditFocusLost.
     edit:SetAutoFocus(false)
     edit:SetFont(Def.FontPath, Def.LabelSize, "OUTLINE")
     local tc = Def.TextColorLabel
@@ -304,7 +324,7 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
         if disabledFn and disabledFn() == true then return end
         local v = tonumber(edit:GetText())
         if v ~= nil then
-            v = math.max(minVal, math.min(maxVal, v))
+            v = snapToStep(math.max(minVal, math.min(maxVal, v)))
             set(v)
             updateFromValue(v)
         else
@@ -315,7 +335,7 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
         if disabledFn and disabledFn() == true then edit:ClearFocus(); return end
         local v = tonumber(edit:GetText())
         if v ~= nil then
-            v = math.max(minVal, math.min(maxVal, v))
+            v = snapToStep(math.max(minVal, math.min(maxVal, v)))
             set(v)
             updateFromValue(v)
         else
@@ -344,7 +364,7 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
         thumb:ClearAllPoints()
         thumb:SetPoint("CENTER", track, "LEFT", SLIDER_TRACK_INSET + SLIDER_THUMB_SIZE/2 + n * thumbTravel, 0)
         trackFill:SetWidth(n * fillWidth)
-        edit:SetText(tostring(math.floor(v + 0.5)))
+        edit:SetText(formatValue(v))
     end
 
     local dragging = false
@@ -356,16 +376,15 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
         startNorm = valueToNorm(get())
         local scale = track:GetEffectiveScale()
         startX = GetCursorPosition() / scale
-        local lastCommittedInt = math.floor(normToValue(startNorm) + 0.5)
+        local lastCommittedSnapped = snapToStep(normToValue(startNorm))
         thumb:GetParent():SetScript("OnUpdate", function()
             if not IsMouseButtonDown("LeftButton") then
                 thumb:GetParent():SetScript("OnUpdate", nil)
                 dragging = false
                 -- Commit final value on release so the DB is up-to-date.
-                local finalV = math.max(minVal, math.min(maxVal, normToValue(startNorm)))
-                local finalInt = math.floor(finalV + 0.5)
-                if finalInt ~= lastCommittedInt then
-                    set(finalInt)
+                local finalV = snapToStep(math.max(minVal, math.min(maxVal, normToValue(startNorm))))
+                if finalV ~= lastCommittedSnapped then
+                    set(finalV)
                 end
                 return
             end
@@ -375,12 +394,11 @@ function OptionsWidgets_CreateSlider(parent, labelText, description, get, set, m
             local v = normToValue(n)
             -- Update visual every frame for smooth thumb movement.
             updateFromValue(v)
-            -- Only call set() when the rounded integer value changes — this prevents
-            -- refreshAllScaling (and its FullLayout) from running 60 times/second.
-            local intV = math.floor(v + 0.5)
-            if intV ~= lastCommittedInt then
-                lastCommittedInt = intV
-                set(intV)
+            -- Only call set() when the snapped value changes.
+            local snappedV = snapToStep(v)
+            if snappedV ~= lastCommittedSnapped then
+                lastCommittedSnapped = snappedV
+                set(snappedV)
             end
             startNorm = n
             startX = x
