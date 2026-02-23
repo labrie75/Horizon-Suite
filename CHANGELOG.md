@@ -10,6 +10,10 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [2.6.1] – 2026-02-23
+
+---
+
 ## [2.6.0] – 2026-02-23
 
 ### ✨ New Features
