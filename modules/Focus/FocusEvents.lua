@@ -327,14 +327,21 @@ end
 local function OnQuestAccepted(questID)
     if not addon.focus.enabled then ScheduleRefresh(); return end
     if not questID or questID <= 0 then ScheduleRefresh(); return end
-    
+
+    local isWQ = (addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID))
+        or (C_QuestLog and C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID))
+
     if addon.GetDB("autoTrackOnAccept", true) then
-        local isWQ = (addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID))
-            or (C_QuestLog and C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID))
         if not isWQ and C_QuestLog and C_QuestLog.AddQuestWatch then
             C_QuestLog.AddQuestWatch(questID)
         end
     end
+    if isWQ and not addon.GetDB("showWorldQuests", true) then
+        addon.focus.nearbyQuestCacheDirty = true
+        addon.focus.nearbyQuestCache = nil
+        addon.focus.nearbyTaskQuestCache = nil
+    end
+
     ScheduleRefresh()
 end
 
@@ -432,6 +439,19 @@ local eventHandlers = {
     PLAYER_ENTERING_WORLD    = function() OnPlayerLoginOrEnteringWorld() end,
     QUEST_TURNED_IN          = function(_, questID) OnQuestTurnedIn(questID) end,
     QUEST_ACCEPTED           = function(_, questID) OnQuestAccepted(questID) end,
+    QUEST_REMOVED            = function(_, questID)
+        if not addon.focus.enabled then ScheduleRefresh(); return end
+        if questID then
+            local isWQ = (addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID))
+                or (C_QuestLog and C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID))
+            if isWQ then
+                addon.focus.nearbyQuestCacheDirty = true
+                addon.focus.nearbyQuestCache = nil
+                addon.focus.nearbyTaskQuestCache = nil
+            end
+        end
+        ScheduleRefresh()
+    end,
     QUEST_LOG_UPDATE         = function() OnQuestLogUpdate() end,
     UNIT_QUEST_LOG_CHANGED   = function(_, unitToken) OnUnitQuestLogChanged(_, unitToken) end,
     QUEST_WATCH_UPDATE       = function(_, questID) OnQuestWatchUpdate(questID) end,
@@ -452,6 +472,15 @@ local eventHandlers = {
         addon.focus.nearbyQuestCache = nil
         addon.focus.nearbyTaskQuestCache = nil
         ScheduleRefresh()
+        if not addon.GetDB("showWorldQuests", true) then
+            C_Timer.After(0.5, function()
+                if not addon.focus.enabled then return end
+                addon.focus.nearbyQuestCacheDirty = true
+                addon.focus.nearbyQuestCache = nil
+                addon.focus.nearbyTaskQuestCache = nil
+                ScheduleRefresh()
+            end)
+        end
     end,
     ZONE_CHANGED             = function(evt) OnZoneChanged(evt) end,
     ZONE_CHANGED_NEW_AREA    = function(evt) OnZoneChanged(evt) end,

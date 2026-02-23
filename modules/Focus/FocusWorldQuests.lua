@@ -214,6 +214,25 @@ local function GetNearbyQuestIDs()
         end
     end
 
+    if not showWQ and C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetInfo then
+        for i = 1, C_QuestLog.GetNumQuestLogEntries() do
+            local info = C_QuestLog.GetInfo(i)
+            if info and not info.isHeader and info.questID and not nearbySet[info.questID] then
+                local questID = info.questID
+                local isWQ = (addon.IsQuestWorldQuest and addon.IsQuestWorldQuest(questID))
+                    or (C_QuestLog.IsWorldQuest and C_QuestLog.IsWorldQuest(questID))
+                if isWQ and IsTaskQuestCurrentlyActive(questID) then
+                    -- Only include if the player is currently inside the quest area.
+                    local inArea = C_QuestLog.IsOnQuest and C_QuestLog.IsOnQuest(questID)
+                    if inArea then
+                        nearbySet[questID] = true
+                        taskQuestOnlySet[questID] = true
+                    end
+                end
+            end
+        end
+    end
+
     -- Waypoint-based fallback: only when next waypoint is on the player's exact map (not parent),
     -- so we don't pull in quests from other zones that share a hub.
     -- Skip world/task quests here; they are handled by the C_TaskQuest path above.
