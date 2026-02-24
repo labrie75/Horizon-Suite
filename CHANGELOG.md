@@ -10,6 +10,39 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [3.1.0] – 2026-02-24
+
+### ✨ New Features
+
+- **(Vista) Option for buttons per row/column and expand direction** — Choose how many addon buttons per row before wrapping and which direction they fill (right, left, down, up).
+- **(Vista) Option to disable queue button handling** — Turn off Vista's queue status button anchoring when another addon manages it or you prefer Blizzard's placement.
+- **(Vista) Draggable right-click panel with lock option** — Drag the addon button panel to reposition; lock toggle prevents accidental movement.
+- **(Vista) Draggable difficulty text with lock option** — Drag Mythic/Heroic/Normal text to reposition; lock toggle in options.
+- **(Vista) Option to set coordinate precision (0, 1, or 2 decimal places)** — Choose how many decimal places for X and Y coordinates.
+- **(Focus) Option to use left-click for quest map and right-click for share/abandon on tracker quests** — Restore classic click behavior via a toggle.
+- **(Vista) Color difficulty text by difficulty with customizable colors** — Per-difficulty color pickers (e.g. Mythic purple, Heroic red).
+- **(Vista) Option to select zone display: general zone, subzone, or both** — Show zone only, subzone only, or both (e.g. Stormwind with Trade District below).
+- **(Vista) Option to select which addon buttons are managed vs always visible** — Mark buttons as always visible (e.g. Plumber expansion summary) or managed in the mouseover bar.
+- **(Vista) Separate addon button mouseover bar from zone text position** — Position zone text and addon buttons independently (e.g. zone at top, buttons at bottom).
+- **(Vista) Option to change the size of the difficulty text** — Scale or resize Mythic/Heroic/Normal text.
+
+### 🔧 Improvements
+
+- **(Vista) Correct zone/subzone display for interior zones** — Zone text shows the correct location in interior zones (e.g. inside buildings).
+- **(Vista) Suppress minimap ping when right-clicking to open addon panel** — Right-click opens the panel without pinging the minimap.
+- **(Focus) Option to change header divider color** — Customize the Focus tracker header divider color.
+
+### 🐛 Fixes
+
+- **(Vista) Minimap addon button gold borders misaligned after changing button size** — Gold borders stay aligned with buttons at any configured size.
+- **(Vista) Border thickness slider drops FPS from 74 to 10 when dragging** — Slider no longer causes severe FPS drops.
+- **(Core) Options pane scrolls infinitely and does not stop at end of list** — Scroll stops at the end of the options list.
+- **(Focus) Queue status tracker appears only in dungeon and persists after leaving** — Queue/LFG status shows when queued and hides when no longer relevant.
+- **(Vista) Option to use local time in Vista clock** — Clock can display local time instead of server time.
+- **(Focus) Right-click to abandon quest only untracks when World Quest Tracker (WQT) is enabled** — Abandon behavior works correctly with WQT enabled.
+
+---
+
 ## [3.0.2] – 2026-02-24
 
 ### 🔧 Improvements
