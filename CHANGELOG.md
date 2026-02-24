@@ -10,6 +10,16 @@ All notable changes to Horizon Suite are documented here.
 
 ---
 
+## [3.0.2] – 2026-02-24
+
+### 🔧 Improvements
+
+- **(Vista) Zone, coordinates, and clock above or below minimap** — Choose to place zone name, coordinates, and clock above or below the minimap in Vista options.
+- **(Focus) Scenario bars match progress bar styling** — Timer and progress bars in scenarios now use the same font, colors, and height as quest objective progress bars.
+- **(Presence) More reliable notification display** — Level-up, boss emotes, and scenario toasts display correctly when event frames load.
+
+---
+
 ## [3.0.1] – 2026-02-23
 
 ### 🐛 Fixes
